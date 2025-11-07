@@ -1,0 +1,84 @@
+@startuml
+'UML Diagram for Smith Chart Representation
+
+
+package Model {
+
+    class Complex {
+        - double real
+        - double imag
+
+        + Complex(double real, double imag)
+
+        + add(Complex other) : Complex
+        + invert() : Complex
+        + getReal() : double
+        + getImag() : double
+    }
+
+    class CircuitModel{
+        - double frequency
+
+        + CircuitModel(Complex loadImpedance, double frequency)
+
+        + addElement(CircuitElement element)
+        + removeElement(int index)
+        + updateElement(int index, CircuitElement element)
+        + getElements() : List<CircuitElement>
+    }
+
+    abstract class CircuitElement {
+        - double realValue
+
+        + getValue() : double
+        + setValue(double value) : void
+        + {abstract} getImpedance(double frequency) : Complex
+    }
+
+    class Capacitor {
+        + getImpedance(double frequency) : Complex
+    }
+
+    class Inductor {
+        + getImpedance(double frequency) : Complex
+    }
+
+    enum ElementPosition {
+        SERIES
+        PARALLEL
+    }
+}
+
+package ViewModel {
+
+    class SmithChartViewModel {
+
+
+    }
+}
+
+package View {
+
+    class SmithChartView {
+
+    }
+
+
+}
+'--------------- Relations ----------------
+
+' Inheritance
+CircuitElement <|-- Capacitor
+CircuitElement <|-- Inductor
+
+' Composition/Aggregation
+CircuitModel "1" *-- "0..*" CircuitElement : contains
+CircuitModel "1" --> "1" Complex : loadImpedance
+
+' Dependencies (uses as return type/parameter)
+CircuitElement ..> Complex : <<returns>>
+CircuitElement --> ElementPosition : <<uses>>
+
+
+
+@enduml

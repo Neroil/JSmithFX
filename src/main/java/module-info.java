@@ -10,6 +10,7 @@ module heig.tb.jsmithfx {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
+    requires java.desktop;
 
     opens heig.tb.jsmithfx to javafx.fxml;
     exports heig.tb.jsmithfx;

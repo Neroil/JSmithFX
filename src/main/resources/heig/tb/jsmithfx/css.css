@@ -1,0 +1,24 @@
+.window-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 5;
+    -fx-padding: 8;
+}
+.window-button:hover {
+    -fx-background-color: #4a5154;
+}
+.window-button-close {
+    -fx-background-color: transparent;
+    -fx-background-radius: 5;
+    -fx-padding: 8;
+}
+.window-button-close:hover {
+    -fx-background-color: #e74c3c;
+}
+.action-button {
+    -fx-background-color: #3498db;
+    -fx-text-fill: white;
+    -fx-background-radius: 8;
+}
+.action-button:hover {
+    -fx-background-color: #2980b9;
+}
