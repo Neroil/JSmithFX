@@ -11,6 +11,7 @@ module heig.tb.jsmithfx {
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
     requires java.desktop;
+    requires BorderlessSceneFX;
 
     opens heig.tb.jsmithfx to javafx.fxml;
     exports heig.tb.jsmithfx;

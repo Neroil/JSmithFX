@@ -39,6 +39,7 @@ javafx {
 dependencies {
     implementation("org.controlsfx:controlsfx:11.2.1")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
+    implementation("com.catwithawand:BorderlessSceneFX:1.0.0")
 
     implementation("com.dlsc.formsfx:formsfx-core:11.6.0") {
         exclude(group = "org.openjfx")
