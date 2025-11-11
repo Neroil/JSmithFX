@@ -3,80 +3,82 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.canvas.Canvas?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Region?>
-<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
-<?import javafx.scene.shape.SVGPath?>
-<?import javafx.scene.text.Font?>
 
-<!-- Using a StackPane as the root allows the main content VBox to have a shadow -->
-<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+<SplitPane dividerPositions="0.7" prefHeight="600.0" prefWidth="900.0"
+           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="heig.tb.jsmithfx.SmithController"
-           prefHeight="600.0" prefWidth="900.0"
-           style="-fx-background-color: transparent;"> <!-- Root is transparent to see the stage shadow -->
+           style="-fx-background-color: -color-bg-default;">
 
-    <!-- Main container with the modern look and feel -->
-    <VBox fx:id="rootVBox" spacing="20.0"
-          style="-fx-background-color: #2D3436; -fx-background-radius: 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 5);">
+    <!--
+        LEFT SIDE OF THE SPLITPANE: The Smith Chart
+        We put the Canvas inside a simple Pane so we can bind its size
+        to the pane's size, making the Canvas resizable.
+    -->
+    <Pane fx:id="smithChartPane">
+        <Canvas fx:id="smithCanvas" />
+    </Pane>
 
-        <!-- Custom Title Bar: Add an fx:id to make it draggable -->
-        <HBox fx:id="titleBar" alignment="CENTER_LEFT" prefHeight="45.0" spacing="10"
-              style="-fx-background-color: #353b3d; -fx-background-radius: 14 14 0 0; -fx-border-color: #43494b; -fx-border-width: 0 0 1 0;">
-            <padding>
-                <Insets left="20.0" right="10.0"/>
-            </padding>
-            <children>
-                <Label text="Smith Abacus" textFill="white">
-                    <font>
-                        <Font name="System Bold" size="16.0"/>
-                    </font>
-                </Label>
-                <Region HBox.hgrow="ALWAYS"/>
+    <!--
+        RIGHT SIDE OF THE SPLITPANE: The Control Panels
+        A VBox is used to stack the different control sections vertically.
+    -->
+    <VBox spacing="10.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+        <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+        </padding>
+        <children>
 
-                <!-- Window Control Buttons -->
-                <HBox alignment="CENTER" spacing="5">
-                    <!-- Minimize Button -->
-                    <Button fx:id="minimizeButton" onAction="#onMinimizeButtonClick" styleClass="window-button">
-                        <graphic>
-                            <SVGPath content="M 0 5 L 10 5 Z" stroke="white" strokeWidth="1.5"/>
-                        </graphic>
-                    </Button>
-                    <!-- Close Button -->
-                    <Button fx:id="closeButton" onAction="#onExitButtonClick" styleClass="window-button-close">
-                        <graphic>
-                            <SVGPath content="M 0 0 L 10 10 M 10 0 L 0 10 Z" stroke="#e0e0e0" strokeWidth="1.5"/>
-                        </graphic>
-                    </Button>
-                </HBox>
-            </children>
-        </HBox>
+            <!-- Section 1: List of current circuit elements -->
+            <TitledPane animated="false" text="Circuit Elements">
+                <ListView fx:id="elementListView" prefHeight="200.0" />
+            </TitledPane>
 
-        <VBox alignment="CENTER" spacing="20.0" VBox.vgrow="ALWAYS">
-            <padding>
-                <Insets bottom="20.0" left="20.0" right="20.0" top="10.0"/>
-            </padding>
-            <children>
-                <Label fx:id="welcomeText" text="www.example.com" textFill="#bdc3c7"/>
-                <Canvas fx:id="smithCanvas" height="400" width="400"/>
-                <Button onAction="#onHelloButtonClick" prefHeight="40.0" prefWidth="120.0"
-                        styleClass="action-button" text="Execute">
-                    <font>
-                        <Font name="System Bold" size="14.0"/>
-                    </font>
-                </Button>
-            </children>
-        </VBox>
+            <!-- Section 2: Controls for adding a new component -->
+            <TitledPane animated="false" text="Add Component">
+                <GridPane hgap="10.0" vgap="10.0">
+                    <padding>
+                        <Insets top="10.0" />
+                    </padding>
+                    <Label text="Type:" GridPane.rowIndex="0" />
+                    <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <!-- Optional Status Bar -->
-        <HBox alignment="CENTER_RIGHT" prefHeight="25.0"
-              style="-fx-background-color: #353b3d; -fx-background-radius: 0 0 14 14; -fx-border-color: #43494b; -fx-border-width: 1 0 0 0;">
-            <padding>
-                <Insets right="20.0"/>
-            </padding>
-            <Label text="Ready" textFill="#7f8c8d"/>
-        </HBox>
+                    <Label text="Value:" GridPane.rowIndex="1" />
+                    <TextField fx:id="valueTextField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                    <Label text="Position:" GridPane.rowIndex="2" />
+                    <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+                    <Button fx:id="addButton" onAction="#onAddComponent" text="Add" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+
+                    <columnConstraints>
+                        <ColumnConstraints />
+                        <ColumnConstraints hgrow="ALWAYS" />
+                    </columnConstraints>
+                    <rowConstraints>
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                    </rowConstraints>
+                </GridPane>
+            </TitledPane>
+
+            <!-- You can add more TitledPanes here for other features -->
+            <!-- e.g., for displaying VSWR, Impedance, etc. -->
+
+        </children>
     </VBox>
 
-</StackPane>
+</SplitPane>

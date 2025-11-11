@@ -26,20 +26,25 @@ tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
 }
 
+tasks.withType<JavaExec> {
+    jvmArgs = listOf("-Djavafx.enablePreview=true")
+}
+
 application {
     mainModule.set("heig.tb.jsmithfx")
     mainClass.set("heig.tb.jsmithfx.HelloApplication")
 }
 
 javafx {
-    version = "21.0.6"
+    version = "25.0.1"
     modules = listOf("javafx.controls", "javafx.fxml", "javafx.web", "javafx.swing", "javafx.media")
 }
 
 dependencies {
     implementation("org.controlsfx:controlsfx:11.2.1")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
-    implementation("com.catwithawand:BorderlessSceneFX:1.0.0")
+    implementation("io.github.mkpaz:atlantafx-base:2.1.0")
+    implementation("com.pixelduke:fxthemes:1.5.1")
 
     implementation("com.dlsc.formsfx:formsfx-core:11.6.0") {
         exclude(group = "org.openjfx")
