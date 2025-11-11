@@ -1,11 +1,19 @@
 package heig.tb.jsmithfx;
 
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
+import javafx.util.Pair;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 // TODO: Import your model classes when they are created
 // import heig.tb.jsmithfx.model.ElementType;
@@ -18,6 +26,7 @@ import javafx.scene.paint.Color;
 
 public class SmithController {
 
+    private static Font LABEL_FONT = new Font("Arial", 10);
     public Label returnLossLabel;
     public Label vswrLabel;
     public Label qLabel;
@@ -26,6 +35,10 @@ public class SmithController {
     public Label zLabel;
     public Label zoLabel;
     public Label freqLabel;
+    public MenuItem setCharacteristicImpedanceButton;
+    public Button changeLoadButton;
+    public Label loadImpedanceLabel;
+
     // --- FXML Fields ---
     // These are injected by the FXML loader
     @FXML
@@ -72,17 +85,28 @@ public class SmithController {
         redrawCanvas();
     }
 
-    /**
-     * Sets up the canvas to resize automatically with its parent pane.
-     */
     private void setupResizableCanvas() {
         // Bind the canvas size to the size of its parent pane
         smithCanvas.widthProperty().bind(smithChartPane.widthProperty());
         smithCanvas.heightProperty().bind(smithChartPane.heightProperty());
 
-        // Add listeners to redraw the chart whenever the size changes
-        smithCanvas.widthProperty().addListener((obs, oldVal, newVal) -> redrawCanvas());
-        smithCanvas.heightProperty().addListener((obs, oldVal, newVal) -> redrawCanvas());
+        // Add listeners to redraw the chart and update font size whenever the size changes
+        smithCanvas.widthProperty().addListener((obs, oldVal, newVal) -> {
+            updateFontSize();
+            redrawCanvas();
+        });
+        smithCanvas.heightProperty().addListener((obs, oldVal, newVal) -> {
+            updateFontSize();
+            redrawCanvas();
+        });
+    }
+
+    /**
+     * Updates the font size for the Smith chart labels based on the canvas size.
+     */
+    private void updateFontSize() {
+        double newFontSize = Math.min(smithCanvas.getWidth(), smithCanvas.getHeight()) / 60; // Adjust divisor as needed
+        LABEL_FONT = new Font("Arial", newFontSize);
     }
 
     /**
@@ -111,6 +135,10 @@ public class SmithController {
 
         // Bind the list of elements in the UI to the list in the ViewModel
         // elementListView.itemsProperty().bind(viewModel.circuitElementsProperty());
+        // In SmithController.java, inside bindViewModel()
+        zoLabel.textProperty().bind(viewModel.zo.asString("%.2f"));
+        loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
+
 
         // Bind the user input fields to the ViewModel properties.
         // This allows the ViewModel to always have the latest user input.
@@ -185,7 +213,7 @@ public class SmithController {
         // --- Draw the Horizontal Line (x=0, b=0) ---
         gc.strokeLine(centerX - mainRadius, centerY, centerX + mainRadius, centerY);
 
-        double[] stepValues = {0.2, 0.5, 1.0, 2.0, 5.0};
+        double[] stepValues = {0.2, 0.5, 1.0, 2.0, 4.0, 10.0};
 
         // --- ADMITTANCE (Y) GRID ---
         // First draw the admittance
@@ -199,6 +227,8 @@ public class SmithController {
             if(g == 1) gc.setLineWidth(thickLineValue); //If
             gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
             if(g == 1) gc.setLineWidth(thinLineValue);
+
+            drawLabel(gc, String.format("%.1f", 1/g* viewModel.zo.get()), circleCenterX,centerY - circleRadius, Color.WHITE);
         }
 
         // Draw Constant Susceptance (b) Arcs
@@ -228,6 +258,8 @@ public class SmithController {
             if(r == 1) gc.setLineWidth(thickLineValue);
             gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
             if(r == 1) gc.setLineWidth(thinLineValue);
+
+            drawLabel(gc, String.format("%.1f", r* viewModel.zo.get()), circleCenterX,centerY + circleRadius, Color.WHITE);
         }
 
         // Draw Constant Reactance (x) Arcs
@@ -248,7 +280,81 @@ public class SmithController {
         // --- 3. Restore the graphics state to remove the clipping ---
         gc.restore();
 
-        // --- 4. Add label that shows the value of each circle or arc
+        // --- 4. Draw the labels on the outside of the circle
+        for (double b : stepValues) {
+            double angle = 2 * Math.atan(1.0 / b);
+            double labelX = centerX + mainRadius * Math.cos(Math.PI - angle);
+            double labelY = centerY + mainRadius * Math.sin(Math.PI - angle);
+            String label = String.format("+%.1f", b * viewModel.zo.get());
+            drawLabel(gc, label, labelX, labelY, Color.DARKGREEN);
+
+        }
+
+        for (double x : stepValues) {
+            double angle = 2 * Math.atan(1.0 / x);
+            double labelX = centerX + mainRadius * Math.cos(-angle);
+            double labelY = centerY + mainRadius * Math.sin(-angle);
+            String label = String.format("%.1f", x * viewModel.zo.get());
+            drawLabel(gc, label, labelX, labelY, Color.BROWN);
+        }
+
+        drawImpedancePoints(gc);
+
+    }
+
+    private void drawImpedancePoints(GraphicsContext gc) {
+        if (viewModel.loadImpedance.get() != null) {
+            Complex i = viewModel.loadImpedance.get();
+            Logger.getAnonymousLogger().log(Level.INFO, "Impedance Points Loaded");
+
+            double width = smithCanvas.getWidth();
+            double height = smithCanvas.getHeight();
+            double centerX = width / 2;
+            double centerY = height / 2;
+            double mainRadius = Math.min(centerX, centerY) - 10;
+
+            // Normalize impedance: z_n = Z / Z0
+            double zo = viewModel.zo.get();
+            Complex zNorm = new Complex(i.real() / zo, i.imag() / zo);
+
+            // Calculate gamma = (z_n - 1) / (z_n + 1)
+            Complex gamma = zNorm.addReal(-1).dividedBy(zNorm.addReal(1));
+
+            double pointX = centerX + gamma.real() * mainRadius;
+            double pointY = centerY - gamma.imag() * mainRadius;
+
+            gc.setStroke(Color.YELLOW);
+            gc.setFill(Color.YELLOW);
+            gc.setLineWidth(2 * thickLineValue);
+
+            double pointSize = 5;
+            gc.strokeRect(pointX - pointSize/2, pointY - pointSize/2, pointSize, pointSize);
+        }
+    }
+    /**
+     * A helper utility to draw a text label with a clean background.
+     * It clears a small circular area behind the text to ensure readability.
+     * @param gc    The graphics context.
+     * @param text  The string to draw.
+     * @param x     The center x-coordinate for the text.
+     * @param y     The center y-coordinate for the text.
+     * @param color The color of the text.
+     */
+    private void drawLabel(GraphicsContext gc, String text, double x, double y, Color color) {
+        gc.setFont(LABEL_FONT);
+        gc.setTextAlign(TextAlignment.CENTER);
+
+        // Calculate the rectangle size based on the font size
+        double fontSize = LABEL_FONT.getSize();
+        double rectWidth = text.length() * fontSize * 0.6; // Approximate width per character
+        double rectHeight = fontSize * 1.2; // Slightly larger than the font size for padding
+
+        // Clear a rectangle behind the text for readability
+        gc.clearRect(x - rectWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
+
+        // Draw the text
+        gc.setFill(color);
+        gc.fillText(text, x, y + fontSize / 3); // Adjust y for vertical centering
     }
 
     /**
@@ -264,4 +370,83 @@ public class SmithController {
         gc.setLineWidth(2);
         // gc.strokeLine(startPointX, startPointY, endPointX, endPointY);
     }
+
+    public void setCharacteristicImpedance(ActionEvent actionEvent) {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Set Characteristic Impedance");
+        dialog.setHeaderText("Enter new Zo value (Ohms):");
+        dialog.setContentText("Zo:");
+        dialog.setGraphic(null);
+
+        dialog.showAndWait().ifPresent(input -> {
+            try {
+                double zo = Double.parseDouble(input);
+                if (zo > 0) {
+                    // Update in ViewModel
+                    viewModel.zo.setValue(zo);
+                    redrawCanvas();
+                } else {
+                    showError("Zo must be positive.");
+                }
+            } catch (NumberFormatException e) {
+                showError("Invalid number format.");
+            }
+        });
+    }
+
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
+        alert.setHeaderText("Input Error");
+        alert.showAndWait();
+    }
+
+    public void onChangeLoad(ActionEvent actionEvent) {
+        Dialog<Pair<String, String>> dialog = new Dialog<>();
+        dialog.setTitle("Change Load Value");
+        dialog.setHeaderText("Enter new load values:");
+
+        // Set the button types
+        ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
+
+        // Create the input fields
+        TextField reField = new TextField();
+        reField.setPromptText("Re");
+        TextField imField = new TextField();
+        imField.setPromptText("Im");
+
+        // Create a layout for the inputs
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(new Label("Re:"), 0, 0);
+        grid.add(reField, 1, 0);
+        grid.add(new Label("Im:"), 0, 1);
+        grid.add(imField, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Convert the result to a pair of values when OK is clicked
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == okButtonType) {
+                return new Pair<>(reField.getText(), imField.getText());
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(result -> {
+            try {
+                double re = Double.parseDouble(result.getKey());
+                double im = Double.parseDouble(result.getValue());
+                // Handle the new load values (re, im)
+                viewModel.loadImpedance.setValue(new Complex(re, im));
+                System.out.println("Impedance: " + viewModel.loadImpedance.getValue());
+                redrawCanvas();
+            } catch (NumberFormatException e) {
+                showError("Invalid number format.");
+            }
+        });
+    }
 }
+
+

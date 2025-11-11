@@ -5,28 +5,39 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<SplitPane dividerPositions="0.7" prefHeight="600.0" prefWidth="1200" style="-fx-background-color: -color-bg-default;" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="heig.tb.jsmithfx.SmithController">
+<VBox xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="heig.tb.jsmithfx.SmithController">
+    <MenuBar>
+        <Menu text="File">
+            <MenuItem text="New" />
+            <MenuItem text="Open..." />
+            <MenuItem text="Save" />
+            <SeparatorMenuItem />
+            <MenuItem text="Exit" />
+        </Menu>
+        <Menu text="Set">
+            <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
+        </Menu>
+        <Menu text="Help">
+            <MenuItem text="About" />
+        </Menu>
+    </MenuBar>
+    <SplitPane dividerPositions="0.6" prefHeight="800.0" prefWidth="1200.0" style="-fx-background-color: -color-bg-default;" VBox.vgrow="ALWAYS">
+        <Pane fx:id="smithChartPane" minWidth="0.0">
+            <Canvas fx:id="smithCanvas" />
+        </Pane>
+        <VBox minWidth="0.0" spacing="10.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+            </padding>
+         <HBox alignment="CENTER_LEFT" prefHeight="100.0" prefWidth="200.0" spacing="20.0">
+            <children>
+      
+                  <Button fx:id="changeLoadButton" mnemonicParsing="false" onAction="#onChangeLoad" text="Change load" />
+               <Label text="Load impedance :" />
+               <Label fx:id="loadImpedanceLabel" text="None" />
+            </children>
+         </HBox>
 
-    <!--
-        LEFT SIDE OF THE SPLITPANE: The Smith Chart
-        We put the Canvas inside a simple Pane so we can bind its size
-        to the pane's size, making the Canvas resizable.
-    -->
-    <Pane fx:id="smithChartPane">
-        <Canvas fx:id="smithCanvas" />
-    </Pane>
-
-    <!--
-        RIGHT SIDE OF THE SPLITPANE: The Control Panels
-        A VBox is used to stack the different control sections vertically.
-    -->
-    <VBox spacing="10.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
-        <padding>
-            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-        </padding>
-        <children>
-
-            <!-- Section 1: List of current circuit elements -->
             <TitledPane animated="false" text="Circuit Elements">
                 <ListView fx:id="elementListView" prefHeight="200.0" />
             </TitledPane>
@@ -60,59 +71,61 @@
                     </rowConstraints>
                 </GridPane>
             </TitledPane>
-            <TitledPane animated="false" text="Cursor Values" collapsible="false">
-                <content>
-                    <GridPane hgap="10.0" vgap="10.0">
-                        <padding>
-                            <Insets top="10.0" right="10.0" bottom="10.0" left="10.0" />
-                        </padding>
-                        <columnConstraints>
-                            <!-- Column for parameter names (e.g., "Return Loss") -->
-                            <ColumnConstraints hgrow="NEVER" halignment="LEFT"/>
-                            <!-- Column for parameter values -->
-                            <ColumnConstraints hgrow="ALWAYS" minWidth="80.0" halignment="LEFT"/>
-                            <!-- Column for the second set of parameter names -->
-                            <ColumnConstraints hgrow="NEVER" halignment="LEFT"/>
-                            <!-- Column for the second set of parameter values -->
-                            <ColumnConstraints hgrow="ALWAYS" minWidth="80.0" halignment="LEFT"/>
-                        </columnConstraints>
-                        <children>
-                            <!-- Row 0: Return Loss & VSWR -->
-                            <Label text="Return Loss" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                            <Label fx:id="returnLossLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+            <TitledPane animated="false" collapsible="false" text="Cursor Values">
+                <GridPane hgap="10.0" vgap="10.0">
+                    <padding>
+                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                    </padding>
+                    <columnConstraints>
+                        <!-- Column for parameter names (e.g., "Return Loss") -->
+                        <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
+                        <!-- Column for parameter values -->
+                        <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
+                        <!-- Column for the second set of parameter names -->
+                        <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
+                        <!-- Column for the second set of parameter values -->
+                        <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
+                    </columnConstraints>
+                    <!-- Row 0: Return Loss & VSWR -->
+                    <Label text="Return Loss" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                    <Label fx:id="returnLossLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-                            <Label text="VSWR" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
-                            <Label fx:id="vswrLabel" text="-"  GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+                    <Label text="VSWR" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                    <Label fx:id="vswrLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-                            <!-- Row 1: Q & Gamma -->
-                            <Label text="Q" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                            <Label fx:id="qLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                    <!-- Row 1: Q & Gamma -->
+                    <Label text="Q" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                    <Label fx:id="qLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-                            <Label text="Γ" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
-                            <Label fx:id="gammaLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+                    <Label text="Γ" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                    <Label fx:id="gammaLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="1" />
 
-                            <!-- Row 2: Admittance (Y) & Impedance (Z) -->
-                            <Label text="Y" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                            <Label fx:id="yLabel" text="-" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                    <!-- Row 2: Admittance (Y) & Impedance (Z) -->
+                    <Label text="Y" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                    <Label fx:id="yLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                            <Label text="Z" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
-                            <Label fx:id="zLabel" text="-"  GridPane.rowIndex="2" GridPane.columnIndex="3"/>
+                    <Label text="Z" GridPane.columnIndex="2" GridPane.rowIndex="2" />
+                    <Label fx:id="zLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="2" />
 
-                            <!-- Row 3: Characteristic Impedance (Zo) & Frequency -->
-                            <Label text="Zo" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-                            <Label fx:id="zoLabel" text="-" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                    <!-- Row 3: Characteristic Impedance (Zo) & Frequency -->
+                    <Label text="Zo" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+                    <Label fx:id="zoLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
-                            <Label text="Freq" GridPane.rowIndex="3" GridPane.columnIndex="2"/>
-                            <Label fx:id="freqLabel" text="-" GridPane.rowIndex="3" GridPane.columnIndex="3"/>
-                        </children>
-                    </GridPane>
-                </content>
+                    <Label text="Freq" GridPane.columnIndex="2" GridPane.rowIndex="3" />
+                    <Label fx:id="freqLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="3" />
+               <rowConstraints>
+                  <RowConstraints />
+                  <RowConstraints />
+                  <RowConstraints />
+                  <RowConstraints />
+               </rowConstraints>
+                </GridPane>
             </TitledPane>
 
             <!-- You can add more TitledPanes here for other features -->
             <!-- e.g., for displaying VSWR, Impedance, etc. -->
 
-        </children>
-    </VBox>
+        </VBox>
 
-</SplitPane>
+    </SplitPane>
+</VBox>
