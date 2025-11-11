@@ -3,10 +3,7 @@ package heig.tb.jsmithfx;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
@@ -21,19 +18,37 @@ import javafx.scene.paint.Color;
 
 public class SmithController {
 
+    public Label returnLossLabel;
+    public Label vswrLabel;
+    public Label qLabel;
+    public Label gammaLabel;
+    public Label yLabel;
+    public Label zLabel;
+    public Label zoLabel;
+    public Label freqLabel;
     // --- FXML Fields ---
     // These are injected by the FXML loader
-    @FXML private Pane smithChartPane;
-    @FXML private Canvas smithCanvas;
-    @FXML private ListView<String> elementListView; // Use a specific type like CircuitElement later
-    @FXML private ComboBox<String> typeComboBox; // Use ElementType enum later
-    @FXML private ComboBox<String> positionComboBox; // Use ElementPosition enum later
-    @FXML private TextField valueTextField;
-    @FXML private Button addButton;
+    @FXML
+    private Pane smithChartPane;
+    @FXML
+    private Canvas smithCanvas;
+    @FXML
+    private ListView<String> elementListView; // Use a specific type like CircuitElement later
+    @FXML
+    private ComboBox<String> typeComboBox; // Use ElementType enum later
+    @FXML
+    private ComboBox<String> positionComboBox; // Use ElementPosition enum later
+    @FXML
+    private TextField valueTextField;
+    @FXML
+    private Button addButton;
 
     // --- ViewModel ---
     // The ViewModel is the brain of our UI. The controller just talks to it.
     private SmithChartViewModel viewModel; // TODO: Replace with your actual ViewModel
+
+    private double thickLineValue = 1;
+    private double thinLineValue = 0.4;
 
     /**
      * This method is called by the FXMLLoader after the FXML file has been loaded.
@@ -142,34 +157,104 @@ public class SmithController {
      * Draws the static background grid of the Smith Chart.
      * @param gc The GraphicsContext of the canvas.
      */
+    /**
+     * Draws the static background grid of the Smith Chart.
+     *
+     * @param gc The GraphicsContext of the canvas.
+     */
     private void drawSmithGrid(GraphicsContext gc) {
-        // TODO: Put your detailed grid drawing logic here.
-        // This is a simple placeholder.
         double width = smithCanvas.getWidth();
         double height = smithCanvas.getHeight();
         double centerX = width / 2;
         double centerY = height / 2;
-        double radius = Math.min(width, height) / 2 - 10;
+        double mainRadius = Math.min(centerX, centerY) - 10;
 
-        gc.setStroke(Color.GRAY);
+        // --- 1. Save the current graphics state and apply clipping ---
+        gc.save();
+        gc.beginPath();
+        gc.arc(centerX, centerY, mainRadius, mainRadius, 0, 360);
+        gc.closePath();
+        gc.clip(); // Anything drawn after this will be clipped to the circle
+
         gc.setLineWidth(1);
 
-        // Outer circle (r=1)
-        gc.strokeOval(centerX - radius, centerY - radius, radius * 2, radius * 2);
+        // --- Draw the Outer Circle (r=0, g=0) ---
+        gc.setStroke(Color.GRAY);
+        gc.strokeOval(centerX - mainRadius, centerY - mainRadius, mainRadius * 2, mainRadius * 2);
 
-        // Horizontal line
-        gc.strokeLine(centerX - radius, centerY, centerX + radius, centerY);
+        // --- Draw the Horizontal Line (x=0, b=0) ---
+        gc.strokeLine(centerX - mainRadius, centerY, centerX + mainRadius, centerY);
 
-        // Example of a resistance circle (e.g., r=0.5)
-        double r = 0.5;
-        double circleRadius = radius * (1 / (r + 1));
-        double circleCenterX = centerX + radius - circleRadius;
-        gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
+        double[] stepValues = {0.2, 0.5, 1.0, 2.0, 5.0};
+
+        // --- ADMITTANCE (Y) GRID ---
+        // First draw the admittance
+        gc.setLineWidth(thinLineValue);
+
+        // Draw Constant Conductance (g) Circles
+        gc.setStroke(Color.CORNFLOWERBLUE);
+        for (double g : stepValues) {
+            double circleRadius = mainRadius / (g + 1);
+            double circleCenterX = centerX - mainRadius * g / (g + 1);
+            if(g == 1) gc.setLineWidth(thickLineValue); //If
+            gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
+            if(g == 1) gc.setLineWidth(thinLineValue);
+        }
+
+        // Draw Constant Susceptance (b) Arcs
+        gc.setStroke(Color.DARKGREEN); // New color for susceptance
+        for (double b : stepValues) {
+            double arcRadius = mainRadius / b;
+            double arcCenterX = centerX - mainRadius;
+
+            // Positive Susceptance Arcs (upper half)
+            double arcCenterY = centerY - arcRadius;
+            gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
+
+            // Negative Susceptance Arcs (lower half)
+            arcCenterY = centerY + arcRadius;
+            gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
+        }
+
+        // --- IMPEDANCE (X) GRID ---
+        // Then draw the impedance chart
+
+
+        // Draw Constant Resistance (r) Circles
+        gc.setStroke(Color.CORAL); // Color for resistance
+        for (double r : stepValues) {
+            double circleRadius = mainRadius / (r + 1);
+            double circleCenterX = centerX + mainRadius * r / (r + 1);
+            if(r == 1) gc.setLineWidth(thickLineValue);
+            gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
+            if(r == 1) gc.setLineWidth(thinLineValue);
+        }
+
+        // Draw Constant Reactance (x) Arcs
+        gc.setStroke(Color.BROWN); // Color for reactance
+        for (double x : stepValues) {
+            double arcRadius = mainRadius / x;
+            // Positive Reactance Arcs (upper half)
+            double arcCenterX = centerX + mainRadius;
+            double arcCenterY = centerY - arcRadius;
+            gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
+
+            // Negative Reactance Arcs (lower half)
+            arcCenterY = centerY + arcRadius;
+            gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
+        }
+
+
+        // --- 3. Restore the graphics state to remove the clipping ---
+        gc.restore();
+
+        // --- 4. Add label that shows the value of each circle or arc
     }
 
     /**
      * Draws the impedance path on the chart based on the circuit elements.
-     * @param gc The GraphicsContext of the canvas.
+     *
+     * @param gc   The GraphicsContext of the canvas.
      * @param path A list of complex impedance points to draw.
      */
     private void drawImpedancePath(GraphicsContext gc /*, List<Complex> path */) {
