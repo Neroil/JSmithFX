@@ -562,8 +562,10 @@ public class SmithController {
 
         // Create the input fields
         TextField reField = new TextField();
+        reField.setText(String.valueOf(viewModel.loadImpedance.get().real()));
         reField.setPromptText("Re");
         TextField imField = new TextField();
+        imField.setText(String.valueOf(viewModel.loadImpedance.get().imag()));
         imField.setPromptText("Im");
 
         // Create a layout for the inputs
@@ -609,20 +611,41 @@ public class SmithController {
         dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
 
         // Create the input field
+        double currentFreq = viewModel.frequency.getValue();
         TextField freqField = new TextField();
-        freqField.setPromptText("Frequency");
 
         // Create toggle buttons for units
         ToggleGroup unitGroup = new ToggleGroup();
         RadioButton hzButton = new RadioButton("Hz");
         hzButton.setToggleGroup(unitGroup);
-        hzButton.setSelected(true); // Default unit
-        RadioButton mhzButton = new RadioButton("MHz");
-        mhzButton.setToggleGroup(unitGroup);
         RadioButton khzButton = new RadioButton("kHz");
         khzButton.setToggleGroup(unitGroup);
+        RadioButton mhzButton = new RadioButton("MHz");
+        mhzButton.setToggleGroup(unitGroup);
         RadioButton ghzButton = new RadioButton("GHz");
         ghzButton.setToggleGroup(unitGroup);
+
+        double displayFreq;
+        //Toggle the button for the current frequency
+        switch ((int) Math.log10(currentFreq)){
+            case 0, 1, 2 -> {
+                hzButton.setSelected(true);
+                displayFreq = currentFreq;
+            }
+            case 3, 4, 5 -> {
+                khzButton.setSelected(true);
+                displayFreq = currentFreq/10E2;
+            }
+            case 6, 7, 8 -> {
+                mhzButton.setSelected(true);
+                displayFreq = currentFreq/10E5;
+            }
+            default -> {
+                ghzButton.setSelected(true);
+                displayFreq = currentFreq/10E8;
+            }
+        }
+        freqField.setText(String.valueOf(displayFreq));
 
         // Create a layout for the inputs
         GridPane grid = new GridPane();
@@ -654,14 +677,14 @@ public class SmithController {
 
                 // Convert frequency to Hz based on the selected unit
                 switch (unit) {
+                    case "GHz":
+                        freq *= 1E9;
+                        break;
                     case "MHz":
-                        freq *= 1_000_000;
+                        freq *= 1E6;
                         break;
                     case "kHz":
-                        freq *= 1_000;
-                        break;
-                    case "GHz":
-                        freq *= 1_000_000_000;
+                        freq *= 1E3;
                         break;
                     case "Hz":
                     default:
