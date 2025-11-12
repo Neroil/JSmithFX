@@ -1,9 +1,41 @@
 package heig.tb.jsmithfx.model;
 
-import heig.tb.jsmithfx.model.Element.ElementPosition;
 import heig.tb.jsmithfx.utilities.Complex;
 
 public abstract class CircuitElement {
+
+    public enum ElementType {
+        CAPACITOR("Capacitor"),
+        INDUCTOR("Inductor"),
+        RESISTOR("Resistor");
+
+        private final String displayName;
+
+        ElementType(String displayName) {
+            this.displayName = displayName;
+        }
+
+        @Override
+        public String toString() {
+            return displayName;
+        }
+    }
+
+    public enum ElementPosition {
+        PARALLEL("Parallel"),
+        SERIES("Series");
+
+        private final String displayName;
+        ElementPosition(String displayName) {
+            this.displayName = displayName;
+        }
+        @Override
+        public String toString() {
+            return displayName;
+        }
+
+    }
+
     protected double realWorldValue;
     protected Complex impedance;
     protected ElementPosition elementPosition;

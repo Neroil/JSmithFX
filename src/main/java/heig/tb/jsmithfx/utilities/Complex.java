@@ -33,4 +33,13 @@ public record Complex(double real, double imag) {
     public Complex addImag(double r) {
         return new Complex(imag, real + r);
     }
+
+    public Complex add(Complex z) {
+        return new Complex(real + z.real, imag + z.imag);
+    }
+
+    public Complex inverse() {
+        double denominator = real * real + imag * imag;
+        return new Complex(real / denominator, (-imag) / denominator);
+    }
 }

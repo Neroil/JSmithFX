@@ -59,7 +59,11 @@
                         <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
                         <Label text="Value:" GridPane.rowIndex="1" />
-                        <TextField fx:id="valueTextField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                        <HBox  GridPane.columnIndex="1" GridPane.rowIndex="1">
+                            <TextField fx:id="valueTextField" />
+                            <ComboBox fx:id="unitComboBox" prefWidth="100.0"/>
+
+                        </HBox>
 
                         <Label text="Position:" GridPane.rowIndex="2" />
                         <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />

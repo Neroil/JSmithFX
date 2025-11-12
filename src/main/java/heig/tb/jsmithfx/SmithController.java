@@ -1,12 +1,20 @@
 package heig.tb.jsmithfx;
 
+import heig.tb.jsmithfx.model.CircuitElement;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
 import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.binding.Bindings;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
@@ -52,9 +60,11 @@ public class SmithController {
     @FXML
     private ListView<Complex> dataPointsList; // Use a specific type like CircuitElement later
     @FXML
-    private ComboBox<String> typeComboBox; // Use ElementType enum later
+    private ComboBox<CircuitElement.ElementType> typeComboBox; // Use ElementType enum later
     @FXML
-    private ComboBox<String> positionComboBox; // Use ElementPosition enum later
+    private ComboBox<CircuitElement.ElementPosition> positionComboBox; // Use ElementPosition enum later
+    @FXML
+    private ComboBox<Enum<?>> unitComboBox;
     @FXML
     private TextField valueTextField;
     @FXML
@@ -64,8 +74,18 @@ public class SmithController {
     // The ViewModel is the brain of our UI. The controller just talks to it.
     private SmithChartViewModel viewModel; // TODO: Replace with your actual ViewModel
 
-    private double thickLineValue = 1;
-    private double thinLineValue = 0.4;
+    // --- Important values ---
+    private final double thickLineValue = 1;
+    private final double thinLineValue = 0.4;
+
+    // --- View State for Zoom and Pan ---
+    private double currentScale = 1.0;
+    private double offsetX = 0.0;
+    private double offsetY = 0.0;
+
+    // For panning
+    private double lastMouseX = 0.0;
+    private double lastMouseY = 0.0;
 
     /**
      * This method is called by the FXMLLoader after the FXML file has been loaded.
@@ -90,6 +110,7 @@ public class SmithController {
 
         // Add a listener to track the selected item
         dataPointsList.getSelectionModel().selectedItemProperty().addListener((_,_,_) -> redrawCanvas());
+
     }
 
     private void setupResizableCanvas() {
@@ -106,6 +127,57 @@ public class SmithController {
             updateFontSize();
             redrawCanvas();
         });
+
+        smithCanvas.setOnScroll(event -> {
+            double mouseX = event.getX();
+            double mouseY = event.getY();
+            double zoomFactor = 1.1;
+
+            double deltaY = event.getDeltaY();
+
+            if (deltaY > 0) {
+                currentScale *= zoomFactor;
+            } else {
+                currentScale /= zoomFactor;
+            }
+
+            offsetX = mouseX - (mouseX - offsetX) * (deltaY > 0 ? zoomFactor : 1 / zoomFactor);
+            offsetY = mouseY - (mouseY - offsetY) * (deltaY > 0 ? zoomFactor : 1 / zoomFactor);
+
+            redrawCanvas();
+            event.consume();
+        });
+
+        smithCanvas.setOnMousePressed(event -> {
+            lastMouseX = event.getX();
+            lastMouseY = event.getY();
+        });
+
+        // Drag the view by calculating the delta from the last position
+        smithCanvas.setOnMouseDragged(event -> {
+            double deltaX = event.getX() - lastMouseX;
+            double deltaY = event.getY() - lastMouseY;
+
+            offsetX += deltaX;
+            offsetY += deltaY;
+
+            // Update the last position for the next drag event
+            lastMouseX = event.getX();
+            lastMouseY = event.getY();
+
+            redrawCanvas();
+        });
+
+        smithCanvas.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                // Reset view on double-click
+                currentScale = 1.0;
+                offsetX = 0.0;
+                offsetY = 0.0;
+                redrawCanvas();
+            }
+        });
+
     }
 
     /**
@@ -120,18 +192,37 @@ public class SmithController {
      * Populates ComboBoxes and sets default values.
      */
     private void setupControls() {
-        // TODO: Replace String with your ElementType and ElementPosition enums
-        // typeComboBox.getItems().addAll(ElementType.values());
-        // positionComboBox.getItems().addAll(ElementPosition.values());
+        typeComboBox.getItems().addAll(CircuitElement.ElementType.values());
+        positionComboBox.getItems().addAll(CircuitElement.ElementPosition.values());
+        unitComboBox.getItems().addAll(CapacitanceUnit.values());
 
-        // Example with strings for now:
-        typeComboBox.getItems().addAll("Capacitor", "Inductor", "Resistor");
-        positionComboBox.getItems().addAll("Series", "Parallel");
-
-        // Select the first item by default
         typeComboBox.getSelectionModel().selectFirst();
         positionComboBox.getSelectionModel().selectFirst();
+        unitComboBox.getSelectionModel().selectFirst();
+
+        typeComboBox.valueProperty().addListener(new ChangeListener<Enum<?>>() {
+
+            @Override
+            public void changed(ObservableValue<? extends Enum<?>> observable, Enum<?> oldValue, Enum<?> newValue) {
+                CircuitElement.ElementType selectedType = typeComboBox.getValue();
+                switch (selectedType) {
+                    case CircuitElement.ElementType.RESISTOR -> updateUnitComboBox(ResistanceUnit.class);
+                    case CircuitElement.ElementType.CAPACITOR -> updateUnitComboBox(CapacitanceUnit.class);
+                    case CircuitElement.ElementType.INDUCTOR -> updateUnitComboBox(InductanceUnit.class);
+                    default -> unitComboBox.getItems().clear();
+                }
+            }
+        });
+
+
     }
+
+    private void updateUnitComboBox(Class<? extends Enum<?>> unitEnum) {
+        unitComboBox.getItems().clear();
+        unitComboBox.getItems().addAll(unitEnum.getEnumConstants());
+        unitComboBox.getSelectionModel().selectFirst();
+    }
+
 
     /**
      * Creates the data-bindings between the View (FXML controls) and the ViewModel.
@@ -183,24 +274,28 @@ public class SmithController {
         // viewModel.newElementValueProperty().bindBidirectional(valueTextField.textProperty());
     }
 
-
-    // --- Event Handlers ---
-    // These methods are called by user actions (e.g., button clicks) defined in the FXML.
-    // The controller's job is to simply delegate the action to the ViewModel.
-
     @FXML
     protected void onAddComponent() {
         try {
-            String type = typeComboBox.getValue();
-            String position = positionComboBox.getValue();
+            CircuitElement.ElementType type = typeComboBox.getValue();
+            CircuitElement.ElementPosition position = positionComboBox.getValue();
             double value = Double.parseDouble(valueTextField.getText());
-
-            // Create a new Complex value based on the input (example logic)
-            Complex newElement = new Complex(value, 0); // Adjust based on type/position
-            viewModel.measures.add(newElement);
+            viewModel.addComponent(type,value *  getSelectedUnitFactor() ,position);
         } catch (NumberFormatException e) {
             showError("Invalid value format.");
         }
+    }
+
+    private double getSelectedUnitFactor() {
+        Enum<?> selectedUnit = unitComboBox.getValue();
+        if (selectedUnit instanceof CapacitanceUnit || selectedUnit instanceof ResistanceUnit || selectedUnit instanceof InductanceUnit) {
+            try {
+                return (double) selectedUnit.getClass().getMethod("getFactor").invoke(selectedUnit);
+            } catch (Exception e) {
+                showError("Error retrieving unit factor.");
+            }
+        }
+        return 1.0; // Default factor if none is found
     }
 
 
@@ -214,15 +309,18 @@ public class SmithController {
     private void redrawCanvas() {
         GraphicsContext gc = smithCanvas.getGraphicsContext2D();
 
+        gc.save();
+
         // Clear the canvas before redrawing
         gc.clearRect(0, 0, smithCanvas.getWidth(), smithCanvas.getHeight());
+
+        gc.translate(offsetX, offsetY);
+        gc.scale(currentScale, currentScale);
 
         // Draw the static parts of the chart
         drawSmithGrid(gc);
 
-        // Get the dynamic data from the ViewModel and draw it
-        // List<Complex> path = viewModel.getImpedancePath(); // TODO: Get data from ViewModel
-        // drawImpedancePath(gc, path);
+        gc.restore();
     }
 
     /**
@@ -349,30 +447,26 @@ public class SmithController {
     private void drawImpedancePoints(GraphicsContext gc) {
         List<Complex> gammas = viewModel.measuresGammaProperty().get();
 
-        for (Complex gamma : gammas) {
-            System.out.println(gamma);
-        }
-
         if (gammas != null) {
             int index = 0;
-            for (Complex gamma : gammas) {
-                Logger.getAnonymousLogger().log(Level.INFO, "Drawing impedance point for gamma: " + gamma);
 
-                double width = smithCanvas.getWidth();
-                double height = smithCanvas.getHeight();
-                double centerX = width / 2;
-                double centerY = height / 2;
-                double mainRadius = Math.min(centerX, centerY) - 10;
+            //Get the necessary information about the canvas
+            double width = smithCanvas.getWidth();
+            double height = smithCanvas.getHeight();
+            double centerX = width / 2;
+            double centerY = height / 2;
+            double mainRadius = Math.min(centerX, centerY) - 10;
+
+            //Draw each impedance on the chart
+            for (Complex gamma : gammas) {
 
                 double pointX = centerX + gamma.real() * mainRadius;
                 double pointY = centerY - gamma.imag() * mainRadius;
-
 
                 gc.setLineWidth(2 * thickLineValue);
                 double pointSize = 5;
 
                 int selectedItemIndex = dataPointsList.getSelectionModel().getSelectedIndex();
-                System.out.println("Index : " + index + "Selected : " + selectedItemIndex);
                 if (selectedItemIndex == index) {
                     gc.setStroke(Color.CORAL);
                     gc.setFill(Color.CORAL);
@@ -387,6 +481,7 @@ public class SmithController {
             }
         }
     }
+
     /**
      * A helper utility to draw a text label with a clean background.
      * It clears a small circular area behind the text to ensure readability.

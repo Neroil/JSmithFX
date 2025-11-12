@@ -1,5 +1,8 @@
 package heig.tb.jsmithfx;
 
+import heig.tb.jsmithfx.model.CircuitElement;
+import heig.tb.jsmithfx.model.Element.Capacitor;
+import heig.tb.jsmithfx.model.Element.Inductor;
 import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
@@ -13,6 +16,8 @@ public class SmithChartViewModel {
 
     // The master list of impedances. The load is always at index 0.
     public final SimpleListProperty<Complex> measures = new SimpleListProperty<>(FXCollections.observableArrayList());
+
+    public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
 
     // A read-only list of the calculated gammas for drawing on the canvas.
     private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
@@ -29,8 +34,13 @@ public class SmithChartViewModel {
         // This is the primary listener that will keep the canvas in sync.
         measures.addListener((ListChangeListener<Complex>) c -> recalculateAllGammas());
 
+        frequency.addListener((obs, oldVal, newVal) -> recalculateCircuit());
+
         // Initialize the measures list with the starting load impedance.
         updateLoadInMeasuresList();
+    }
+
+    private void recalculateCircuit() {
     }
 
     /**
@@ -80,6 +90,42 @@ public class SmithChartViewModel {
         return (zNorm.addReal(-1)).dividedBy(zNorm.addReal(1));
     }
 
+    void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position) {
+        CircuitElement newElem = null;
+
+        switch (type) {
+            case INDUCTOR -> newElem = new Inductor(value, position);
+            case CAPACITOR -> newElem = new Capacitor(value, position);
+            default -> {
+                return;
+            }
+        }
+
+        if (measures.isEmpty()) return; // Check against the correct list
+
+        circuitElements.add(newElem);
+
+        Complex newElemImpedance = newElem.getImpedance(frequency.get());
+        // CORRECT: Get the last impedance value from the 'measures' list.
+        Complex previousImpedance = measures.getLast();
+
+        if (previousImpedance == null || newElemImpedance == null) return;
+
+        Complex newImpedance;
+        if (position == CircuitElement.ElementPosition.SERIES) {
+            newImpedance = previousImpedance.add(newElemImpedance);
+        } else { // PARALLEL
+            Complex previousAdmittance = previousImpedance.inverse();
+            Complex newElemAdmittance = newElemImpedance.inverse();
+
+            // Add the admittances and convert back to impedance
+            newImpedance = previousAdmittance.add(newElemAdmittance).inverse();
+        }
+
+        System.out.println("newImpedance = " + newImpedance);
+
+        measures.add(newImpedance);
+    }
 
     // --- Public Properties for Binding ---
 
