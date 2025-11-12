@@ -2,7 +2,6 @@ package heig.tb.jsmithfx;
 
 import javafx.application.Application;
 
-import java.awt.*;
 
 public class Launcher {
 

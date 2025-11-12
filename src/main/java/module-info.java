@@ -13,11 +13,13 @@ module heig.tb.jsmithfx {
     requires java.desktop;
     requires atlantafx.base;
     requires com.pixelduke.fxthemes;
-    requires javafx.base;
+    requires transitive javafx.base;
     requires javafx.graphics;
     requires annotations;
     requires java.logging;
 
     opens heig.tb.jsmithfx to javafx.fxml;
     exports heig.tb.jsmithfx;
+    exports heig.tb.jsmithfx.utilities;
+    opens heig.tb.jsmithfx.utilities to javafx.fxml;
 }

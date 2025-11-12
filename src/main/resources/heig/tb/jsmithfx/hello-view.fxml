@@ -21,111 +21,109 @@
             <MenuItem text="About" />
         </Menu>
     </MenuBar>
-    <SplitPane dividerPositions="0.6" prefHeight="800.0" prefWidth="1200.0" style="-fx-background-color: -color-bg-default;" VBox.vgrow="ALWAYS">
+    <SplitPane dividerPositions="0.6" prefHeight="800.0" prefWidth="1600.0" style="-fx-background-color: -color-bg-default;" VBox.vgrow="ALWAYS">
         <Pane fx:id="smithChartPane" minWidth="0.0">
             <Canvas fx:id="smithCanvas" />
         </Pane>
-        <VBox minWidth="0.0" spacing="10.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
-            <padding>
-                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-            </padding>
-         <HBox alignment="CENTER_LEFT" prefHeight="100.0" prefWidth="200.0" spacing="20.0">
-            <children>
-      
-                  <Button fx:id="changeLoadButton" mnemonicParsing="false" onAction="#onChangeLoad" text="Change load" />
-               <Label text="Load impedance :" />
-               <Label fx:id="loadImpedanceLabel" text="None" />
-            </children>
-         </HBox>
 
-            <TitledPane animated="false" text="Circuit Elements">
-                <ListView fx:id="elementListView" prefHeight="200.0" />
-            </TitledPane>
+        <!-- The VBox is now wrapped in a ScrollPane to make it scrollable -->
+        <ScrollPane fitToWidth="true">
+            <VBox minWidth="0.0" spacing="10.0">
+                <padding>
+                    <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                </padding>
+                <HBox alignment="CENTER_LEFT" spacing="20.0">
+                    <Button fx:id="changeLoadButton" mnemonicParsing="false" onAction="#onChangeLoad" text="Change load" />
+                    <Button fx:id="changeFreqButton" layoutX="10.0" layoutY="10.0" mnemonicParsing="false" onAction="#onChangeFreq" text="Change freq" />
+                    <HBox alignment="CENTER_LEFT">
+                         <Label text="Load impedance :" />
+                         <Label fx:id="loadImpedanceLabel" text="None" />
+                    </HBox>
+                    <HBox alignment="CENTER_LEFT">
+                        <Label text="Frequency :" />
+                        <Label fx:id="freqLabel" text="None" />
+                    </HBox>
+                </HBox>
 
-            <!-- Section 2: Controls for adding a new component -->
-            <TitledPane animated="false" text="Add Component">
-                <GridPane hgap="10.0" vgap="10.0">
-                    <padding>
-                        <Insets top="10.0" />
-                    </padding>
-                    <Label text="Type:" GridPane.rowIndex="0" />
-                    <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                <TitledPane animated="false" text="Circuit Elements">
+                    <ListView fx:id="elementListView" prefHeight="200.0" />
+                </TitledPane>
 
-                    <Label text="Value:" GridPane.rowIndex="1" />
-                    <TextField fx:id="valueTextField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                <!-- Section 2: Controls for adding a new component -->
+                <TitledPane animated="false" text="Add Component">
+                    <GridPane hgap="10.0" vgap="10.0">
+                        <padding>
+                            <Insets top="10.0" />
+                        </padding>
+                        <Label text="Type:" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-                    <Label text="Position:" GridPane.rowIndex="2" />
-                    <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                        <Label text="Value:" GridPane.rowIndex="1" />
+                        <TextField fx:id="valueTextField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-                    <Button fx:id="addButton" onAction="#onAddComponent" text="Add" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                        <Label text="Position:" GridPane.rowIndex="2" />
+                        <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                    <columnConstraints>
-                        <ColumnConstraints />
-                        <ColumnConstraints hgrow="ALWAYS" />
-                    </columnConstraints>
-                    <rowConstraints>
-                        <RowConstraints />
-                        <RowConstraints />
-                        <RowConstraints />
-                        <RowConstraints />
-                    </rowConstraints>
-                </GridPane>
-            </TitledPane>
-            <TitledPane animated="false" collapsible="false" text="Cursor Values">
-                <GridPane hgap="10.0" vgap="10.0">
-                    <padding>
-                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-                    </padding>
-                    <columnConstraints>
-                        <!-- Column for parameter names (e.g., "Return Loss") -->
-                        <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
-                        <!-- Column for parameter values -->
-                        <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
-                        <!-- Column for the second set of parameter names -->
-                        <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
-                        <!-- Column for the second set of parameter values -->
-                        <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
-                    </columnConstraints>
-                    <!-- Row 0: Return Loss & VSWR -->
-                    <Label text="Return Loss" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                    <Label fx:id="returnLossLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                        <Button fx:id="addButton" onAction="#onAddComponent" text="Add" GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
-                    <Label text="VSWR" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-                    <Label fx:id="vswrLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+                        <columnConstraints>
+                            <ColumnConstraints />
+                            <ColumnConstraints hgrow="ALWAYS" />
+                        </columnConstraints>
+                        <rowConstraints>
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                        </rowConstraints>
+                    </GridPane>
+                </TitledPane>
+                <TitledPane animated="false" collapsible="false" text="Cursor Values">
+                    <GridPane hgap="10.0" vgap="10.0">
+                        <padding>
+                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                        </padding>
+                        <columnConstraints>
+                            <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
+                            <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
+                            <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
+                            <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
+                        </columnConstraints>
+                        <!-- Row 0: Return Loss & VSWR -->
+                        <Label text="Return Loss" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <Label fx:id="returnLossLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-                    <!-- Row 1: Q & Gamma -->
-                    <Label text="Q" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                    <Label fx:id="qLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                        <Label text="VSWR" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <Label fx:id="vswrLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-                    <Label text="Γ" GridPane.columnIndex="2" GridPane.rowIndex="1" />
-                    <Label fx:id="gammaLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+                        <!-- Row 1: Q & Gamma -->
+                        <Label text="Q" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <Label fx:id="qLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-                    <!-- Row 2: Admittance (Y) & Impedance (Z) -->
-                    <Label text="Y" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-                    <Label fx:id="yLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                        <Label text="Γ" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                        <Label fx:id="gammaLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="1" />
 
-                    <Label text="Z" GridPane.columnIndex="2" GridPane.rowIndex="2" />
-                    <Label fx:id="zLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="2" />
+                        <!-- Row 2: Admittance (Y) & Impedance (Z) -->
+                        <Label text="Y" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                        <Label fx:id="yLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                    <!-- Row 3: Characteristic Impedance (Zo) & Frequency -->
-                    <Label text="Zo" GridPane.columnIndex="0" GridPane.rowIndex="3" />
-                    <Label fx:id="zoLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                        <Label text="Z" GridPane.columnIndex="2" GridPane.rowIndex="2" />
+                        <Label fx:id="zLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="2" />
 
-                    <Label text="Freq" GridPane.columnIndex="2" GridPane.rowIndex="3" />
-                    <Label fx:id="freqLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="3" />
-               <rowConstraints>
-                  <RowConstraints />
-                  <RowConstraints />
-                  <RowConstraints />
-                  <RowConstraints />
-               </rowConstraints>
-                </GridPane>
-            </TitledPane>
+                        <rowConstraints>
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                        </rowConstraints>
+                    </GridPane>
+                </TitledPane>
 
-            <!-- You can add more TitledPanes here for other features -->
-            <!-- e.g., for displaying VSWR, Impedance, etc. -->
-
-        </VBox>
-
+                <!-- "Data Points" TitledPane is now here, in the scrollable VBox -->
+                <TitledPane animated="false" text="Data Points">
+                    <ListView fx:id="dataPointsList" prefHeight="200.0" prefWidth="200.0" />
+                </TitledPane>
+            </VBox>
+        </ScrollPane>
     </SplitPane>
 </VBox>

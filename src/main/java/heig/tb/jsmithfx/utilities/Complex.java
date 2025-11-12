@@ -1,4 +1,4 @@
-package heig.tb.jsmithfx;
+package heig.tb.jsmithfx.utilities;
 
 import org.jetbrains.annotations.NotNull;
 

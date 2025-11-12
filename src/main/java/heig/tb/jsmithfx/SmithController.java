@@ -1,5 +1,7 @@
 package heig.tb.jsmithfx;
 
+import heig.tb.jsmithfx.utilities.Complex;
+import javafx.beans.binding.Bindings;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
@@ -12,6 +14,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Pair;
 
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -38,6 +41,7 @@ public class SmithController {
     public MenuItem setCharacteristicImpedanceButton;
     public Button changeLoadButton;
     public Label loadImpedanceLabel;
+    public Button changeFreqButton;
 
     // --- FXML Fields ---
     // These are injected by the FXML loader
@@ -46,7 +50,7 @@ public class SmithController {
     @FXML
     private Canvas smithCanvas;
     @FXML
-    private ListView<String> elementListView; // Use a specific type like CircuitElement later
+    private ListView<Complex> dataPointsList; // Use a specific type like CircuitElement later
     @FXML
     private ComboBox<String> typeComboBox; // Use ElementType enum later
     @FXML
@@ -83,6 +87,9 @@ public class SmithController {
 
         // 5. Perform the initial draw
         redrawCanvas();
+
+        // Add a listener to track the selected item
+        dataPointsList.getSelectionModel().selectedItemProperty().addListener((_,_,_) -> redrawCanvas());
     }
 
     private void setupResizableCanvas() {
@@ -131,13 +138,42 @@ public class SmithController {
      */
     private void bindViewModel() {
         // TODO: Uncomment and adapt these lines when your ViewModel is ready.
-        // This is where the magic happens. The UI will now update automatically.
 
-        // Bind the list of elements in the UI to the list in the ViewModel
-        // elementListView.itemsProperty().bind(viewModel.circuitElementsProperty());
-        // In SmithController.java, inside bindViewModel()
-        zoLabel.textProperty().bind(viewModel.zo.asString("%.2f"));
+        dataPointsList.setCellFactory(param -> new ListCell<Complex>() {
+
+
+
+            @Override
+            protected void updateItem(Complex item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (empty || item == null) {
+                    setText(null); // Don't display anything if the cell is empty
+                } else {
+                    int index = getIndex();
+
+                    if (index == 0) {
+                        setText(String.format("LD: %.2f + j%.2f Ω", item.real(), item.imag()));
+                    } else {
+                        setText(String.format("DP%d: %.2f + j%.2f Ω", index, item.real(), item.imag()));
+                    }
+                }
+            }
+        });
+
+        dataPointsList.itemsProperty().bind(viewModel.measuresProperty());
         loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
+        freqLabel.textProperty().bind(Bindings.createStringBinding(() -> {
+            double freq = viewModel.frequency.get();
+            return switch ((int) Math.log10(freq)){
+                case 0, 1, 2 -> String.format("%.2f Hz", freq);
+                case 3, 4, 5 -> String.format("%.2f kHz", freq / 1_000);
+                case 6, 7, 8 -> String.format("%.2f MHz", freq / 1_000_000);
+                default -> String.format("%.2f GHz", freq / 1_000_000_000);
+            };
+        }, viewModel.frequency));
+
+        viewModel.measuresGammaProperty().addListener((_,_,_old) -> {redrawCanvas();});
 
 
         // Bind the user input fields to the ViewModel properties.
@@ -154,9 +190,17 @@ public class SmithController {
 
     @FXML
     protected void onAddComponent() {
-        System.out.println("Add Component button clicked!");
-        // The controller does NOT contain logic. It just calls the ViewModel.
-        // viewModel.addNewElement(); // TODO: Uncomment when ViewModel is ready
+        try {
+            String type = typeComboBox.getValue();
+            String position = positionComboBox.getValue();
+            double value = Double.parseDouble(valueTextField.getText());
+
+            // Create a new Complex value based on the input (example logic)
+            Complex newElement = new Complex(value, 0); // Adjust based on type/position
+            viewModel.measures.add(newElement);
+        } catch (NumberFormatException e) {
+            showError("Invalid value format.");
+        }
     }
 
 
@@ -228,7 +272,7 @@ public class SmithController {
             gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
             if(g == 1) gc.setLineWidth(thinLineValue);
 
-            drawLabel(gc, String.format("%.1f", 1/g* viewModel.zo.get()), circleCenterX,centerY - circleRadius, Color.WHITE);
+            drawLabel(gc, String.format("%.1f mS", g / viewModel.zo.get() * 1000), circleCenterX,centerY - circleRadius, Color.WHITE);
         }
 
         // Draw Constant Susceptance (b) Arcs
@@ -285,7 +329,7 @@ public class SmithController {
             double angle = 2 * Math.atan(1.0 / b);
             double labelX = centerX + mainRadius * Math.cos(Math.PI - angle);
             double labelY = centerY + mainRadius * Math.sin(Math.PI - angle);
-            String label = String.format("+%.1f", b * viewModel.zo.get());
+            String label = String.format("+%.1f", viewModel.zo.get() / b);
             drawLabel(gc, label, labelX, labelY, Color.DARKGREEN);
 
         }
@@ -303,32 +347,44 @@ public class SmithController {
     }
 
     private void drawImpedancePoints(GraphicsContext gc) {
-        if (viewModel.loadImpedance.get() != null) {
-            Complex i = viewModel.loadImpedance.get();
-            Logger.getAnonymousLogger().log(Level.INFO, "Impedance Points Loaded");
+        List<Complex> gammas = viewModel.measuresGammaProperty().get();
 
-            double width = smithCanvas.getWidth();
-            double height = smithCanvas.getHeight();
-            double centerX = width / 2;
-            double centerY = height / 2;
-            double mainRadius = Math.min(centerX, centerY) - 10;
+        for (Complex gamma : gammas) {
+            System.out.println(gamma);
+        }
 
-            // Normalize impedance: z_n = Z / Z0
-            double zo = viewModel.zo.get();
-            Complex zNorm = new Complex(i.real() / zo, i.imag() / zo);
+        if (gammas != null) {
+            int index = 0;
+            for (Complex gamma : gammas) {
+                Logger.getAnonymousLogger().log(Level.INFO, "Drawing impedance point for gamma: " + gamma);
 
-            // Calculate gamma = (z_n - 1) / (z_n + 1)
-            Complex gamma = zNorm.addReal(-1).dividedBy(zNorm.addReal(1));
+                double width = smithCanvas.getWidth();
+                double height = smithCanvas.getHeight();
+                double centerX = width / 2;
+                double centerY = height / 2;
+                double mainRadius = Math.min(centerX, centerY) - 10;
 
-            double pointX = centerX + gamma.real() * mainRadius;
-            double pointY = centerY - gamma.imag() * mainRadius;
+                double pointX = centerX + gamma.real() * mainRadius;
+                double pointY = centerY - gamma.imag() * mainRadius;
 
-            gc.setStroke(Color.YELLOW);
-            gc.setFill(Color.YELLOW);
-            gc.setLineWidth(2 * thickLineValue);
 
-            double pointSize = 5;
-            gc.strokeRect(pointX - pointSize/2, pointY - pointSize/2, pointSize, pointSize);
+                gc.setLineWidth(2 * thickLineValue);
+                double pointSize = 5;
+
+                int selectedItemIndex = dataPointsList.getSelectionModel().getSelectedIndex();
+                System.out.println("Index : " + index + "Selected : " + selectedItemIndex);
+                if (selectedItemIndex == index) {
+                    gc.setStroke(Color.CORAL);
+                    gc.setFill(Color.CORAL);
+                } else {
+                    gc.setStroke(Color.YELLOW);
+                    gc.setFill(Color.YELLOW);
+                }
+
+                gc.strokeRect(pointX - pointSize / 2, pointY - pointSize / 2, pointSize, pointSize);
+
+                ++index;
+            }
         }
     }
     /**
@@ -442,6 +498,88 @@ public class SmithController {
                 viewModel.loadImpedance.setValue(new Complex(re, im));
                 System.out.println("Impedance: " + viewModel.loadImpedance.getValue());
                 redrawCanvas();
+            } catch (NumberFormatException e) {
+                showError("Invalid number format.");
+            }
+        });
+    }
+
+    public void onChangeFreq(ActionEvent actionEvent) {
+        Dialog<Pair<String, String>> dialog = new Dialog<>();
+        dialog.setTitle("Change Frequency Value");
+        dialog.setHeaderText("Enter new frequency value and select the unit:");
+
+        // Set the button types
+        ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
+
+        // Create the input field
+        TextField freqField = new TextField();
+        freqField.setPromptText("Frequency");
+
+        // Create toggle buttons for units
+        ToggleGroup unitGroup = new ToggleGroup();
+        RadioButton hzButton = new RadioButton("Hz");
+        hzButton.setToggleGroup(unitGroup);
+        hzButton.setSelected(true); // Default unit
+        RadioButton mhzButton = new RadioButton("MHz");
+        mhzButton.setToggleGroup(unitGroup);
+        RadioButton khzButton = new RadioButton("kHz");
+        khzButton.setToggleGroup(unitGroup);
+        RadioButton ghzButton = new RadioButton("GHz");
+        ghzButton.setToggleGroup(unitGroup);
+
+        // Create a layout for the inputs
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(new Label("Frequency:"), 0, 0);
+        grid.add(freqField, 1, 0);
+        grid.add(new Label("Unit:"), 0, 1);
+        grid.add(hzButton, 1, 1);
+        grid.add(mhzButton, 2, 1);
+        grid.add(khzButton, 3, 1);
+        grid.add(ghzButton, 4, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Convert the result to a pair of values when OK is clicked
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == okButtonType) {
+                String selectedUnit = ((RadioButton) unitGroup.getSelectedToggle()).getText();
+                return new Pair<>(freqField.getText(), selectedUnit);
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(result -> {
+            try {
+                double freq = Double.parseDouble(result.getKey());
+                String unit = result.getValue();
+
+                // Convert frequency to Hz based on the selected unit
+                switch (unit) {
+                    case "MHz":
+                        freq *= 1_000_000;
+                        break;
+                    case "kHz":
+                        freq *= 1_000;
+                        break;
+                    case "GHz":
+                        freq *= 1_000_000_000;
+                        break;
+                    case "Hz":
+                    default:
+                        break;
+                }
+
+                if (freq > 0) {
+                    // Update in ViewModel
+                    viewModel.frequency.setValue(freq);
+                    redrawCanvas();
+                } else {
+                    showError("Frequency must be positive.");
+                }
             } catch (NumberFormatException e) {
                 showError("Invalid number format.");
             }
