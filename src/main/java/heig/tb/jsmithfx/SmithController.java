@@ -264,14 +264,8 @@ public class SmithController {
             };
         }, viewModel.frequency));
 
-        viewModel.measuresGammaProperty().addListener((_,_,_old) -> {redrawCanvas();});
+        viewModel.measuresGammaProperty().addListener((_,_,_) -> redrawCanvas());
 
-
-        // Bind the user input fields to the ViewModel properties.
-        // This allows the ViewModel to always have the latest user input.
-        // viewModel.newElementTypeProperty().bind(typeComboBox.valueProperty());
-        // viewModel.newElementPositionProperty().bind(positionComboBox.valueProperty());
-        // viewModel.newElementValueProperty().bindBidirectional(valueTextField.textProperty());
     }
 
     @FXML
@@ -295,7 +289,7 @@ public class SmithController {
                 showError("Error retrieving unit factor.");
             }
         }
-        return 1.0; // Default factor if none is found
+        return 1.0; // Default factor if none is found or an error is caught
     }
 
 
@@ -419,10 +413,10 @@ public class SmithController {
         }
 
 
-        // --- 3. Restore the graphics state to remove the clipping ---
+        //Restore the graphics state to remove the clipping
         gc.restore();
 
-        // --- 4. Draw the labels on the outside of the circle
+        //Draw the labels on the outside of the circle
         for (double b : stepValues) {
             double angle = 2 * Math.atan(1.0 / b);
             double labelX = centerX + mainRadius * Math.cos(Math.PI - angle);
@@ -444,6 +438,10 @@ public class SmithController {
 
     }
 
+    /**
+     * Draw impedance points based on the gammas calculated in the viewModel
+     * @param gc the graphic context on which we'll draw the points
+     */
     private void drawImpedancePoints(GraphicsContext gc) {
         List<Complex> gammas = viewModel.measuresGammaProperty().get();
 
@@ -466,6 +464,7 @@ public class SmithController {
                 gc.setLineWidth(2 * thickLineValue);
                 double pointSize = 5;
 
+                //Change the color of the selected position on the chart
                 int selectedItemIndex = dataPointsList.getSelectionModel().getSelectedIndex();
                 if (selectedItemIndex == index) {
                     gc.setStroke(Color.CORAL);
@@ -475,6 +474,7 @@ public class SmithController {
                     gc.setFill(Color.YELLOW);
                 }
 
+                //Draw the point
                 gc.strokeRect(pointX - pointSize / 2, pointY - pointSize / 2, pointSize, pointSize);
 
                 ++index;

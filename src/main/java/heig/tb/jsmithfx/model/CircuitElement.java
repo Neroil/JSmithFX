@@ -22,8 +22,8 @@ public abstract class CircuitElement {
     }
 
     public enum ElementPosition {
-        PARALLEL("Parallel"),
-        SERIES("Series");
+        SERIES("Series"),
+        PARALLEL("Parallel");
 
         private final String displayName;
         ElementPosition(String displayName) {
@@ -59,4 +59,7 @@ public abstract class CircuitElement {
     public abstract Complex getImpedance(double frequency);
     abstract protected void setImpedance(double frequency);
 
+    public ElementPosition getElementPosition() {
+        return elementPosition;
+    }
 }
