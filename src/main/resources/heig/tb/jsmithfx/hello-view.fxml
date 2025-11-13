@@ -17,14 +17,23 @@
         <Menu text="Set">
             <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
         </Menu>
+        <Menu text="Quick Settings">
+            <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" text="Toggle navigation buttons" selected="true" />
+        </Menu>
         <Menu text="Help">
             <MenuItem text="About" />
         </Menu>
     </MenuBar>
     <SplitPane dividerPositions="0.6" prefHeight="800.0" prefWidth="1600.0" style="-fx-background-color: -color-bg-default;" VBox.vgrow="ALWAYS">
         <Pane fx:id="smithChartPane" minWidth="0.0">
-            <Canvas fx:id="smithCanvas" />
+            <Canvas fx:id="smithCanvas"/>
+            <HBox fx:id="buttonSmithHBox">
+                <Button fx:id="zoomInButton" text="+"  onAction="#onZoomIn" />
+                <Button fx:id="zoomOutButton" text="-"   onAction="#onZoomOut" />
+                <Button fx:id="resetButton" text="Reset"   onAction="#onReset" />
+            </HBox>
         </Pane>
+
 
         <!-- The VBox is now wrapped in a ScrollPane to make it scrollable -->
         <ScrollPane fitToWidth="true">

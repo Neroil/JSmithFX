@@ -1,6 +1,6 @@
 package heig.tb.jsmithfx.model.Element.TypicalUnit;
 
-public enum ResistanceUnit {
+public enum ResistanceUnit implements ElectronicUnit {
     OHM("Ohm", 1),
     KILO_OHM("kΩ", 1E3),
     MEGA_OHM("MΩ", 1E6);

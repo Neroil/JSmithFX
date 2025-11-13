@@ -22,6 +22,33 @@ public class SmithChartViewModel {
     // A read-only list of the calculated gammas for drawing on the canvas.
     private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
 
+    //==========================
+    //--- Mouse informations ---
+    //==========================
+    public final DoubleProperty mouseReturnLoss = new SimpleDoubleProperty(0);
+    public final DoubleProperty mouseVSWR = new SimpleDoubleProperty(0);
+    public final DoubleProperty mouseQualityFactor = new SimpleDoubleProperty(0);
+    public final ObjectProperty<Complex> mouseGamma = new SimpleObjectProperty<>(new Complex(0.0,0.0));
+    public final ObjectProperty<Complex> mouseAdmittanceY = new SimpleObjectProperty<>(new Complex(0.0,0.0));
+    public final ObjectProperty<Complex> mouseImpedanceZ = new SimpleObjectProperty<>(new Complex(0.0,0.0));
+
+    // Ui bindings
+    private final ReadOnlyStringWrapper mouseReturnLossText = new ReadOnlyStringWrapper("- dB");
+    private final ReadOnlyStringWrapper mouseVSWRText = new ReadOnlyStringWrapper("-");
+    private final ReadOnlyStringWrapper mouseQualityFactorText = new ReadOnlyStringWrapper("-");
+    private final ReadOnlyStringWrapper mouseGammaText = new ReadOnlyStringWrapper("-");
+    private final ReadOnlyStringWrapper mouseAdmittanceYText = new ReadOnlyStringWrapper("Y: -");
+    private final ReadOnlyStringWrapper mouseImpedanceZText = new ReadOnlyStringWrapper("Z: -");
+
+    // Binding getters
+    public ReadOnlyStringProperty mouseReturnLossTextProperty() { return mouseReturnLossText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseVSWRTextProperty() { return mouseVSWRText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseQualityFactorTextProperty() { return mouseQualityFactorText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseGammaTextProperty() { return mouseGammaText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseAdmittanceYTextProperty() { return mouseAdmittanceYText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseImpedanceZTextProperty() { return mouseImpedanceZText.getReadOnlyProperty(); }
+
+
 
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
@@ -73,6 +100,59 @@ public class SmithChartViewModel {
         measuresGamma.setAll(newGammas);
     }
 
+    public void calculateMouseInformations(double gammaX, double gammaY) {
+        Complex gamma = new Complex(gammaX, gammaY);
+        double gammaMagnitude = gamma.abs();
+
+        //Update raw data
+        this.mouseGamma.set(gamma);
+
+        // Only perform calculations for points within the Smith Chart (|Gamma| <= 1)
+        if (gammaMagnitude > 1.0) {
+            mouseReturnLossText.set("- dB");
+            mouseVSWRText.set("∞");
+            mouseQualityFactorText.set("-");
+            mouseGammaText.set("-");
+            mouseAdmittanceYText.set("-");
+            mouseImpedanceZText.set("-");
+            return;
+        }
+
+        // Update properties based on Gamma
+        double returnLoss = (gammaMagnitude < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(gammaMagnitude);
+        double vswr = (1 + gammaMagnitude) / (1 - gammaMagnitude);
+
+        // Calculate mouse pos impedance
+        Complex one = new Complex(1, 0);
+        Complex z0Complex = new Complex(zo.get(), 0);
+
+        // Calculate normalized impedance: Z_norm = (1 + Gamma) / (1 - Gamma)
+        Complex zNorm = one.add(gamma).dividedBy(one.subtract(gamma));
+
+        // Calculate characteristic impedance: Z = Z_norm * Z0
+        Complex impedanceZ = zNorm.multiply(z0Complex);
+
+        // Calculate characteristic admittance: Y = (1 / Z)
+        Complex admittanceY = impedanceZ.inverse();
+
+        // Calculate Q-Factor, Q = |X| / R
+        double qFactor = (impedanceZ.real() < 1e-9) ? Double.POSITIVE_INFINITY : Math.abs(impedanceZ.imag()) / impedanceZ.real();
+
+        //Update properties
+        mouseReturnLoss.set(returnLoss);
+        mouseVSWR.set(vswr);
+        mouseImpedanceZ.set(impedanceZ);
+        mouseAdmittanceY.set(admittanceY);
+        mouseQualityFactor.set(qFactor);
+
+        //Format strings for controller
+        mouseReturnLossText.set(String.format("%.3f dB", returnLoss));
+        mouseVSWRText.set(String.format("%.3f", vswr));
+        mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.abs(), Math.toDegrees(gamma.angle())));
+        mouseImpedanceZText.set(impedanceZ.toString());
+        mouseAdmittanceYText.set(admittanceY.toStringmS());
+        mouseQualityFactorText.set(String.format("%.3f", qFactor));
+    }
     /**
      * Calculates the reflection coefficient (Gamma) for a given impedance Z.
      * @param z The complex impedance.

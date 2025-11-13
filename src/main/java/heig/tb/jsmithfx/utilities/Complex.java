@@ -7,7 +7,11 @@ public record Complex(double real, double imag) {
     @NotNull
     @Override
     public String toString() {
-        return real + " + j" + imag + " Ω";
+        return String.format("%.2f %s j%.2f Ω", real, imag < 0 ? "-" : "+", Math.abs(imag));
+    }
+
+    public String toStringmS() {
+        return String.format("%.2f %s j%.2f mS", real * 1000, imag < 0 ? "-" : "+", Math.abs(imag) * 1000);
     }
 
     /**
@@ -41,5 +45,21 @@ public record Complex(double real, double imag) {
     public Complex inverse() {
         double denominator = real * real + imag * imag;
         return new Complex(real / denominator, (-imag) / denominator);
+    }
+
+    public double abs() {
+        return Math.sqrt(real * real + imag * imag);
+    }
+
+    public Complex subtract(Complex z) {
+        return new Complex(real - z.real, imag - z.imag);
+    }
+
+    public Complex multiply(Complex z) {
+        return new Complex(real * z.real - imag * z.imag, real * z.imag + imag * z.real);
+    }
+
+    public double angle() {
+        return Math.atan2(imag, real);
     }
 }

@@ -2,6 +2,7 @@ package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
 import heig.tb.jsmithfx.utilities.Complex;
@@ -9,13 +10,12 @@ import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
-import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -23,8 +23,6 @@ import javafx.scene.text.TextAlignment;
 import javafx.util.Pair;
 
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 // TODO: Import your model classes when they are created
 // import heig.tb.jsmithfx.model.ElementType;
@@ -37,22 +35,46 @@ import java.util.logging.Logger;
 
 public class SmithController {
 
-    private static Font LABEL_FONT = new Font("Arial", 10);
-    public Label returnLossLabel;
-    public Label vswrLabel;
-    public Label qLabel;
-    public Label gammaLabel;
-    public Label yLabel;
-    public Label zLabel;
-    public Label zoLabel;
-    public Label freqLabel;
-    public MenuItem setCharacteristicImpedanceButton;
-    public Button changeLoadButton;
-    public Label loadImpedanceLabel;
-    public Button changeFreqButton;
+    private Font LABEL_FONT = new Font("Arial", 10);
+    // --- Important values ---
+    private final double thickLineValue = 1;
+    private final double thinLineValue = 0.4;
 
     // --- FXML Fields ---
-    // These are injected by the FXML loader
+    @FXML
+    private Label returnLossLabel;
+    @FXML
+    private Label vswrLabel;
+    @FXML
+    private Label qLabel;
+    @FXML
+    private Label gammaLabel;
+    @FXML
+    private Label yLabel;
+    @FXML
+    private Label zLabel;
+    @FXML
+    private Label zoLabel;
+    @FXML
+    private Label freqLabel;
+    @FXML
+    private MenuItem setCharacteristicImpedanceButton;
+    @FXML
+    private Button changeLoadButton;
+    @FXML
+    private Label loadImpedanceLabel;
+    @FXML
+    private Button changeFreqButton;
+    @FXML
+    private Button zoomInButton;
+    @FXML
+    private Button zoomOutButton;
+    @FXML
+    private Button resetButton;
+    @FXML
+    private HBox buttonSmithHBox;
+    @FXML
+    private CheckMenuItem toggleNavButton;
     @FXML
     private Pane smithChartPane;
     @FXML
@@ -69,15 +91,9 @@ public class SmithController {
     private TextField valueTextField;
     @FXML
     private Button addButton;
-
     // --- ViewModel ---
     // The ViewModel is the brain of our UI. The controller just talks to it.
     private SmithChartViewModel viewModel; // TODO: Replace with your actual ViewModel
-
-    // --- Important values ---
-    private final double thickLineValue = 1;
-    private final double thinLineValue = 0.4;
-
     // --- View State for Zoom and Pan ---
     private double currentScale = 1.0;
     private double offsetX = 0.0;
@@ -86,6 +102,10 @@ public class SmithController {
     // For panning
     private double lastMouseX = 0.0;
     private double lastMouseY = 0.0;
+
+    // For mouse information
+    private double chartX = 0.0;
+    private double chartY = 0.0;
 
     /**
      * This method is called by the FXMLLoader after the FXML file has been loaded.
@@ -109,8 +129,19 @@ public class SmithController {
         redrawCanvas();
 
         // Add a listener to track the selected item
-        dataPointsList.getSelectionModel().selectedItemProperty().addListener((_,_,_) -> redrawCanvas());
+        dataPointsList.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> redrawCanvas());
 
+        //Properly position the button on the SmithChartPane
+        buttonSmithHBox.layoutXProperty().bind(smithChartPane.widthProperty().subtract(buttonSmithHBox.widthProperty().add(20)));
+        buttonSmithHBox.layoutYProperty().bind(smithChartPane.heightProperty().subtract(50));
+
+        //Listen to mouse information changes
+        returnLossLabel.textProperty().bind(viewModel.mouseReturnLossTextProperty());
+        vswrLabel.textProperty().bind(viewModel.mouseVSWRTextProperty());
+        qLabel.textProperty().bind(viewModel.mouseQualityFactorTextProperty());
+        gammaLabel.textProperty().bind(viewModel.mouseGammaTextProperty());
+        yLabel.textProperty().bind(viewModel.mouseAdmittanceYTextProperty());
+        zLabel.textProperty().bind(viewModel.mouseImpedanceZTextProperty());
     }
 
     private void setupResizableCanvas() {
@@ -178,6 +209,34 @@ public class SmithController {
             }
         });
 
+        smithCanvas.setOnMouseMoved(event -> {
+            double mouseX = event.getX();
+            double mouseY = event.getY();
+
+            // Get the center of the Smith chart
+            double centerX = smithCanvas.getWidth() / 2;
+            double centerY = smithCanvas.getHeight() / 2;
+            double mainRadius = Math.min(centerX, centerY) - 10;
+
+            // Avoid division by zero if the canvas is too small to draw anything
+            if (mainRadius <= 0) {
+                return;
+            }
+
+            // Calculate the coordinates relative to the Smith chart
+            double logicalX = (mouseX - offsetX) / currentScale;
+            double logicalY = (mouseY - offsetY) / currentScale;
+
+            double relativeX = logicalX - centerX;
+            double relativeY = logicalY - centerY;
+
+            double gammaX = relativeX / mainRadius;
+            double gammaY = -relativeY / mainRadius; // Invert Y-axis for standard mathematical representation
+
+            // Pass the correct Gamma coordinates to the ViewModel.
+            viewModel.calculateMouseInformations(gammaX, gammaY);
+        });
+
     }
 
     /**
@@ -200,17 +259,13 @@ public class SmithController {
         positionComboBox.getSelectionModel().selectFirst();
         unitComboBox.getSelectionModel().selectFirst();
 
-        typeComboBox.valueProperty().addListener(new ChangeListener<Enum<?>>() {
-
-            @Override
-            public void changed(ObservableValue<? extends Enum<?>> observable, Enum<?> oldValue, Enum<?> newValue) {
-                CircuitElement.ElementType selectedType = typeComboBox.getValue();
-                switch (selectedType) {
-                    case CircuitElement.ElementType.RESISTOR -> updateUnitComboBox(ResistanceUnit.class);
-                    case CircuitElement.ElementType.CAPACITOR -> updateUnitComboBox(CapacitanceUnit.class);
-                    case CircuitElement.ElementType.INDUCTOR -> updateUnitComboBox(InductanceUnit.class);
-                    default -> unitComboBox.getItems().clear();
-                }
+        typeComboBox.valueProperty().addListener((ChangeListener<Enum<?>>) (_,_,_) -> {
+            CircuitElement.ElementType selectedType = typeComboBox.getValue();
+            switch (selectedType) {
+                case CircuitElement.ElementType.RESISTOR -> updateUnitComboBox(ResistanceUnit.class);
+                case CircuitElement.ElementType.CAPACITOR -> updateUnitComboBox(CapacitanceUnit.class);
+                case CircuitElement.ElementType.INDUCTOR -> updateUnitComboBox(InductanceUnit.class);
+                default -> unitComboBox.getItems().clear();
             }
         });
 
@@ -233,7 +288,6 @@ public class SmithController {
         dataPointsList.setCellFactory(param -> new ListCell<Complex>() {
 
 
-
             @Override
             protected void updateItem(Complex item, boolean empty) {
                 super.updateItem(item, empty);
@@ -254,9 +308,9 @@ public class SmithController {
 
         dataPointsList.itemsProperty().bind(viewModel.measuresProperty());
         loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
-        freqLabel.textProperty().bind(Bindings.createStringBinding(() -> {
+        freqLabel.textProperty().bind(Bindings.createStringBinding(() -> { //TODO FIX THIS AND PUT IT IN THE VIEWMODEL
             double freq = viewModel.frequency.get();
-            return switch ((int) Math.log10(freq)){
+            return switch ((int) Math.log10(freq)) {
                 case 0, 1, 2 -> String.format("%.2f Hz", freq);
                 case 3, 4, 5 -> String.format("%.2f kHz", freq / 1_000);
                 case 6, 7, 8 -> String.format("%.2f MHz", freq / 1_000_000);
@@ -264,7 +318,7 @@ public class SmithController {
             };
         }, viewModel.frequency));
 
-        viewModel.measuresGammaProperty().addListener((_,_,_) -> redrawCanvas());
+        viewModel.measuresGammaProperty().addListener((_, _, _) -> redrawCanvas());
 
     }
 
@@ -274,7 +328,7 @@ public class SmithController {
             CircuitElement.ElementType type = typeComboBox.getValue();
             CircuitElement.ElementPosition position = positionComboBox.getValue();
             double value = Double.parseDouble(valueTextField.getText());
-            viewModel.addComponent(type,value *  getSelectedUnitFactor() ,position);
+            viewModel.addComponent(type, value * getSelectedUnitFactor(), position);
         } catch (NumberFormatException e) {
             showError("Invalid value format.");
         }
@@ -282,14 +336,10 @@ public class SmithController {
 
     private double getSelectedUnitFactor() {
         Enum<?> selectedUnit = unitComboBox.getValue();
-        if (selectedUnit instanceof CapacitanceUnit || selectedUnit instanceof ResistanceUnit || selectedUnit instanceof InductanceUnit) {
-            try {
-                return (double) selectedUnit.getClass().getMethod("getFactor").invoke(selectedUnit);
-            } catch (Exception e) {
-                showError("Error retrieving unit factor.");
-            }
+        if (selectedUnit instanceof ElectronicUnit) {
+            return ((ElectronicUnit) selectedUnit).getFactor();
         }
-        return 1.0; // Default factor if none is found or an error is caught
+        return 1.0; // Default factor if the enum isn't right (shouldn't happen)
     }
 
 
@@ -313,9 +363,12 @@ public class SmithController {
 
         // Draw the static parts of the chart
         drawSmithGrid(gc);
+        // Draw the impedances
+        drawImpedancePoints(gc);
 
         gc.restore();
     }
+
 
     /**
      * Draws the static background grid of the Smith Chart.
@@ -360,11 +413,11 @@ public class SmithController {
         for (double g : stepValues) {
             double circleRadius = mainRadius / (g + 1);
             double circleCenterX = centerX - mainRadius * g / (g + 1);
-            if(g == 1) gc.setLineWidth(thickLineValue); //If
+            if (g == 1) gc.setLineWidth(thickLineValue); //If
             gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
-            if(g == 1) gc.setLineWidth(thinLineValue);
+            if (g == 1) gc.setLineWidth(thinLineValue);
 
-            drawLabel(gc, String.format("%.1f mS", g / viewModel.zo.get() * 1000), circleCenterX,centerY - circleRadius, Color.WHITE);
+            drawLabel(gc, String.format("%.1f mS", g / viewModel.zo.get() * 1000), circleCenterX, centerY - circleRadius, Color.WHITE);
         }
 
         // Draw Constant Susceptance (b) Arcs
@@ -391,11 +444,11 @@ public class SmithController {
         for (double r : stepValues) {
             double circleRadius = mainRadius / (r + 1);
             double circleCenterX = centerX + mainRadius * r / (r + 1);
-            if(r == 1) gc.setLineWidth(thickLineValue);
+            if (r == 1) gc.setLineWidth(thickLineValue);
             gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
-            if(r == 1) gc.setLineWidth(thinLineValue);
+            if (r == 1) gc.setLineWidth(thinLineValue);
 
-            drawLabel(gc, String.format("%.1f", r* viewModel.zo.get()), circleCenterX,centerY + circleRadius, Color.WHITE);
+            drawLabel(gc, String.format("%.1f", r * viewModel.zo.get()), circleCenterX, centerY + circleRadius, Color.WHITE);
         }
 
         // Draw Constant Reactance (x) Arcs
@@ -434,12 +487,12 @@ public class SmithController {
             drawLabel(gc, label, labelX, labelY, Color.BROWN);
         }
 
-        drawImpedancePoints(gc);
 
     }
 
     /**
      * Draw impedance points based on the gammas calculated in the viewModel
+     *
      * @param gc the graphic context on which we'll draw the points
      */
     private void drawImpedancePoints(GraphicsContext gc) {
@@ -485,6 +538,7 @@ public class SmithController {
     /**
      * A helper utility to draw a text label with a clean background.
      * It clears a small circular area behind the text to ensure readability.
+     *
      * @param gc    The graphics context.
      * @param text  The string to draw.
      * @param x     The center x-coordinate for the text.
@@ -627,22 +681,22 @@ public class SmithController {
 
         double displayFreq;
         //Toggle the button for the current frequency
-        switch ((int) Math.log10(currentFreq)){
+        switch ((int) Math.log10(currentFreq)) {
             case 0, 1, 2 -> {
                 hzButton.setSelected(true);
                 displayFreq = currentFreq;
             }
             case 3, 4, 5 -> {
                 khzButton.setSelected(true);
-                displayFreq = currentFreq/10E2;
+                displayFreq = currentFreq / 10E2;
             }
             case 6, 7, 8 -> {
                 mhzButton.setSelected(true);
-                displayFreq = currentFreq/10E5;
+                displayFreq = currentFreq / 10E5;
             }
             default -> {
                 ghzButton.setSelected(true);
-                displayFreq = currentFreq/10E8;
+                displayFreq = currentFreq / 10E8;
             }
         }
         freqField.setText(String.valueOf(displayFreq));
@@ -702,6 +756,38 @@ public class SmithController {
                 showError("Invalid number format.");
             }
         });
+    }
+
+    @FXML
+    private void onZoomIn() {
+        offsetX = 0;
+        offsetY = 0;
+        currentScale *= 1.1;
+
+        redrawCanvas();
+    }
+
+    @FXML
+    private void onZoomOut() {
+        offsetX = 0;
+        offsetY = 0;
+        currentScale /= 1.1;
+        redrawCanvas();
+    }
+
+    @FXML
+    private void onReset() {
+        currentScale = 1.0;
+        offsetX = 0.0;
+        offsetY = 0.0;
+        redrawCanvas();
+    }
+
+    @FXML
+    public void toggleNavButton(ActionEvent actionEvent) {
+        boolean isSelected = toggleNavButton.isSelected();
+        buttonSmithHBox.setVisible(isSelected);
+        buttonSmithHBox.setManaged(isSelected); // Ensures layout adjusts when hidden
     }
 }
 

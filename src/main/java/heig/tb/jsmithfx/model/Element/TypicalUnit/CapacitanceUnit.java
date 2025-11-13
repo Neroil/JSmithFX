@@ -1,6 +1,6 @@
 package heig.tb.jsmithfx.model.Element.TypicalUnit;
 
-public enum CapacitanceUnit {
+public enum CapacitanceUnit implements ElectronicUnit {
     PICO_FARAD("pF", 1E-12),
     NANO_FARAD("nF", 1E-9),
     MICRO_FARAD("μF", 1E-6),

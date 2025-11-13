@@ -1,6 +1,6 @@
 package heig.tb.jsmithfx.model.Element.TypicalUnit;
 
-public enum InductanceUnit {
+public enum InductanceUnit implements ElectronicUnit {
     HENRY("H", 1),
     MILLI_HENRY("mH", 1E-3),
     MICRO_HENRY("μH", 1E-6),
