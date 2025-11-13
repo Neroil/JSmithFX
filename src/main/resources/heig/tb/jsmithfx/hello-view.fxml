@@ -144,6 +144,7 @@
                             <TableColumn fx:id="impedanceColumn" prefWidth="150.0" text="Impedance (Z)" />
                             <TableColumn fx:id="vswrColumn" prefWidth="75.0" text="VSWR" />
                             <TableColumn fx:id="returnLossColumn" prefWidth="150.0" text="Return Loss (dB)" />
+                            <TableColumn fx:id="deleteColumn" text="Delete" prefWidth="50.0"  />
                         </columns>
                     </TableView>
                 </TitledPane>

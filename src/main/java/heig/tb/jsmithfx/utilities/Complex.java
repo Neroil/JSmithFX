@@ -10,6 +10,10 @@ public record Complex(double real, double imag) {
         return String.format("%.2f %s j%.2f Ω", real, imag < 0 ? "-" : "+", Math.abs(imag));
     }
 
+    /**
+     * Displays the complex value as an admittance
+     * @return the string displaying the admittance value
+     */
     public String toStringmS() {
         return String.format("%.2f %s j%.2f mS", real * 1000, imag < 0 ? "-" : "+", Math.abs(imag) * 1000);
     }

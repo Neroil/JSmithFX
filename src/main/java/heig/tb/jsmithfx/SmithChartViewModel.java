@@ -10,6 +10,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class SmithChartViewModel {
@@ -212,6 +214,20 @@ public class SmithChartViewModel {
 
         circuitElements.add(newElem);
         recalculateImpedanceChain();
+    }
+
+    /**
+     * Remove the component using their index number, used to remove from the point list
+     * @param index of the component to remove
+     */
+    void removeComponentAt(int index){
+        try{
+            circuitElements.remove(index);
+            recalculateImpedanceChain();
+        } catch (ArrayIndexOutOfBoundsException e){
+            Logger.getLogger("Error").log(Level.SEVERE, e.getMessage());
+        }
+
     }
 
     /**

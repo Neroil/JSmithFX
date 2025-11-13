@@ -10,17 +10,12 @@ import heig.tb.jsmithfx.utilities.Complex;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
-import javafx.scene.control.Button;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.Label;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -30,7 +25,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Pair;
 
-import java.awt.*;
 import java.util.List;
 
 // TODO: Import your model classes when they are created
@@ -44,12 +38,13 @@ import java.util.List;
 
 public class SmithController {
 
-    
-    private Font LABEL_FONT = new Font("Arial", 10);
+
     // --- Important values ---
     private final double thickLineValue = 1;
     private final double thinLineValue = 0.4;
-
+    @FXML
+    public Button addMouseButton;
+    private Font LABEL_FONT = new Font("Arial", 10);
     // --- FXML Fields ---
     @FXML
     private Label returnLossLabel;
@@ -102,16 +97,15 @@ public class SmithController {
     @FXML
     private Button addButton;
     @FXML
-    public Button addMouseButton;
-    @FXML
     private TableColumn<DataPoint, String> labelColumn;
+    @FXML
+    private TableColumn<DataPoint, Void> deleteColumn;
     @FXML
     private TableColumn<DataPoint, Complex> impedanceColumn;
     @FXML
     private TableColumn<DataPoint, Number> vswrColumn;
     @FXML
     private TableColumn<DataPoint, Number> returnLossColumn;
-
 
 
     // --- ViewModel ---
@@ -127,8 +121,8 @@ public class SmithController {
     private double lastMouseY = 0.0;
 
     // For mouse information
-    private double chartX = 0.0;
-    private double chartY = 0.0;
+    private final double chartX = 0.0;
+    private final double chartY = 0.0;
 
     /**
      * This method is called by the FXMLLoader after the FXML file has been loaded.
@@ -161,6 +155,27 @@ public class SmithController {
         gammaLabel.textProperty().bind(viewModel.mouseGammaTextProperty());
         yLabel.textProperty().bind(viewModel.mouseAdmittanceYTextProperty());
         zLabel.textProperty().bind(viewModel.mouseImpedanceZTextProperty());
+
+        deleteColumn.setCellFactory(param -> new TableCell<>() {
+            private final Button deleteButton = new Button("X");
+
+            {
+                deleteButton.setOnAction(_ -> {
+                    viewModel.removeComponentAt(getIndex() - 1); //-1 since the load is in a different container
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getIndex() < 1)  {
+                    setGraphic(null);
+                } else {
+                    setGraphic(deleteButton);
+                    setAlignment(Pos.CENTER);
+                }
+            }
+        });
     }
 
     private void setupResizableCanvas() {
@@ -278,7 +293,7 @@ public class SmithController {
         positionComboBox.getSelectionModel().selectFirst();
         unitComboBox.getSelectionModel().selectFirst();
 
-        typeComboBox.valueProperty().addListener((ChangeListener<Enum<?>>) (_,_,_) -> {
+        typeComboBox.valueProperty().addListener((ChangeListener<Enum<?>>) (_, _, _) -> {
             CircuitElement.ElementType selectedType = typeComboBox.getValue();
             switch (selectedType) {
                 case CircuitElement.ElementType.RESISTOR -> updateUnitComboBox(ResistanceUnit.class);
@@ -846,6 +861,7 @@ public class SmithController {
 
     /**
      * Move the cursor to a specified reflection coefficient on the chart
+     *
      * @param gamma to move to
      */
     private void moveCursorToGamma(Complex gamma) {
