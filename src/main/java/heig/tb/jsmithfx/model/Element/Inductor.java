@@ -18,8 +18,5 @@ public class Inductor extends CircuitElement {
         return new Complex(0, 2 * Math.PI * frequency * realWorldValue);
     }
 
-    @Override
-    protected void setImpedance(double frequency) {
-        this.impedance = getImpedance(frequency);
-    }
+
 }

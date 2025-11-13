@@ -19,8 +19,5 @@ public class Capacitor extends CircuitElement {
         return new Complex(0, -1 / (2 * Math.PI * frequency * realWorldValue));
     }
 
-    @Override
-    protected void setImpedance(double frequency) {
-        this.impedance = getImpedance(frequency);
-    }
+
 }

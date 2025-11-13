@@ -18,21 +18,21 @@
             <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
         </Menu>
         <Menu text="Quick Settings">
-            <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" text="Toggle navigation buttons" selected="true" />
+            <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" selected="true" text="Toggle navigation buttons" />
         </Menu>
         <Menu text="Help">
             <MenuItem text="About" />
         </Menu>
     </MenuBar>
     <SplitPane dividerPositions="0.6" prefHeight="800.0" prefWidth="1600.0" style="-fx-background-color: -color-bg-default;" VBox.vgrow="ALWAYS">
-        <Pane fx:id="smithChartPane" minWidth="0.0">
-            <Canvas fx:id="smithCanvas"/>
-            <HBox fx:id="buttonSmithHBox">
-                <Button fx:id="zoomInButton" text="+"  onAction="#onZoomIn" />
-                <Button fx:id="zoomOutButton" text="-"   onAction="#onZoomOut" />
-                <Button fx:id="resetButton" text="Reset"   onAction="#onReset" />
+        <AnchorPane fx:id="smithChartPane" minWidth="0.0">
+            <Canvas fx:id="smithCanvas" />
+            <HBox fx:id="buttonSmithHBox" AnchorPane.bottomAnchor="20.0" AnchorPane.rightAnchor="20.0">
+                <Button fx:id="zoomInButton" onAction="#onZoomIn" text="+" />
+                <Button fx:id="zoomOutButton" onAction="#onZoomOut" text="-" />
+                <Button fx:id="resetButton" onAction="#onReset" text="Reset" />
             </HBox>
-        </Pane>
+        </AnchorPane>
 
 
         <!-- The VBox is now wrapped in a ScrollPane to make it scrollable -->
@@ -68,16 +68,19 @@
                         <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
                         <Label text="Value:" GridPane.rowIndex="1" />
-                        <HBox  GridPane.columnIndex="1" GridPane.rowIndex="1">
+                        <HBox GridPane.columnIndex="1" GridPane.rowIndex="1">
                             <TextField fx:id="valueTextField" />
-                            <ComboBox fx:id="unitComboBox" prefWidth="100.0"/>
+                            <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
 
                         </HBox>
 
                         <Label text="Position:" GridPane.rowIndex="2" />
                         <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                        <Button fx:id="addButton" onAction="#onAddComponent" text="Add" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                        <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
+                            <Button fx:id="addButton" onAction="#onAddComponent" text="Add" />
+                            <Button fx:id="addMouseButton" onAction="#onAddComponentMouse" text="Mouse add" />
+                        </HBox>
 
                         <columnConstraints>
                             <ColumnConstraints />
@@ -132,10 +135,20 @@
                     </GridPane>
                 </TitledPane>
 
-                <!-- "Data Points" TitledPane is now here, in the scrollable VBox -->
+
+
                 <TitledPane animated="false" text="Data Points">
-                    <ListView fx:id="dataPointsList" prefHeight="200.0" prefWidth="200.0" />
+                    <TableView fx:id="dataPointsTable" prefHeight="200.0">
+                        <columns>
+                            <TableColumn fx:id="labelColumn" prefWidth="60.0" text="Point" />
+                            <TableColumn fx:id="impedanceColumn" prefWidth="150.0" text="Impedance (Z)" />
+                            <TableColumn fx:id="vswrColumn" prefWidth="75.0" text="VSWR" />
+                            <TableColumn fx:id="returnLossColumn" prefWidth="150.0" text="Return Loss (dB)" />
+                        </columns>
+                    </TableView>
                 </TitledPane>
+
+
             </VBox>
         </ScrollPane>
     </SplitPane>

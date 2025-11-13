@@ -1,11 +1,13 @@
 package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.model.CircuitElement;
+import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
 import heig.tb.jsmithfx.utilities.Complex;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -14,14 +16,21 @@ import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.robot.Robot;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Pair;
 
+import java.awt.*;
 import java.util.List;
 
 // TODO: Import your model classes when they are created
@@ -35,6 +44,7 @@ import java.util.List;
 
 public class SmithController {
 
+    
     private Font LABEL_FONT = new Font("Arial", 10);
     // --- Important values ---
     private final double thickLineValue = 1;
@@ -80,7 +90,7 @@ public class SmithController {
     @FXML
     private Canvas smithCanvas;
     @FXML
-    private ListView<Complex> dataPointsList; // Use a specific type like CircuitElement later
+    private TableView<DataPoint> dataPointsTable;
     @FXML
     private ComboBox<CircuitElement.ElementType> typeComboBox; // Use ElementType enum later
     @FXML
@@ -91,6 +101,19 @@ public class SmithController {
     private TextField valueTextField;
     @FXML
     private Button addButton;
+    @FXML
+    public Button addMouseButton;
+    @FXML
+    private TableColumn<DataPoint, String> labelColumn;
+    @FXML
+    private TableColumn<DataPoint, Complex> impedanceColumn;
+    @FXML
+    private TableColumn<DataPoint, Number> vswrColumn;
+    @FXML
+    private TableColumn<DataPoint, Number> returnLossColumn;
+
+
+
     // --- ViewModel ---
     // The ViewModel is the brain of our UI. The controller just talks to it.
     private SmithChartViewModel viewModel; // TODO: Replace with your actual ViewModel
@@ -129,11 +152,7 @@ public class SmithController {
         redrawCanvas();
 
         // Add a listener to track the selected item
-        dataPointsList.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> redrawCanvas());
-
-        //Properly position the button on the SmithChartPane
-        buttonSmithHBox.layoutXProperty().bind(smithChartPane.widthProperty().subtract(buttonSmithHBox.widthProperty().add(20)));
-        buttonSmithHBox.layoutYProperty().bind(smithChartPane.heightProperty().subtract(50));
+        dataPointsTable.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> redrawCanvas());
 
         //Listen to mouse information changes
         returnLossLabel.textProperty().bind(viewModel.mouseReturnLossTextProperty());
@@ -285,28 +304,51 @@ public class SmithController {
     private void bindViewModel() {
         // TODO: Uncomment and adapt these lines when your ViewModel is ready.
 
-        dataPointsList.setCellFactory(param -> new ListCell<Complex>() {
+        dataPointsTable.itemsProperty().bind(viewModel.dataPointsProperty());
 
+        // 2. Link each column to a property in the DataPoint model class
+        labelColumn.setCellValueFactory(cellData -> cellData.getValue().labelProperty());
+        impedanceColumn.setCellValueFactory(cellData -> cellData.getValue().impedanceProperty());
+        vswrColumn.setCellValueFactory(cellData -> cellData.getValue().vswrProperty());
+        returnLossColumn.setCellValueFactory(cellData -> cellData.getValue().returnLossProperty());
 
+        // 3. (Optional but Recommended) Add custom formatting for numbers and complex values
+        impedanceColumn.setCellFactory(column -> new TableCell<>() {
             @Override
             protected void updateItem(Complex item, boolean empty) {
                 super.updateItem(item, empty);
-
                 if (empty || item == null) {
-                    setText(null); // Don't display anything if the cell is empty
+                    setText(null);
                 } else {
-                    int index = getIndex();
-
-                    if (index == 0) {
-                        setText(String.format("LD: %.2f + j%.2f Ω", item.real(), item.imag()));
-                    } else {
-                        setText(String.format("DP%d: %.2f + j%.2f Ω", index, item.real(), item.imag()));
-                    }
+                    setText(String.format("%.2f + j%.2f Ω", item.real(), item.imag()));
                 }
             }
         });
 
-        dataPointsList.itemsProperty().bind(viewModel.measuresProperty());
+        vswrColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", item.doubleValue()));
+                }
+            }
+        });
+
+        returnLossColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", item.doubleValue()));
+                }
+            }
+        });
+
         loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
         freqLabel.textProperty().bind(Bindings.createStringBinding(() -> { //TODO FIX THIS AND PUT IT IN THE VIEWMODEL
             double freq = viewModel.frequency.get();
@@ -518,7 +560,7 @@ public class SmithController {
                 double pointSize = 5;
 
                 //Change the color of the selected position on the chart
-                int selectedItemIndex = dataPointsList.getSelectionModel().getSelectedIndex();
+                int selectedItemIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
                 if (selectedItemIndex == index) {
                     gc.setStroke(Color.CORAL);
                     gc.setFill(Color.CORAL);
@@ -788,6 +830,61 @@ public class SmithController {
         boolean isSelected = toggleNavButton.isSelected();
         buttonSmithHBox.setVisible(isSelected);
         buttonSmithHBox.setManaged(isSelected); // Ensures layout adjusts when hidden
+    }
+
+    public void onAddComponentMouse(ActionEvent actionEvent) {
+
+        //Magnetize the cursor on the last component added
+        Complex lastGamma = viewModel.getLastGamma();
+        if (lastGamma == null) return; // Exit if there's no component yet
+
+        moveCursorToGamma(lastGamma);
+
+        //Now check what type of value is selected and move accordingly depending on the value
+
+    }
+
+    /**
+     * Move the cursor to a specified reflection coefficient on the chart
+     * @param gamma to move to
+     */
+    private void moveCursorToGamma(Complex gamma) {
+        // Get the basic properties of the canvas
+        double centerX = smithCanvas.getWidth() / 2;
+        double centerY = smithCanvas.getHeight() / 2;
+        double mainRadius = Math.min(centerX, centerY) - 10;
+
+        // Calculate the point's position on a non-zoomed, non-panned chart
+        double baseCanvasX = centerX + gamma.real() * mainRadius;
+        double baseCanvasY = centerY - gamma.imag() * mainRadius;
+
+        // Now, apply the current zoom and pan to find where it is visually
+        double finalCanvasX = (baseCanvasX * currentScale) + offsetX;
+        double finalCanvasY = (baseCanvasY * currentScale) + offsetY;
+
+        // This finds the screen position of the top-left corner of the canvas...
+        javafx.geometry.Point2D canvasScreenPos = smithCanvas.localToScreen(0, 0);
+
+        // ...and we add our calculated canvas offsets to get the final screen position.
+        int screenX = (int) (canvasScreenPos.getX() + finalCanvasX);
+        int screenY = (int) (canvasScreenPos.getY() + finalCanvasY);
+
+        // 4. Move the cursor to the final screen position
+        moveCursor(screenX, screenY);
+    }
+
+
+    /**
+     * Move the mouse to the specific screen position
+     *
+     * @param screenX the position where the mouse will go (X)
+     * @param screenY the position where the mouse will go (Y)
+     */
+    private void moveCursor(int screenX, int screenY) {
+        Platform.runLater(() -> {
+            Robot robot = new Robot();
+            robot.mouseMove(screenX, screenY);
+        });
     }
 }
 

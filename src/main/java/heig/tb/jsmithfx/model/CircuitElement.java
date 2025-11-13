@@ -37,7 +37,6 @@ public abstract class CircuitElement {
     }
 
     protected double realWorldValue;
-    protected Complex impedance;
     protected ElementPosition elementPosition;
 
     protected CircuitElement() {
@@ -57,7 +56,6 @@ public abstract class CircuitElement {
     }
 
     public abstract Complex getImpedance(double frequency);
-    abstract protected void setImpedance(double frequency);
 
     public ElementPosition getElementPosition() {
         return elementPosition;

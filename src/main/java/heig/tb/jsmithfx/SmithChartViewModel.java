@@ -1,6 +1,7 @@
 package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.model.CircuitElement;
+import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
 import heig.tb.jsmithfx.utilities.Complex;
@@ -9,6 +10,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SmithChartViewModel {
 
@@ -17,8 +19,9 @@ public class SmithChartViewModel {
     public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>(new Complex(50.0, 0.0));
     public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
 
-    // The master list of impedances. The load is always at index 0.
-    public final SimpleListProperty<Complex> measures = new SimpleListProperty<>(FXCollections.observableArrayList());
+    // A list of different datapoints
+    private final SimpleListProperty<DataPoint> dataPoints = new SimpleListProperty<>(FXCollections.observableArrayList());
+
     // A read-only list of the calculated gammas for drawing on the canvas.
     private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
 
@@ -57,7 +60,7 @@ public class SmithChartViewModel {
         loadImpedance.addListener((obs, oldVal, newVal) -> recalculateImpedanceChain());
 
         // When the list of derived impedances changes, automatically update the gamma values.
-        measures.addListener((ListChangeListener<Complex>) c -> recalculateAllGammas());
+        dataPoints.addListener((ListChangeListener<DataPoint>) c -> recalculateAllGammas());
 
         // Perform the initial calculation when the view model is created.
         recalculateImpedanceChain();
@@ -72,31 +75,60 @@ public class SmithChartViewModel {
         if (currentImpedance == null) return; //We have no main impedance, gg
 
         // Use a temporary list to build the new state.
-        List<Complex> newImpedancePoints = new ArrayList<>();
-        newImpedancePoints.add(currentImpedance); // Start with the load impedance
+        List<DataPoint> newDataPoints = new ArrayList<>();
+
+        //Handle the initial impedance
+        Complex loadGamma = calculateGamma(currentImpedance);
+        double loadVswr = calculateVswr(loadGamma);
+        double loadRetLoss = calculateReturnLoss(loadGamma);
+
+        newDataPoints.add(new DataPoint("LD", currentImpedance, loadGamma, loadVswr, loadRetLoss));
 
         // Sequentially add the effect of each component
+        int index = 1;
         for (CircuitElement element : circuitElements) {
             Complex elementImpedance = element.getImpedance(frequency.get());
             currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, element.getElementPosition());
-            newImpedancePoints.add(currentImpedance);
+
+            //Calculate the values needed for the data points
+            Complex elGamma = calculateGamma(currentImpedance);
+            double elVswr = calculateVswr(elGamma);
+            double elRetLoss = calculateReturnLoss(elGamma);
+
+            newDataPoints.add(new DataPoint("DP" + index++, currentImpedance, elGamma, elVswr, elRetLoss));
         }
 
         // Atomically update the main 'measures' property with the new list.
-        // This will automatically trigger the 'measures.addListener' to update the gammas.
-        measures.setAll(newImpedancePoints);
+        dataPoints.setAll(newDataPoints);
+    }
+
+    /**
+     * Calculate the VSWR using the reflection coefficients (Gamma)
+     * @param gamma the reflection coefficients
+     * @return the VSWR
+     */
+    private double calculateVswr(Complex gamma) {
+        double gammaNorm = gamma.abs();
+        return (gammaNorm < 1e-9) ? Double.POSITIVE_INFINITY : (1 + gammaNorm) / (1 - gammaNorm);
+    }
+
+    /**
+     * Calculate the return loss value using the reflection coefficients (Gamma)
+     * @param gamma the reflection coefficients
+     * @return the return loss value
+     */
+    private double calculateReturnLoss(Complex gamma){
+        double gammaNorm = gamma.abs();
+        return (gammaNorm < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(gammaNorm);
     }
 
     /**
      * Converts the entire measures list (impedances) into the measuresGamma list (reflection coefficients).
      */
     private void recalculateAllGammas() {
-        List<Complex> newGammas = new ArrayList<>();
-        for (Complex measure : measures) {
-            if (measure != null) {
-                newGammas.add(calculateGamma(measure));
-            }
-        }
+        List<Complex> newGammas = dataPoints.stream()
+                .map(dp -> dp.gammaProperty().get())
+                .collect(Collectors.toList());
         measuresGamma.setAll(newGammas);
     }
 
@@ -119,8 +151,8 @@ public class SmithChartViewModel {
         }
 
         // Update properties based on Gamma
-        double returnLoss = (gammaMagnitude < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(gammaMagnitude);
-        double vswr = (1 + gammaMagnitude) / (1 - gammaMagnitude);
+        double returnLoss = calculateReturnLoss(gamma);
+        double vswr = calculateVswr(gamma);
 
         // Calculate mouse pos impedance
         Complex one = new Complex(1, 0);
@@ -179,9 +211,7 @@ public class SmithChartViewModel {
         if (newElem == null) return;
 
         circuitElements.add(newElem);
-        // Calculate the last impedance
-        Complex lastImpedance = measures.isEmpty() ? loadImpedance.get() : measures.getLast();
-        measures.add(calculateNextImpedance(lastImpedance, newElem.getImpedance(frequency.get()), position)); //Will trigger the gamma recalculation
+        recalculateImpedanceChain();
     }
 
     /**
@@ -203,6 +233,10 @@ public class SmithChartViewModel {
         }
     }
 
+    public Complex getLastGamma(){
+        return measuresGamma.getLast();
+    }
+
 
     // --- Public Properties for Binding ---
 
@@ -210,7 +244,7 @@ public class SmithChartViewModel {
         return measuresGamma.getReadOnlyProperty();
     }
 
-    public SimpleListProperty<Complex> measuresProperty() {
-        return measures;
+    public SimpleListProperty<DataPoint> dataPointsProperty() {
+        return dataPoints;
     }
 }
