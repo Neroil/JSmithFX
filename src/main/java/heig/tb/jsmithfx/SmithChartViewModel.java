@@ -57,12 +57,12 @@ public class SmithChartViewModel {
 
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
-        zo.addListener((obs, oldVal, newVal) -> recalculateImpedanceChain());
-        frequency.addListener((obs, oldVal, newVal) -> recalculateImpedanceChain());
-        loadImpedance.addListener((obs, oldVal, newVal) -> recalculateImpedanceChain());
+        zo.addListener((_, _, _) -> recalculateImpedanceChain());
+        frequency.addListener((_, _, _) -> recalculateImpedanceChain());
+        loadImpedance.addListener((_, _, _) -> recalculateImpedanceChain());
 
         // When the list of derived impedances changes, automatically update the gamma values.
-        dataPoints.addListener((ListChangeListener<DataPoint>) c -> recalculateAllGammas());
+        dataPoints.addListener((ListChangeListener<DataPoint>) _ -> recalculateAllGammas());
 
         // Perform the initial calculation when the view model is created.
         recalculateImpedanceChain();
@@ -205,8 +205,8 @@ public class SmithChartViewModel {
      */
     void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position) {
         CircuitElement newElem = switch (type) {
-            case INDUCTOR -> new Inductor(value, position);
-            case CAPACITOR -> new Capacitor(value, position);
+            case INDUCTOR -> new Inductor(value, position, type);
+            case CAPACITOR -> new Capacitor(value, position, type);
             case RESISTOR -> null; //TODO MAKE THE OTHER CIRCUIT COMPONENTS
         };
 

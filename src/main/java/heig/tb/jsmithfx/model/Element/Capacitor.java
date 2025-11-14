@@ -5,8 +5,8 @@ import heig.tb.jsmithfx.utilities.Complex;
 
 public class Capacitor extends CircuitElement {
 
-    public Capacitor(double capacitance, ElementPosition elementPosition) {
-        super(capacitance, elementPosition);
+    public Capacitor(double capacitance, ElementPosition elementPosition,  ElementType elementType) {
+        super(capacitance, elementPosition, elementType);
     }
 
     @Override
@@ -19,5 +19,8 @@ public class Capacitor extends CircuitElement {
         return new Complex(0, -1 / (2 * Math.PI * frequency * realWorldValue));
     }
 
-
+    @Override
+    public String toString() {
+        return "capacitor";
+    }
 }

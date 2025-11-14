@@ -38,9 +38,8 @@ public abstract class CircuitElement {
 
     protected double realWorldValue;
     protected ElementPosition elementPosition;
+    protected ElementType elementType;
 
-    protected CircuitElement() {
-    }
 
     public double getRealWorldValue() {
         return realWorldValue;
@@ -50,9 +49,14 @@ public abstract class CircuitElement {
         this.realWorldValue = realWorldValue;
     }
 
-    protected CircuitElement(double realWorldValue, ElementPosition elementPosition) {
+    public ElementType getType() {
+        return this.elementType;
+    }
+
+    protected CircuitElement(double realWorldValue, ElementPosition elementPosition,  ElementType elementType) {
         this.realWorldValue = realWorldValue;
         this.elementPosition = elementPosition;
+        this.elementType = elementType;
     }
 
     public abstract Complex getImpedance(double frequency);

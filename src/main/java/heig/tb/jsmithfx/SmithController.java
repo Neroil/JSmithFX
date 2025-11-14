@@ -7,6 +7,7 @@ import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
 import heig.tb.jsmithfx.utilities.Complex;
+import heig.tb.jsmithfx.utilities.DialogFactory;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
@@ -16,24 +17,14 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.robot.Robot;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
-import javafx.util.Pair;
 
 import java.util.List;
-
-// TODO: Import your model classes when they are created
-// import heig.tb.jsmithfx.model.ElementType;
-// import heig.tb.jsmithfx.model.ElementPosition;
-// import heig.tb.jsmithfx.model.Complex;
-
-// TODO: Import your ViewModel class when it is created
-// import heig.tb.jsmithfx.viewmodel.SmithChartViewModel;
 
 
 public class SmithController {
@@ -42,10 +33,11 @@ public class SmithController {
     // --- Important values ---
     private final double thickLineValue = 1;
     private final double thinLineValue = 0.4;
+    private Font LABEL_FONT = new Font("Arial", 10);
+
+    // --- FXML Fields ---
     @FXML
     public Button addMouseButton;
-    private Font LABEL_FONT = new Font("Arial", 10);
-    // --- FXML Fields ---
     @FXML
     private Label returnLossLabel;
     @FXML
@@ -156,6 +148,26 @@ public class SmithController {
         yLabel.textProperty().bind(viewModel.mouseAdmittanceYTextProperty());
         zLabel.textProperty().bind(viewModel.mouseImpedanceZTextProperty());
 
+        //Enable editing of the values by double-clicking on them in the display point
+        dataPointsTable.setOnMouseClicked(event -> {
+            //Double click to edit the value
+            if (event.getClickCount() == 2) {
+                int selectedIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
+
+                // if index <= 0, then it's either no selection or selecting the load value
+                if (selectedIndex > 0) {
+                    CircuitElement component = viewModel.circuitElements.get(selectedIndex - 1);
+
+                    // Call the Factory
+                    DialogFactory.showComponentEditDialog(component).ifPresent(newValue -> {
+                        component.setRealWorldValue(newValue);
+                        redrawCanvas();
+                    });
+                }
+            }
+        });
+
+        //Add the delete button in the factory
         deleteColumn.setCellFactory(param -> new TableCell<>() {
             private final Button deleteButton = new Button("X");
 
@@ -634,26 +646,15 @@ public class SmithController {
     }
 
     public void setCharacteristicImpedance(ActionEvent actionEvent) {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Set Characteristic Impedance");
-        dialog.setHeaderText("Enter new Zo value (Ohms):");
-        dialog.setContentText("Zo:");
-        dialog.setGraphic(null);
-
-        dialog.showAndWait().ifPresent(input -> {
-            try {
-                double zo = Double.parseDouble(input);
-                if (zo > 0) {
-                    // Update in ViewModel
-                    viewModel.zo.setValue(zo);
-                    redrawCanvas();
-                } else {
-                    showError("Zo must be positive.");
-                }
-            } catch (NumberFormatException e) {
-                showError("Invalid number format.");
-            }
-        });
+        DialogFactory.showDoubleInputDialog("Characteristic Impedance", "Enter Zo (Ohms):", viewModel.zo.get())
+                .ifPresent(zo -> {
+                    if (zo > 0) {
+                        viewModel.zo.setValue(zo);
+                        redrawCanvas();
+                    } else {
+                        DialogFactory.showErrorAlert("Invalid Input", "Zo must be positive.");
+                    }
+                });
     }
 
     private void showError(String message) {
@@ -663,156 +664,22 @@ public class SmithController {
     }
 
     public void onChangeLoad(ActionEvent actionEvent) {
-        Dialog<Pair<String, String>> dialog = new Dialog<>();
-        dialog.setTitle("Change Load Value");
-        dialog.setHeaderText("Enter new load values:");
-
-        // Set the button types
-        ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
-
-        // Create the input fields
-        TextField reField = new TextField();
-        reField.setText(String.valueOf(viewModel.loadImpedance.get().real()));
-        reField.setPromptText("Re");
-        TextField imField = new TextField();
-        imField.setText(String.valueOf(viewModel.loadImpedance.get().imag()));
-        imField.setPromptText("Im");
-
-        // Create a layout for the inputs
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.add(new Label("Re:"), 0, 0);
-        grid.add(reField, 1, 0);
-        grid.add(new Label("Im:"), 0, 1);
-        grid.add(imField, 1, 1);
-
-        dialog.getDialogPane().setContent(grid);
-
-        // Convert the result to a pair of values when OK is clicked
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == okButtonType) {
-                return new Pair<>(reField.getText(), imField.getText());
-            }
-            return null;
-        });
-
-        dialog.showAndWait().ifPresent(result -> {
-            try {
-                double re = Double.parseDouble(result.getKey());
-                double im = Double.parseDouble(result.getValue());
-                // Handle the new load values (re, im)
-                viewModel.loadImpedance.setValue(new Complex(re, im));
-                System.out.println("Impedance: " + viewModel.loadImpedance.getValue());
-                redrawCanvas();
-            } catch (NumberFormatException e) {
-                showError("Invalid number format.");
-            }
-        });
+        DialogFactory.showComplexInputDialog("Change Load", viewModel.loadImpedance.get())
+                .ifPresent(newLoad -> {
+                    viewModel.loadImpedance.setValue(newLoad);
+                    redrawCanvas();
+                });
     }
 
     public void onChangeFreq(ActionEvent actionEvent) {
-        Dialog<Pair<String, String>> dialog = new Dialog<>();
-        dialog.setTitle("Change Frequency Value");
-        dialog.setHeaderText("Enter new frequency value and select the unit:");
-
-        // Set the button types
-        ButtonType okButtonType = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
-
-        // Create the input field
-        double currentFreq = viewModel.frequency.getValue();
-        TextField freqField = new TextField();
-
-        // Create toggle buttons for units
-        ToggleGroup unitGroup = new ToggleGroup();
-        RadioButton hzButton = new RadioButton("Hz");
-        hzButton.setToggleGroup(unitGroup);
-        RadioButton khzButton = new RadioButton("kHz");
-        khzButton.setToggleGroup(unitGroup);
-        RadioButton mhzButton = new RadioButton("MHz");
-        mhzButton.setToggleGroup(unitGroup);
-        RadioButton ghzButton = new RadioButton("GHz");
-        ghzButton.setToggleGroup(unitGroup);
-
-        double displayFreq;
-        //Toggle the button for the current frequency
-        switch ((int) Math.log10(currentFreq)) {
-            case 0, 1, 2 -> {
-                hzButton.setSelected(true);
-                displayFreq = currentFreq;
-            }
-            case 3, 4, 5 -> {
-                khzButton.setSelected(true);
-                displayFreq = currentFreq / 10E2;
-            }
-            case 6, 7, 8 -> {
-                mhzButton.setSelected(true);
-                displayFreq = currentFreq / 10E5;
-            }
-            default -> {
-                ghzButton.setSelected(true);
-                displayFreq = currentFreq / 10E8;
-            }
-        }
-        freqField.setText(String.valueOf(displayFreq));
-
-        // Create a layout for the inputs
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.add(new Label("Frequency:"), 0, 0);
-        grid.add(freqField, 1, 0);
-        grid.add(new Label("Unit:"), 0, 1);
-        grid.add(hzButton, 1, 1);
-        grid.add(mhzButton, 2, 1);
-        grid.add(khzButton, 3, 1);
-        grid.add(ghzButton, 4, 1);
-
-        dialog.getDialogPane().setContent(grid);
-
-        // Convert the result to a pair of values when OK is clicked
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == okButtonType) {
-                String selectedUnit = ((RadioButton) unitGroup.getSelectedToggle()).getText();
-                return new Pair<>(freqField.getText(), selectedUnit);
-            }
-            return null;
-        });
-
-        dialog.showAndWait().ifPresent(result -> {
-            try {
-                double freq = Double.parseDouble(result.getKey());
-                String unit = result.getValue();
-
-                // Convert frequency to Hz based on the selected unit
-                switch (unit) {
-                    case "GHz":
-                        freq *= 1E9;
-                        break;
-                    case "MHz":
-                        freq *= 1E6;
-                        break;
-                    case "kHz":
-                        freq *= 1E3;
-                        break;
-                    case "Hz":
-                    default:
-                        break;
-                }
-
-                if (freq > 0) {
-                    // Update in ViewModel
-                    viewModel.frequency.setValue(freq);
-                    redrawCanvas();
-                } else {
-                    showError("Frequency must be positive.");
-                }
-            } catch (NumberFormatException e) {
-                showError("Invalid number format.");
-            }
-        });
+        DialogFactory.showFrequencyInputDialog("Change Frequency", viewModel.frequency.get())
+                .ifPresent(newFreq -> {
+                    if (newFreq > 0) {
+                        viewModel.frequency.setValue(newFreq);
+                    } else {
+                        DialogFactory.showErrorAlert("Invalid Input", "Frequency must be a positive value.");
+                    }
+                });
     }
 
     @FXML

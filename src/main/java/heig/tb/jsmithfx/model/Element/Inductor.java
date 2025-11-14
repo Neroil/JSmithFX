@@ -5,8 +5,8 @@ import heig.tb.jsmithfx.utilities.Complex;
 
 public class Inductor extends CircuitElement {
 
-    public Inductor(double inductance, ElementPosition elementPosition) {
-        super(inductance, elementPosition);
+    public Inductor(double inductance, ElementPosition elementPosition,   ElementType elementType) {
+        super(inductance, elementPosition,elementType);
     }
 
     @Override
@@ -18,5 +18,9 @@ public class Inductor extends CircuitElement {
         return new Complex(0, 2 * Math.PI * frequency * realWorldValue);
     }
 
+    @Override
+    public String toString() {
+        return "inductor";
+    }
 
 }

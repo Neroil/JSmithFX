@@ -68,7 +68,7 @@
                         <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
                         <Label text="Value:" GridPane.rowIndex="1" />
-                        <HBox GridPane.columnIndex="1" GridPane.rowIndex="1">
+                        <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
                             <TextField fx:id="valueTextField" />
                             <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
 
@@ -144,7 +144,7 @@
                             <TableColumn fx:id="impedanceColumn" prefWidth="150.0" text="Impedance (Z)" />
                             <TableColumn fx:id="vswrColumn" prefWidth="75.0" text="VSWR" />
                             <TableColumn fx:id="returnLossColumn" prefWidth="150.0" text="Return Loss (dB)" />
-                            <TableColumn fx:id="deleteColumn" text="Delete" prefWidth="50.0"  />
+                            <TableColumn fx:id="deleteColumn" prefWidth="50.0" text="Delete" />
                         </columns>
                     </TableView>
                 </TitledPane>
