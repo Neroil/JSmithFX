@@ -13,6 +13,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.util.Pair;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 public class DialogFactory {
@@ -33,13 +34,25 @@ public class DialogFactory {
         // Fields
         TextField valueField = new TextField();
         ComboBox<Enum<?>> unitBox = new ComboBox<>();
+        Enum<?>[] values;
 
-        switch (element.getType()) {
-            case RESISTOR -> unitBox.getItems().addAll(ResistanceUnit.values());
-            case CAPACITOR -> unitBox.getItems().addAll(CapacitanceUnit.values());
-            case INDUCTOR -> unitBox.getItems().addAll(InductanceUnit.values());
-        }
-        unitBox.getSelectionModel().selectFirst(); // Default to base unit
+        values = switch (element.getType()) {
+            case RESISTOR  ->  ResistanceUnit.values();
+            case CAPACITOR ->  CapacitanceUnit.values();
+            case INDUCTOR  ->  InductanceUnit.values();
+        };
+
+        //Select the right unit and display the previous value
+        unitBox.getItems().addAll(values);
+
+        ElectronicUnit[] elValues = (ElectronicUnit[]) values;
+
+        double actualValue = element.getRealWorldValue();
+        Pair<ElectronicUnit, String> result = SmithUtilities.getBestUnitAndFormattedValue(actualValue, elValues);
+
+        // Set the selected unit and display value
+        unitBox.setValue((Enum<?>) result.getKey());
+        valueField.setText(result.getValue());
 
         // Layout
         GridPane grid = new GridPane();

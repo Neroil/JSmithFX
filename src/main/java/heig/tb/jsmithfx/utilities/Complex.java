@@ -34,6 +34,12 @@ public record Complex(double real, double imag) {
         return new Complex(newReal, newImag);
     }
 
+    public Complex dividedBy(double d) {
+        if (d == 0.0)
+            throw new ArithmeticException("Division by zero is not allowed!");
+        return new Complex(real/d, imag/d);
+    }
+
     public Complex addReal(double r) {
         return new Complex(real + r, imag);
     }
@@ -63,7 +69,16 @@ public record Complex(double real, double imag) {
         return new Complex(real * z.real - imag * z.imag, real * z.imag + imag * z.real);
     }
 
+    public Complex multiply(double d) {
+        return new Complex(real * d, imag * d);
+    }
+
     public double angle() {
         return Math.atan2(imag, real);
+    }
+
+    public Complex normalize() {
+        double abs = abs();
+        return new Complex(real/abs, imag/abs);
     }
 }

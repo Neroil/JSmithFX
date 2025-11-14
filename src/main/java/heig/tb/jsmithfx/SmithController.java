@@ -8,6 +8,7 @@ import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogFactory;
+import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
@@ -17,12 +18,14 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.robot.Robot;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
+import javafx.util.Pair;
 
 import java.util.List;
 
@@ -34,6 +37,23 @@ public class SmithController {
     private final double thickLineValue = 1;
     private final double thinLineValue = 0.4;
     private Font LABEL_FONT = new Font("Arial", 10);
+    private boolean isAddingMouseComponent = false;
+    private Complex startGammaForMouseAdd;
+    private Complex startImpedanceForMouseAdd;
+    private Complex snappedGammaForMouseAdd;
+
+    // --- NEW/MODIFIED STATE VARIABLES for Mouse Add ---
+    private Complex circleCenterForMouseAdd;
+    private double circleRadiusForMouseAdd;
+    private double startAngleForMouseAdd;
+    private int directionMultiplier;
+    private Double previousAngle;
+    private Double allowedAngleTravel;
+    private Double totalAngleTraveled;
+
+    // ---
+
+    private boolean isProgrammaticallyMovingCursor = false;
 
     // --- FXML Fields ---
     @FXML
@@ -246,6 +266,12 @@ public class SmithController {
         });
 
         smithCanvas.setOnMouseClicked(event -> {
+            if (isAddingMouseComponent){
+                finalizeMouseAddComponent();
+                event.consume();
+                return;
+            }
+
             if (event.getClickCount() == 2) {
                 // Reset view on double-click
                 currentScale = 1.0;
@@ -279,10 +305,212 @@ public class SmithController {
             double gammaX = relativeX / mainRadius;
             double gammaY = -relativeY / mainRadius; // Invert Y-axis for standard mathematical representation
 
+            if (isAddingMouseComponent){
+                if (isProgrammaticallyMovingCursor) {
+                    isProgrammaticallyMovingCursor = false;
+                    return;
+                }
+                handleMouseMagnetization(new Complex(gammaX, gammaY));
+            }
+
             // Pass the correct Gamma coordinates to the ViewModel.
             viewModel.calculateMouseInformations(gammaX, gammaY);
+
         });
 
+        smithCanvas.setOnKeyPressed(event -> {
+            if (isAddingMouseComponent && event.getCode() == KeyCode.ESCAPE) {
+                cancelMouseAddComponent();
+            }
+        });
+
+    }
+
+    /**
+     * Handles the real-time snapping of the mouse to the component path.
+     * All setup calculations are assumed to have been done already.
+     *
+     * @param rawMouseGamma The unprocessed gamma from the mouse cursor's position.
+     */
+    private void handleMouseMagnetization(Complex rawMouseGamma) {
+        // 1. Get the current angle of the mouse relative to our circle's center
+        Complex mouseVector = rawMouseGamma.subtract(circleCenterForMouseAdd);
+        double mouseAngle = mouseVector.angle();
+
+        // On the very first movement, initialize previousAngle
+        if (previousAngle == null) {
+            previousAngle = startAngleForMouseAdd;
+        }
+
+        // 2. Calculate the incremental angle change and normalize it
+        double angleDifference = mouseAngle - previousAngle;
+        while (angleDifference <= -Math.PI) angleDifference += 2 * Math.PI;
+        while (angleDifference > Math.PI)  angleDifference -= 2 * Math.PI;
+
+        // --- GENERALIZED MOVEMENT LOGIC (for Capacitors and Inductors) ---
+        if (typeComboBox.getValue() != CircuitElement.ElementType.RESISTOR) {
+            // 3. Convert angle change to "travel distance".
+            // This is positive for correct movement, negative for incorrect.
+            double incrementalTravel = angleDifference * directionMultiplier;
+
+            // 4. Tentatively update the total distance traveled from the start
+            double newTotalAngleTraveled = totalAngleTraveled + incrementalTravel;
+
+            // 5. Apply universal travel limits
+            if (newTotalAngleTraveled < 0) {
+                // Moved backward past the start: snap back to the start
+                mouseAngle = startAngleForMouseAdd;
+                totalAngleTraveled = 0.0;
+            } else if (newTotalAngleTraveled > allowedAngleTravel) {
+                // Moved forward past the end: revert to the previous valid position
+                mouseAngle = previousAngle;
+                // totalAngleTraveled is not updated because the move was rejected
+            } else {
+                // Movement is valid: update the total travel distance
+                totalAngleTraveled = newTotalAngleTraveled;
+            }
+        }
+
+        // --- UPDATE UI ---
+        // Calculate the new snapped gamma based on the (potentially corrected) angle
+        snappedGammaForMouseAdd = circleCenterForMouseAdd.add(
+                new Complex(Math.cos(mouseAngle), Math.sin(mouseAngle)).multiply(circleRadiusForMouseAdd)
+        );
+
+        // Store the final angle for the next frame's calculation
+        previousAngle = mouseAngle;
+
+        Double liveValue = calculateComponentValue(
+                snappedGammaForMouseAdd,
+                startImpedanceForMouseAdd,
+                typeComboBox.getValue(),
+                positionComboBox.getValue(),
+                viewModel.zo.get(),
+                viewModel.frequency.get()
+        );
+
+        if (liveValue != null) {
+            Pair<ElectronicUnit, String> result = SmithUtilities.getBestUnitAndFormattedValue(
+                    liveValue,
+                    unitComboBox.getItems().toArray(new ElectronicUnit[0])
+            );
+            valueTextField.setText(result.getValue());
+            unitComboBox.getSelectionModel().select((Enum<?>) result.getKey());
+        } else {
+            valueTextField.setText("");
+        }
+
+        moveCursorToGamma(snappedGammaForMouseAdd);
+    }
+
+    private Double calculateComponentValue(Complex gamma,
+                                           Complex startImpedance,
+                                           CircuitElement.ElementType type,
+                                           CircuitElement.ElementPosition position,
+                                           double z0,
+                                           double frequency) {
+        final double EPS = 1e-12;
+
+        if (gamma == null || startImpedance == null) return null;
+        if (!(Double.isFinite(z0) && z0 > 0)) return null;
+        if (!(Double.isFinite(frequency) && frequency > 0)) return null;
+
+        double omega = 2.0 * Math.PI * frequency;
+        Complex one = new Complex(1, 0);
+
+        // Protect against division by (1 - gamma) ~= 0
+        Complex denom = one.subtract(gamma);
+        if (Math.hypot(denom.real(), denom.imag()) < EPS) return null;
+
+        Complex zNormFinal = one.add(gamma).dividedBy(denom);
+        Complex finalImpedance = zNormFinal.multiply(z0);
+
+        double componentValue;
+
+        if (position == CircuitElement.ElementPosition.SERIES) {
+            Complex addedImpedance = finalImpedance.subtract(startImpedance);
+            double imagZ = addedImpedance.imag();
+
+            if (type == CircuitElement.ElementType.INDUCTOR) {
+                componentValue = imagZ / omega; // L = Im(Z) / ω
+            } else if (type == CircuitElement.ElementType.CAPACITOR) {
+                if (Math.abs(imagZ) < EPS) return null;
+                componentValue = -1.0 / (imagZ * omega); // C = -1/(Im(Z)*ω)
+            } else {
+                return null; // not handled (resistor etc.)
+            }
+        } else { // PARALLEL
+            if (Math.hypot(startImpedance.real(), startImpedance.imag()) < EPS ||
+                    Math.hypot(finalImpedance.real(), finalImpedance.imag()) < EPS) {
+                return null;
+            }
+
+            Complex startY = one.dividedBy(startImpedance);
+            Complex finalY = one.dividedBy(finalImpedance);
+            Complex addedY = finalY.subtract(startY);
+            double imagY = addedY.imag();
+
+            if (type == CircuitElement.ElementType.INDUCTOR) {
+                if (Math.abs(imagY) < EPS) return null;
+                componentValue = -1.0 / (imagY * omega); // L = -1/(Im(Y)*ω)
+            } else if (type == CircuitElement.ElementType.CAPACITOR) {
+                componentValue = imagY / omega; // C = Im(Y)/ω
+            } else {
+                return null;
+            }
+        }
+
+        if (!Double.isFinite(componentValue) || componentValue <= 0.0) return null;
+        return componentValue;
+    }
+
+    /**
+     * Calculates the final component value and adds it to the ViewModel.
+     */
+    private void finalizeMouseAddComponent() {
+        double z0 = viewModel.zo.get();
+        double freq = viewModel.frequency.get();
+
+        CircuitElement.ElementType type = typeComboBox.getValue();
+        CircuitElement.ElementPosition position = positionComboBox.getValue();
+
+        Double componentValue = calculateComponentValue(
+                snappedGammaForMouseAdd,
+                startImpedanceForMouseAdd,
+                type,
+                position,
+                z0,
+                freq
+        );
+
+        if (componentValue != null) {
+            viewModel.addComponent(type, componentValue, position);
+        }
+
+        resetMouseAddComponentState();
+    }
+
+    /**
+     * Resets the state and UI after finishing or canceling the operation.
+     */
+    private void cancelMouseAddComponent() {
+        resetMouseAddComponentState();
+        redrawCanvas(); // Redraw to remove any ghost path
+    }
+
+    private void resetMouseAddComponentState() {
+        isAddingMouseComponent = false;
+        startGammaForMouseAdd = null;
+        startImpedanceForMouseAdd = null;
+        addMouseButton.setText("Add with Mouse");
+        dataPointsTable.setMouseTransparent(false);
+        circleCenterForMouseAdd = null;
+        circleRadiusForMouseAdd = 0.0;
+        startAngleForMouseAdd = 0.0;
+        directionMultiplier = 0;
+        previousAngle = null;
+        allowedAngleTravel = null;
+        totalAngleTraveled = null;
     }
 
     /**
@@ -329,8 +557,6 @@ public class SmithController {
      * Creates the data-bindings between the View (FXML controls) and the ViewModel.
      */
     private void bindViewModel() {
-        // TODO: Uncomment and adapt these lines when your ViewModel is ready.
-
         dataPointsTable.itemsProperty().bind(viewModel.dataPointsProperty());
 
         // 2. Link each column to a property in the DataPoint model class
@@ -339,7 +565,6 @@ public class SmithController {
         vswrColumn.setCellValueFactory(cellData -> cellData.getValue().vswrProperty());
         returnLossColumn.setCellValueFactory(cellData -> cellData.getValue().returnLossProperty());
 
-        // 3. (Optional but Recommended) Add custom formatting for numbers and complex values
         impedanceColumn.setCellFactory(column -> new TableCell<>() {
             @Override
             protected void updateItem(Complex item, boolean empty) {
@@ -352,7 +577,7 @@ public class SmithController {
             }
         });
 
-        vswrColumn.setCellFactory(column -> new TableCell<>() {
+        vswrColumn.setCellFactory(_ -> new TableCell<>() {
             @Override
             protected void updateItem(Number item, boolean empty) {
                 super.updateItem(item, empty);
@@ -377,15 +602,7 @@ public class SmithController {
         });
 
         loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
-        freqLabel.textProperty().bind(Bindings.createStringBinding(() -> { //TODO FIX THIS AND PUT IT IN THE VIEWMODEL
-            double freq = viewModel.frequency.get();
-            return switch ((int) Math.log10(freq)) {
-                case 0, 1, 2 -> String.format("%.2f Hz", freq);
-                case 3, 4, 5 -> String.format("%.2f kHz", freq / 1_000);
-                case 6, 7, 8 -> String.format("%.2f MHz", freq / 1_000_000);
-                default -> String.format("%.2f GHz", freq / 1_000_000_000);
-            };
-        }, viewModel.frequency));
+        freqLabel.textProperty().bind(viewModel.frequencyProperty());
 
         viewModel.measuresGammaProperty().addListener((_, _, _) -> redrawCanvas());
 
@@ -714,16 +931,80 @@ public class SmithController {
         buttonSmithHBox.setManaged(isSelected); // Ensures layout adjusts when hidden
     }
 
+    @FXML
     public void onAddComponentMouse(ActionEvent actionEvent) {
 
-        //Magnetize the cursor on the last component added
+        //If we click on it again, exit
+        if (isAddingMouseComponent) {
+            cancelMouseAddComponent();
+            return;
+        }
+
         Complex lastGamma = viewModel.getLastGamma();
-        if (lastGamma == null) return; // Exit if there's no component yet
+        if (lastGamma == null) {
+            DialogFactory.showErrorAlert("Operation Failed", "Cannot add a component without a starting point.");
+            return;
+        }
 
-        moveCursorToGamma(lastGamma);
+        //Entering "mouse mode"
+        isAddingMouseComponent = true;
+        startGammaForMouseAdd = lastGamma;
+        startImpedanceForMouseAdd = viewModel.getLastImpedance();
+        snappedGammaForMouseAdd = lastGamma;
 
-        //Now check what type of value is selected and move accordingly depending on the value
+        addMouseButton.setText("Cancel (ESC)");
+        dataPointsTable.setMouseTransparent(true);
 
+        //Get the element's particularities
+        CircuitElement.ElementType type = typeComboBox.getValue();
+        CircuitElement.ElementPosition position = positionComboBox.getValue();
+        double z0 = viewModel.zo.get();
+
+        //Get direction (counter-clockwise or clockwise)
+        int baseDirection = (type == CircuitElement.ElementType.CAPACITOR) ? 1 : -1; // CCW for Cap, CW for Inductor
+        directionMultiplier = (position == CircuitElement.ElementPosition.SERIES) ? baseDirection : -baseDirection;
+
+        //Get the circle the mouse will follow when adding component
+        if (position == CircuitElement.ElementPosition.SERIES) {
+            Complex normalizedStart = startImpedanceForMouseAdd.dividedBy(z0);
+            double r = normalizedStart.real();
+            circleCenterForMouseAdd = new Complex(r / (r + 1), 0);
+            circleRadiusForMouseAdd = 1 / (r + 1);
+        } else { // PARALLEL
+            Complex startAdmittance = new Complex(z0, 0).dividedBy(startImpedanceForMouseAdd);
+            double g = startAdmittance.real();
+            circleCenterForMouseAdd = new Complex(-g / (g + 1), 0);
+            circleRadiusForMouseAdd = 1 / (g + 1);
+        }
+
+        //Get the angle from which the last gamma is to the circle that we're following
+        Complex startVector = startGammaForMouseAdd.subtract(circleCenterForMouseAdd);
+        startAngleForMouseAdd = startVector.angle();
+
+        //We want to only able to move until we arrive to either extremities of the X axis
+        Complex targetGamma = (position == CircuitElement.ElementPosition.SERIES)
+                ? new Complex(1, 0)  // Open Circuit
+                : new Complex(-1, 0); // Short Circuit
+
+        //Compute how much the user can move in angle
+        Complex targetVector = targetGamma.subtract(circleCenterForMouseAdd);
+        double endAngle = targetVector.angle();
+        double travel = endAngle - startAngleForMouseAdd;
+
+        if (directionMultiplier == 1) { // For CCW, we want the positive angle difference
+            while (travel <= 0) travel += 2 * Math.PI;
+        } else { // For CW, we want the negative angle difference, the abs it
+            while (travel >= 0) travel -= 2 * Math.PI;
+            travel = Math.abs(travel);
+        }
+        allowedAngleTravel = travel - 0.001; // Epsilon for floating-point safety
+
+        //Initialize state variables
+        previousAngle = null;
+        totalAngleTraveled = 0.0;
+
+        moveCursorToGamma(startGammaForMouseAdd);
+        smithCanvas.requestFocus();
     }
 
     /**
@@ -745,14 +1026,14 @@ public class SmithController {
         double finalCanvasX = (baseCanvasX * currentScale) + offsetX;
         double finalCanvasY = (baseCanvasY * currentScale) + offsetY;
 
-        // This finds the screen position of the top-left corner of the canvas...
+        // This finds the screen position of the top-left corner of the canvas
         javafx.geometry.Point2D canvasScreenPos = smithCanvas.localToScreen(0, 0);
 
-        // ...and we add our calculated canvas offsets to get the final screen position.
+        // We add our calculated canvas offsets to get the final screen position.
         int screenX = (int) (canvasScreenPos.getX() + finalCanvasX);
         int screenY = (int) (canvasScreenPos.getY() + finalCanvasY);
 
-        // 4. Move the cursor to the final screen position
+        // Move the cursor to the final screen position
         moveCursor(screenX, screenY);
     }
 
@@ -765,6 +1046,7 @@ public class SmithController {
      */
     private void moveCursor(int screenX, int screenY) {
         Platform.runLater(() -> {
+            isProgrammaticallyMovingCursor = true;
             Robot robot = new Robot();
             robot.mouseMove(screenX, screenY);
         });

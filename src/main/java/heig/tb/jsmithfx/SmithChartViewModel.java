@@ -5,6 +5,7 @@ import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
 import heig.tb.jsmithfx.utilities.Complex;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
@@ -16,7 +17,10 @@ import java.util.stream.Collectors;
 
 public class SmithChartViewModel {
 
-    public final DoubleProperty frequency = new SimpleDoubleProperty(1e9); // e.g., 1 GHz
+    public final DoubleProperty frequency = new SimpleDoubleProperty();
+    private final ReadOnlyStringWrapper frequencyText = new ReadOnlyStringWrapper("-");
+    public ReadOnlyStringProperty frequencyProperty() { return frequencyText.getReadOnlyProperty(); }
+
     public final DoubleProperty zo = new SimpleDoubleProperty(50.0);
     public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>(new Complex(50.0, 0.0));
     public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
@@ -58,7 +62,21 @@ public class SmithChartViewModel {
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> recalculateImpedanceChain());
-        frequency.addListener((_, _, _) -> recalculateImpedanceChain());
+        frequency.addListener((_, _, _) -> {
+            //Update the display for frequency
+            double freq = frequency.get();
+            String newFreqText =  switch ((int) Math.log10(freq)) {
+                case 0, 1, 2 -> String.format("%.2f Hz", freq);
+                case 3, 4, 5 -> String.format("%.2f kHz", freq / 1_000);
+                case 6, 7, 8 -> String.format("%.2f MHz", freq / 1_000_000);
+                default -> String.format("%.2f GHz", freq / 1_000_000_000);
+            };
+            frequencyText.set(newFreqText);
+            recalculateImpedanceChain();
+        });
+        //Set the initial frequency at 1GHz
+        frequency.set(1e9);
+
         loadImpedance.addListener((_, _, _) -> recalculateImpedanceChain());
 
         // When the list of derived impedances changes, automatically update the gamma values.
@@ -160,8 +178,22 @@ public class SmithChartViewModel {
         Complex one = new Complex(1, 0);
         Complex z0Complex = new Complex(zo.get(), 0);
 
+        Complex denominator = one.subtract(gamma);
+
+        // Check for open circuit condition (Gamma ≈ 1)
+        if (denominator.abs() < 1e-9) {
+            // Handle open circuit - set to very high impedance or infinity
+            mouseReturnLossText.set("0.00 dB");
+            mouseVSWRText.set("∞");
+            mouseQualityFactorText.set("∞");
+            mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.abs(), Math.toDegrees(gamma.angle())));
+            mouseAdmittanceYText.set("0.00 + j0.00 mS");
+            mouseImpedanceZText.set("∞");
+            return;
+        }
+
         // Calculate normalized impedance: Z_norm = (1 + Gamma) / (1 - Gamma)
-        Complex zNorm = one.add(gamma).dividedBy(one.subtract(gamma));
+        Complex zNorm = one.add(gamma).dividedBy(denominator);
 
         // Calculate characteristic impedance: Z = Z_norm * Z0
         Complex impedanceZ = zNorm.multiply(z0Complex);
@@ -262,5 +294,10 @@ public class SmithChartViewModel {
 
     public SimpleListProperty<DataPoint> dataPointsProperty() {
         return dataPoints;
+    }
+
+    public Complex getLastImpedance() {
+        if (dataPoints.isEmpty()) return null;
+        return dataPoints.getLast().impedanceProperty().get();
     }
 }
