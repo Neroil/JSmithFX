@@ -10,7 +10,6 @@ import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogFactory;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -32,26 +31,23 @@ import java.util.List;
 
 public class SmithController {
 
-
-    // --- Important values ---
+    //General important vars
     private final double thickLineValue = 1;
     private final double thinLineValue = 0.4;
     private Font LABEL_FONT = new Font("Arial", 10);
-    private boolean isAddingMouseComponent = false;
+
+    //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
     private Complex snappedGammaForMouseAdd;
-
-    // --- NEW/MODIFIED STATE VARIABLES for Mouse Add ---
     private Complex circleCenterForMouseAdd;
+    private boolean isAddingMouseComponent = false;
     private double circleRadiusForMouseAdd;
     private double startAngleForMouseAdd;
     private int directionMultiplier;
     private Double previousAngle;
     private Double allowedAngleTravel;
     private Double totalAngleTraveled;
-
-    // ---
 
     private boolean isProgrammaticallyMovingCursor = false;
 
@@ -119,48 +115,30 @@ public class SmithController {
     @FXML
     private TableColumn<DataPoint, Number> returnLossColumn;
 
+    //Viewmodel
+    private SmithChartViewModel viewModel;
 
-    // --- ViewModel ---
-    // The ViewModel is the brain of our UI. The controller just talks to it.
-    private SmithChartViewModel viewModel; // TODO: Replace with your actual ViewModel
-    // --- View State for Zoom and Pan ---
+    //View State for zooming and panning
     private double currentScale = 1.0;
     private double offsetX = 0.0;
     private double offsetY = 0.0;
-
-    // For panning
     private double lastMouseX = 0.0;
     private double lastMouseY = 0.0;
 
-    // For mouse information
-    private final double chartX = 0.0;
-    private final double chartY = 0.0;
-
     /**
      * This method is called by the FXMLLoader after the FXML file has been loaded.
-     * It's the perfect place to set up bindings and initialize the view.
      */
     @FXML
     public void initialize() {
-        // 1. Instantiate the ViewModel
-        this.viewModel = new SmithChartViewModel(); // TODO: Create this class
-
-        // 2. Make the Canvas Resizable (Crucial for a good UX)
+        this.viewModel = new SmithChartViewModel();
         setupResizableCanvas();
-
-        // 3. Populate UI Controls with Data
         setupControls();
-
-        // 4. Bind UI Components to ViewModel Properties (The heart of MVVM)
         bindViewModel();
+        redrawCanvas(); //Initial chart drawing
 
-        // 5. Perform the initial draw
-        redrawCanvas();
-
-        // Add a listener to track the selected item
         dataPointsTable.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> redrawCanvas());
 
-        //Listen to mouse information changes
+        //Bindings to display mouse related informations
         returnLossLabel.textProperty().bind(viewModel.mouseReturnLossTextProperty());
         vswrLabel.textProperty().bind(viewModel.mouseVSWRTextProperty());
         qLabel.textProperty().bind(viewModel.mouseQualityFactorTextProperty());
@@ -170,7 +148,6 @@ public class SmithController {
 
         //Enable editing of the values by double-clicking on them in the display point
         dataPointsTable.setOnMouseClicked(event -> {
-            //Double click to edit the value
             if (event.getClickCount() == 2) {
                 int selectedIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
 
@@ -230,7 +207,7 @@ public class SmithController {
             double mouseY = event.getY();
             double zoomFactor = 1.1;
 
-            double deltaY = event.getDeltaY();
+            double deltaY = event.getDeltaY(); //Check if it's zoom in or zoom out
 
             if (deltaY > 0) {
                 currentScale *= zoomFactor;
@@ -245,6 +222,7 @@ public class SmithController {
             event.consume();
         });
 
+        // Get the coordinates where we start the panning
         smithCanvas.setOnMousePressed(event -> {
             lastMouseX = event.getX();
             lastMouseY = event.getY();
@@ -265,10 +243,11 @@ public class SmithController {
             redrawCanvas();
         });
 
+        // Stuff that happens when we click on the chart
         smithCanvas.setOnMouseClicked(event -> {
-            if (isAddingMouseComponent){
+            if (isAddingMouseComponent){ //If we're adding a component and click, adds the component
                 finalizeMouseAddComponent();
-                event.consume();
+                event.consume(); //Consumes it so it's not used for other stuff
                 return;
             }
 
@@ -280,6 +259,7 @@ public class SmithController {
                 redrawCanvas();
             }
         });
+
 
         smithCanvas.setOnMouseMoved(event -> {
             double mouseX = event.getX();
@@ -303,7 +283,7 @@ public class SmithController {
             double relativeY = logicalY - centerY;
 
             double gammaX = relativeX / mainRadius;
-            double gammaY = -relativeY / mainRadius; // Invert Y-axis for standard mathematical representation
+            double gammaY = -relativeY / mainRadius;
 
             if (isAddingMouseComponent){
                 if (isProgrammaticallyMovingCursor) {
@@ -319,6 +299,7 @@ public class SmithController {
         });
 
         smithCanvas.setOnKeyPressed(event -> {
+            // Quit the component add event if we hit ESC
             if (isAddingMouseComponent && event.getCode() == KeyCode.ESCAPE) {
                 cancelMouseAddComponent();
             }
@@ -333,7 +314,7 @@ public class SmithController {
      * @param rawMouseGamma The unprocessed gamma from the mouse cursor's position.
      */
     private void handleMouseMagnetization(Complex rawMouseGamma) {
-        // 1. Get the current angle of the mouse relative to our circle's center
+        // Get the current angle of the mouse relative to the center of the circle it will follow
         Complex mouseVector = rawMouseGamma.subtract(circleCenterForMouseAdd);
         double mouseAngle = mouseVector.angle();
 
@@ -342,37 +323,35 @@ public class SmithController {
             previousAngle = startAngleForMouseAdd;
         }
 
-        // 2. Calculate the incremental angle change and normalize it
+        // Calculate the incremental angle change and normalize it
         double angleDifference = mouseAngle - previousAngle;
         while (angleDifference <= -Math.PI) angleDifference += 2 * Math.PI;
         while (angleDifference > Math.PI)  angleDifference -= 2 * Math.PI;
 
-        // --- GENERALIZED MOVEMENT LOGIC (for Capacitors and Inductors) ---
+        //Movement logic for Capacitors and Inductors
         if (typeComboBox.getValue() != CircuitElement.ElementType.RESISTOR) {
-            // 3. Convert angle change to "travel distance".
+            // Convert angle change to travel distance.
             // This is positive for correct movement, negative for incorrect.
             double incrementalTravel = angleDifference * directionMultiplier;
 
-            // 4. Tentatively update the total distance traveled from the start
+            // Update the total angle traveled
             double newTotalAngleTraveled = totalAngleTraveled + incrementalTravel;
 
-            // 5. Apply universal travel limits
             if (newTotalAngleTraveled < 0) {
-                // Moved backward past the start: snap back to the start
+                // Moved backward past the start, snap back to the start
                 mouseAngle = startAngleForMouseAdd;
                 totalAngleTraveled = 0.0;
             } else if (newTotalAngleTraveled > allowedAngleTravel) {
-                // Moved forward past the end: revert to the previous valid position
+                // Moved forward past the end, revert to the previous valid position
                 mouseAngle = previousAngle;
                 // totalAngleTraveled is not updated because the move was rejected
             } else {
-                // Movement is valid: update the total travel distance
+                // Movement is valid, update the total travel distance
                 totalAngleTraveled = newTotalAngleTraveled;
             }
         }
 
-        // --- UPDATE UI ---
-        // Calculate the new snapped gamma based on the (potentially corrected) angle
+        // Calculate the new snapped gamma based on the corrected angle
         snappedGammaForMouseAdd = circleCenterForMouseAdd.add(
                 new Complex(Math.cos(mouseAngle), Math.sin(mouseAngle)).multiply(circleRadiusForMouseAdd)
         );
@@ -380,6 +359,7 @@ public class SmithController {
         // Store the final angle for the next frame's calculation
         previousAngle = mouseAngle;
 
+        // Calculate the value of the component for displaying
         Double liveValue = calculateComponentValue(
                 snappedGammaForMouseAdd,
                 startImpedanceForMouseAdd,
@@ -389,6 +369,7 @@ public class SmithController {
                 viewModel.frequency.get()
         );
 
+        // Display the value correctly of the graphically measured component
         if (liveValue != null) {
             Pair<ElectronicUnit, String> result = SmithUtilities.getBestUnitAndFormattedValue(
                     liveValue,
@@ -403,6 +384,16 @@ public class SmithController {
         moveCursorToGamma(snappedGammaForMouseAdd);
     }
 
+    /**
+     * Calculates the value of the component we're plotting on the chart
+     * @param gamma position of the component on the chart
+     * @param startImpedance where the last component was
+     * @param type of the component (resistor, capacitor, etc.)
+     * @param position if the component is in series or parallel
+     * @param z0 the base impedance
+     * @param frequency of the circuit
+     * @return the calculated value of the component
+     */
     private Double calculateComponentValue(Complex gamma,
                                            Complex startImpedance,
                                            CircuitElement.ElementType type,
@@ -437,7 +428,7 @@ public class SmithController {
                 if (Math.abs(imagZ) < EPS) return null;
                 componentValue = -1.0 / (imagZ * omega); // C = -1/(Im(Z)*ω)
             } else {
-                return null; // not handled (resistor etc.)
+                return null; // TODO: HANDLE THE OTHER POSSIBLE COMPONENTS
             }
         } else { // PARALLEL
             if (Math.hypot(startImpedance.real(), startImpedance.imag()) < EPS ||
@@ -456,7 +447,7 @@ public class SmithController {
             } else if (type == CircuitElement.ElementType.CAPACITOR) {
                 componentValue = imagY / omega; // C = Im(Y)/ω
             } else {
-                return null;
+                return null; // TODO: HANDLE THE OTHER POSSIBLE COMPONENTS
             }
         }
 
@@ -495,9 +486,12 @@ public class SmithController {
      */
     private void cancelMouseAddComponent() {
         resetMouseAddComponentState();
-        redrawCanvas(); // Redraw to remove any ghost path
+        redrawCanvas();
     }
 
+    /**
+     * Resets every variables and elements related to the mouse add component event
+     */
     private void resetMouseAddComponentState() {
         isAddingMouseComponent = false;
         startGammaForMouseAdd = null;
@@ -517,7 +511,7 @@ public class SmithController {
      * Updates the font size for the Smith chart labels based on the canvas size.
      */
     private void updateFontSize() {
-        double newFontSize = Math.min(smithCanvas.getWidth(), smithCanvas.getHeight()) / 60; // Adjust divisor as needed
+        double newFontSize = Math.min(smithCanvas.getWidth(), smithCanvas.getHeight()) / 60;
         LABEL_FONT = new Font("Arial", newFontSize);
     }
 
@@ -546,6 +540,10 @@ public class SmithController {
 
     }
 
+    /**
+     * Populates the unit combo box with the given enum
+     * @param unitEnum must be an ElectronicUnit derived enum to make sense
+     */
     private void updateUnitComboBox(Class<? extends Enum<?>> unitEnum) {
         unitComboBox.getItems().clear();
         unitComboBox.getItems().addAll(unitEnum.getEnumConstants());
@@ -558,8 +556,6 @@ public class SmithController {
      */
     private void bindViewModel() {
         dataPointsTable.itemsProperty().bind(viewModel.dataPointsProperty());
-
-        // 2. Link each column to a property in the DataPoint model class
         labelColumn.setCellValueFactory(cellData -> cellData.getValue().labelProperty());
         impedanceColumn.setCellValueFactory(cellData -> cellData.getValue().impedanceProperty());
         vswrColumn.setCellValueFactory(cellData -> cellData.getValue().vswrProperty());
@@ -608,6 +604,9 @@ public class SmithController {
 
     }
 
+    /**
+     * Logic needed when we add a component using the keyboard (and not the mouse)
+     */
     @FXML
     protected void onAddComponent() {
         try {
@@ -655,11 +654,6 @@ public class SmithController {
         gc.restore();
     }
 
-
-    /**
-     * Draws the static background grid of the Smith Chart.
-     * @param gc The GraphicsContext of the canvas.
-     */
     /**
      * Draws the static background grid of the Smith Chart.
      *
@@ -672,7 +666,7 @@ public class SmithController {
         double centerY = height / 2;
         double mainRadius = Math.min(centerX, centerY) - 10;
 
-        // --- 1. Save the current graphics state and apply clipping ---
+        //Save the current graphics state and apply clipping so the lines don't get out of the circle of the chart
         gc.save();
         gc.beginPath();
         gc.arc(centerX, centerY, mainRadius, mainRadius, 0, 360);
@@ -681,25 +675,24 @@ public class SmithController {
 
         gc.setLineWidth(1);
 
-        // --- Draw the Outer Circle (r=0, g=0) ---
+        // Draw the Outer Circle (r=0, g=0)
         gc.setStroke(Color.GRAY);
         gc.strokeOval(centerX - mainRadius, centerY - mainRadius, mainRadius * 2, mainRadius * 2);
 
-        // --- Draw the Horizontal Line (x=0, b=0) ---
+        // Draw the Horizontal Line (x=0, b=0)
         gc.strokeLine(centerX - mainRadius, centerY, centerX + mainRadius, centerY);
 
         double[] stepValues = {0.2, 0.5, 1.0, 2.0, 4.0, 10.0};
 
-        // --- ADMITTANCE (Y) GRID ---
-        // First draw the admittance
-        gc.setLineWidth(thinLineValue);
+        // ADMITTANCE (Y) GRID
 
         // Draw Constant Conductance (g) Circles
+        gc.setLineWidth(thinLineValue);
         gc.setStroke(Color.CORNFLOWERBLUE);
         for (double g : stepValues) {
             double circleRadius = mainRadius / (g + 1);
             double circleCenterX = centerX - mainRadius * g / (g + 1);
-            if (g == 1) gc.setLineWidth(thickLineValue); //If
+            if (g == 1) gc.setLineWidth(thickLineValue); //If it's the circle that leads to the center of the chart, making the line thicker
             gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
             if (g == 1) gc.setLineWidth(thinLineValue);
 
@@ -721,16 +714,13 @@ public class SmithController {
             gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
         }
 
-        // --- IMPEDANCE (X) GRID ---
-        // Then draw the impedance chart
-
-
+        // IMPEDANCE (X) GRID
         // Draw Constant Resistance (r) Circles
         gc.setStroke(Color.CORAL); // Color for resistance
         for (double r : stepValues) {
             double circleRadius = mainRadius / (r + 1);
             double circleCenterX = centerX + mainRadius * r / (r + 1);
-            if (r == 1) gc.setLineWidth(thickLineValue);
+            if (r == 1) gc.setLineWidth(thickLineValue); //Same logic than for the admittance
             gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
             if (r == 1) gc.setLineWidth(thinLineValue);
 
@@ -755,7 +745,7 @@ public class SmithController {
         //Restore the graphics state to remove the clipping
         gc.restore();
 
-        //Draw the labels on the outside of the circle
+        //Draw the labels on the circles reprensenting the values
         for (double b : stepValues) {
             double angle = 2 * Math.atan(1.0 / b);
             double labelX = centerX + mainRadius * Math.cos(Math.PI - angle);
@@ -845,7 +835,7 @@ public class SmithController {
 
         // Draw the text
         gc.setFill(color);
-        gc.fillText(text, x, y + fontSize / 3); // Adjust y for vertical centering
+        gc.fillText(text, x, y + fontSize / 3);
     }
 
     /**
@@ -862,6 +852,10 @@ public class SmithController {
         // gc.strokeLine(startPointX, startPointY, endPointX, endPointY);
     }
 
+    /**
+     * Set what will be the center point of the chart
+     * @param actionEvent unused here
+     */
     public void setCharacteristicImpedance(ActionEvent actionEvent) {
         DialogFactory.showDoubleInputDialog("Characteristic Impedance", "Enter Zo (Ohms):", viewModel.zo.get())
                 .ifPresent(zo -> {
@@ -873,6 +867,7 @@ public class SmithController {
                     }
                 });
     }
+
 
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
@@ -946,7 +941,7 @@ public class SmithController {
             return;
         }
 
-        //Entering "mouse mode"
+        //Entering mouse mode
         isAddingMouseComponent = true;
         startGammaForMouseAdd = lastGamma;
         startImpedanceForMouseAdd = viewModel.getLastImpedance();
