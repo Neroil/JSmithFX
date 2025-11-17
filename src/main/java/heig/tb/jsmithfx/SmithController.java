@@ -21,6 +21,7 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.robot.Robot;
@@ -169,7 +170,8 @@ public class SmithController {
 
             {
                 deleteButton.setOnAction(_ -> {
-                    viewModel.removeComponentAt(getIndex() - 1); //-1 since the load is in a different container
+                    dataPointsTable.getSelectionModel().clearSelection();
+                    viewModel.removeComponentAt(getIndex() - 1);
                 });
             }
 
@@ -255,7 +257,7 @@ public class SmithController {
 
         // Stuff that happens when we click on the chart
         smithCanvas.setOnMouseClicked(event -> {
-            if (isAddingMouseComponent) { //If we're adding a component and click, adds the component
+            if (isAddingMouseComponent && event.getButton() == MouseButton.PRIMARY ) { //If we're adding a component and click, adds the component
                 finalizeMouseAddComponent();
                 event.consume(); //Consumes it so it's not used for other stuff
                 return;

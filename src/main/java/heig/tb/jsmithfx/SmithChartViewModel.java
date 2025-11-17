@@ -283,6 +283,8 @@ public class SmithChartViewModel {
      */
     void removeComponentAt(int index){
         try{
+            if (index < 0 || index >= circuitElements.size()) return; //Boundary check
+
             CircuitElement removed = circuitElements.get(index);
             circuitElements.remove(index);
 

@@ -276,6 +276,12 @@ public class SmithChartRenderer {
         Complex previousGamma = gammas.getFirst();
 
         for (int i = 1; i < gammas.size(); i++) {
+
+            if (i - 1 >= viewModel.circuitElements.size()) {
+                System.out.println("an oopsie has happened apparently");
+                break; // Exit loop if circuitElements is smaller than expected
+            }
+
             Complex currGamma = gammas.get(i);
 
             // For each transition, determine the arc's circle center
