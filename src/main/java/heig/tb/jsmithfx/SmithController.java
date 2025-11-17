@@ -2,6 +2,9 @@ package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
+import heig.tb.jsmithfx.model.Element.Capacitor;
+import heig.tb.jsmithfx.model.Element.Inductor;
+import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
@@ -333,28 +336,27 @@ public class SmithController {
         while (angleDifference <= -Math.PI) angleDifference += 2 * Math.PI;
         while (angleDifference > Math.PI) angleDifference -= 2 * Math.PI;
 
-        //Movement logic for Capacitors and Inductors
-        if (typeComboBox.getValue() != CircuitElement.ElementType.RESISTOR) {
-            // Convert angle change to travel distance.
-            // This is positive for correct movement, negative for incorrect.
-            double incrementalTravel = angleDifference * directionMultiplier;
 
-            // Update the total angle traveled
-            double newTotalAngleTraveled = totalAngleTraveled + incrementalTravel;
+       // Convert angle change to travel distance.
+       // This is positive for correct movement, negative for incorrect.
+       double incrementalTravel = angleDifference * directionMultiplier;
 
-            if (newTotalAngleTraveled < 0) {
-                // Moved backward past the start, snap back to the start
-                mouseAngle = startAngleForMouseAdd;
-                totalAngleTraveled = 0.0;
-            } else if (newTotalAngleTraveled > allowedAngleTravel) {
-                // Moved forward past the end, revert to the previous valid position
-                mouseAngle = previousAngle;
-                // totalAngleTraveled is not updated because the move was rejected
-            } else {
-                // Movement is valid, update the total travel distance
-                totalAngleTraveled = newTotalAngleTraveled;
-            }
-        }
+       // Update the total angle traveled
+       double newTotalAngleTraveled = totalAngleTraveled + incrementalTravel;
+
+       if (newTotalAngleTraveled < 0) {
+           // Moved backward past the start, snap back to the start
+           mouseAngle = startAngleForMouseAdd;
+           totalAngleTraveled = 0.0;
+       } else if (newTotalAngleTraveled > allowedAngleTravel) {
+           // Moved forward past the end, revert to the previous valid position
+           mouseAngle = previousAngle;
+           // totalAngleTraveled is not updated because the move was rejected
+       } else {
+           // Movement is valid, update the total travel distance
+           totalAngleTraveled = newTotalAngleTraveled;
+       }
+
 
         // Calculate the new snapped gamma based on the corrected angle
         snappedGammaForMouseAdd = circleCenterForMouseAdd.add(
@@ -433,9 +435,9 @@ public class SmithController {
             } else if (type == CircuitElement.ElementType.CAPACITOR) {
                 if (Math.abs(imagZ) < EPS) return null;
                 componentValue = -1.0 / (imagZ * omega); // C = -1/(Im(Z)*ω)
-            } else {
-                return null; // TODO: HANDLE THE OTHER POSSIBLE COMPONENTS
-            }
+            } else if (type == CircuitElement.ElementType.RESISTOR) {
+                componentValue = addedImpedance.real(); // R = Re(Z)
+            } else return null;
         } else { // PARALLEL
             if (Math.hypot(startImpedance.real(), startImpedance.imag()) < EPS ||
                     Math.hypot(finalImpedance.real(), finalImpedance.imag()) < EPS) {
@@ -452,9 +454,9 @@ public class SmithController {
                 componentValue = -1.0 / (imagY * omega); // L = -1/(Im(Y)*ω)
             } else if (type == CircuitElement.ElementType.CAPACITOR) {
                 componentValue = imagY / omega; // C = Im(Y)/ω
-            } else {
-                return null; // TODO: HANDLE THE OTHER POSSIBLE COMPONENTS
-            }
+            } else if (type == CircuitElement.ElementType.RESISTOR) {
+                componentValue = 1.0 / addedY.real(); // R = 1/Re(ΔY)
+            } else return null;
         }
 
         if (!Double.isFinite(componentValue) || componentValue <= 0.0) return null;
@@ -747,21 +749,19 @@ public class SmithController {
         double z0 = viewModel.zo.get();
 
         //Get direction (counter-clockwise or clockwise)
-        int baseDirection = (type == CircuitElement.ElementType.CAPACITOR) ? 1 : -1; // CCW for Cap, CW for Inductor
+        int baseDirection = (type == CircuitElement.ElementType.CAPACITOR || type == CircuitElement.ElementType.RESISTOR) ? 1 : -1; // CCW for Cap, CW for Inductor
         directionMultiplier = (position == CircuitElement.ElementPosition.SERIES) ? baseDirection : -baseDirection;
 
-        //Get the circle the mouse will follow when adding component
-        if (position == CircuitElement.ElementPosition.SERIES) {
-            Complex normalizedStart = startImpedanceForMouseAdd.dividedBy(z0);
-            double r = normalizedStart.real();
-            circleCenterForMouseAdd = new Complex(r / (r + 1), 0);
-            circleRadiusForMouseAdd = 1 / (r + 1);
-        } else { // PARALLEL
-            Complex startAdmittance = new Complex(z0, 0).dividedBy(startImpedanceForMouseAdd);
-            double g = startAdmittance.real();
-            circleCenterForMouseAdd = new Complex(-g / (g + 1), 0);
-            circleRadiusForMouseAdd = 1 / (g + 1);
-        }
+        // Create a temporary element to pass to the utility method
+        CircuitElement tempElement = switch (type) {
+            case INDUCTOR -> new Inductor(0,position,type);
+            case CAPACITOR ->  new Capacitor(0,position,type);
+            case RESISTOR ->  new Resistor(0,position,type);
+        };
+
+        Pair<Complex, Double> arcParams = SmithUtilities.getArcParameters(startImpedanceForMouseAdd, tempElement, z0);
+        circleCenterForMouseAdd = arcParams.getKey();
+        circleRadiusForMouseAdd = arcParams.getValue();
 
         //Get the angle from which the last gamma is to the circle that we're following
         Complex startVector = startGammaForMouseAdd.subtract(circleCenterForMouseAdd);

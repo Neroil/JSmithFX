@@ -9,6 +9,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
+import javafx.util.Pair;
 
 import java.util.List;
 
@@ -279,11 +280,11 @@ public class SmithChartRenderer {
 
             // For each transition, determine the arc's circle center
             CircuitElement element = viewModel.circuitElements.get(i - 1);
-            Complex arcCenter = getArcCenter(previousGamma, element, viewModel);
+            Complex startImpedance = SmithUtilities.gammaToImpedance(previousGamma, viewModel.zo.get());
+            Pair<Complex, Double> arcParams = SmithUtilities.getArcParameters(startImpedance, element, viewModel.zo.get());
 
-            // Calculate arc radius in canvas coordinates
-            Complex radiusVector = previousGamma.subtract(arcCenter);
-            double arcRadius = radiusVector.abs() * mainRadius;
+            Complex arcCenter = arcParams.getKey();
+            double arcRadius = arcParams.getValue() * mainRadius;
 
             // Convert arc center to canvas coordinates
             double arcCenterX = centerX + arcCenter.real() * mainRadius;
@@ -322,39 +323,5 @@ public class SmithChartRenderer {
         }
 
         gc.restore();
-    }
-
-    private Complex getArcCenter(Complex gamma, CircuitElement element, SmithChartViewModel viewModel) {
-        Complex impedance = SmithUtilities.gammaToImpedance(gamma, viewModel.zo.get());
-
-        if (element.getType() != CircuitElement.ElementType.RESISTOR){
-            if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
-                double r = impedance.real() / viewModel.zo.get();
-                return new Complex(r / (r + 1), 0);
-            } else { // PARALLEL
-                Complex admittance = new Complex(viewModel.zo.get(), 0).dividedBy(impedance);
-                double g = admittance.real();
-                return new Complex(-g / (g + 1), 0);
-            }
-        } else { //Resistor
-            if(element.getPosition() == CircuitElement.ElementPosition.SERIES){
-                Complex normalizedImpedance = impedance.dividedBy(new Complex(viewModel.zo.get(), 0));
-
-                double x = normalizedImpedance.imag();
-
-                if (Math.abs(x) < 1e-9) {
-                    return new Complex(1, 1e12);
-                }
-                return new Complex(1.0,1.0 / x);
-            } else { //Parallel
-                Complex admittance = new Complex(1.0, 0).dividedBy(impedance);
-                Complex normalizedAdmittance = admittance.multiply(new Complex(viewModel.zo.get(), 0));
-                double b = normalizedAdmittance.imag();
-                if (Math.abs(b) < 1e-9) {
-                    return new Complex(-1, 1e12);
-                }
-                return new Complex(-1.0,-1.0 / b);
-            }
-        }
     }
 }

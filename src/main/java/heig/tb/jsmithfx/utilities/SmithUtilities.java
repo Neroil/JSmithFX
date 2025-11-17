@@ -1,5 +1,6 @@
 package heig.tb.jsmithfx.utilities;
 
+import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import javafx.util.Pair;
 
@@ -56,5 +57,48 @@ public class SmithUtilities {
         Complex numerator = one.add(gamma);
         Complex denominator = one.subtract(gamma);
         return numerator.dividedBy(denominator).multiply(z0);
+    }
+
+    /**
+     * Calculates the center and radius (in the gamma plane) of the arc
+     * corresponding to adding a circuit element.
+     *
+     * @param startImpedance The impedance before adding the element.
+     * @param element        The circuit element being added.
+     * @param z0             The characteristic impedance.
+     * @return A Pair containing the arc's center (Complex) and radius (Double).
+     */
+    public static Pair<Complex, Double> getArcParameters(Complex startImpedance, CircuitElement element, double z0) {
+        Complex center;
+        double radius;
+
+        Complex zNorm = startImpedance.dividedBy(z0);
+
+        if (element.getType() == CircuitElement.ElementType.RESISTOR) {
+            // Constant Reactance (Series) or Susceptance (Parallel) Circles
+            if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
+                double x = zNorm.imag();
+                center = new Complex(1.0, 1.0 / x);
+                radius = Math.abs(1.0 / x);
+            } else { // PARALLEL
+                Complex yNorm = new Complex(1.0, 0).dividedBy(zNorm);
+                double b = yNorm.imag();
+                center = new Complex(-1.0, -1.0 / b);
+                radius = Math.abs(1.0 / b);
+            }
+        } else {
+            // Constant Resistance (Series) or Conductance (Parallel) Circles
+            if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
+                double r = zNorm.real();
+                center = new Complex(r / (r + 1.0), 0);
+                radius = 1.0 / (r + 1.0);
+            } else { // PARALLEL
+                Complex yNorm = new Complex(1.0, 0).dividedBy(zNorm);
+                double g = yNorm.real();
+                center = new Complex(-g / (g + 1.0), 0);
+                radius = 1.0 / (g + 1.0);
+            }
+        }
+        return new Pair<>(center, radius);
     }
 }
