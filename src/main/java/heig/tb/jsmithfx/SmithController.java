@@ -132,7 +132,7 @@ public class SmithController {
 
         dataPointsTable.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> redrawCanvas());
 
-        //Bindings to display mouse related informations
+        //Bindings to display mouse related information
         returnLossLabel.textProperty().bind(viewModel.mouseReturnLossTextProperty());
         vswrLabel.textProperty().bind(viewModel.mouseVSWRTextProperty());
         qLabel.textProperty().bind(viewModel.mouseQualityFactorTextProperty());
@@ -638,6 +638,7 @@ public class SmithController {
         if (smithChartRenderer != null) {
             int selectedIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
             smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, selectedIndex);
+
         }
     }
 

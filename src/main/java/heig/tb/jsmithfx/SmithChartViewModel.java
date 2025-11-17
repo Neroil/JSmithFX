@@ -4,6 +4,7 @@ import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
+import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.*;
@@ -85,6 +86,17 @@ public class SmithChartViewModel {
             frequencyText.set(newFreqText);
             recalculateImpedanceChain();
         });
+
+        circuitElements.addListener((ListChangeListener<CircuitElement>) change -> {
+            while (change.next()) {
+                if (change.wasAdded()) {
+                    for (CircuitElement elem : change.getAddedSubList()) {
+                        elem.realWorldValueProperty().addListener((_, _, _) -> recalculateImpedanceChain());
+                    }
+                }
+            }
+        });
+
         //Set the initial frequency at 1GHz
         frequency.set(1e9);
 
@@ -250,7 +262,7 @@ public class SmithChartViewModel {
         CircuitElement newElem = switch (type) {
             case INDUCTOR -> new Inductor(value, position, type);
             case CAPACITOR -> new Capacitor(value, position, type);
-            case RESISTOR -> null; //TODO MAKE THE OTHER CIRCUIT COMPONENTS
+            case RESISTOR -> new Resistor(value, position, type);
         };
 
         if (newElem == null) return;

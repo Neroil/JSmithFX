@@ -327,13 +327,34 @@ public class SmithChartRenderer {
     private Complex getArcCenter(Complex gamma, CircuitElement element, SmithChartViewModel viewModel) {
         Complex impedance = SmithUtilities.gammaToImpedance(gamma, viewModel.zo.get());
 
-        if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
-            double r = impedance.real() / viewModel.zo.get();
-            return new Complex(r / (r + 1), 0);
-        } else { // PARALLEL
-            Complex admittance = new Complex(viewModel.zo.get(), 0).dividedBy(impedance);
-            double g = admittance.real();
-            return new Complex(-g / (g + 1), 0);
+        if (element.getType() != CircuitElement.ElementType.RESISTOR){
+            if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
+                double r = impedance.real() / viewModel.zo.get();
+                return new Complex(r / (r + 1), 0);
+            } else { // PARALLEL
+                Complex admittance = new Complex(viewModel.zo.get(), 0).dividedBy(impedance);
+                double g = admittance.real();
+                return new Complex(-g / (g + 1), 0);
+            }
+        } else { //Resistor
+            if(element.getPosition() == CircuitElement.ElementPosition.SERIES){
+                Complex normalizedImpedance = impedance.dividedBy(new Complex(viewModel.zo.get(), 0));
+
+                double x = normalizedImpedance.imag();
+
+                if (Math.abs(x) < 1e-9) {
+                    return new Complex(1, 1e12);
+                }
+                return new Complex(1.0,1.0 / x);
+            } else { //Parallel
+                Complex admittance = new Complex(1.0, 0).dividedBy(impedance);
+                Complex normalizedAdmittance = admittance.multiply(new Complex(viewModel.zo.get(), 0));
+                double b = normalizedAdmittance.imag();
+                if (Math.abs(b) < 1e-9) {
+                    return new Complex(-1, 1e12);
+                }
+                return new Complex(-1.0,-1.0 / b);
+            }
         }
     }
 }

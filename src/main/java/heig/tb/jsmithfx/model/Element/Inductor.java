@@ -11,11 +11,11 @@ public class Inductor extends CircuitElement {
 
     @Override
     public Complex getImpedance(double frequency) {
-        if (realWorldValue == 0 || frequency == 0) {
+        if (getRealWorldValue() == 0 || frequency == 0) {
             return new Complex(0, 0); // Short circuit for zero inductance or frequency
         }
         // X_L = 2 * pi * f * L
-        return new Complex(0, 2 * Math.PI * frequency * realWorldValue);
+        return new Complex(0, 2 * Math.PI * frequency * getRealWorldValue());
     }
 
     @Override
