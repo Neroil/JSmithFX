@@ -50,4 +50,11 @@ public class SmithUtilities {
 
         return new Pair<>(smallestUnit, formattedValue);
     }
+
+    public static Complex gammaToImpedance(Complex gamma, double z0) {
+        Complex one = new Complex(1, 0);
+        Complex numerator = one.add(gamma);
+        Complex denominator = one.subtract(gamma);
+        return numerator.dividedBy(denominator).multiply(z0);
+    }
 }

@@ -9,8 +9,12 @@ import javafx.beans.binding.Bindings;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.util.Pair;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -22,7 +26,7 @@ public class SmithChartViewModel {
     public ReadOnlyStringProperty frequencyProperty() { return frequencyText.getReadOnlyProperty(); }
 
     public final DoubleProperty zo = new SimpleDoubleProperty(50.0);
-    public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>(new Complex(50.0, 0.0));
+    public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>(new Complex(zo.get() * 2, zo.get() * 3));
     public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
 
     // A list of different datapoints
@@ -56,6 +60,13 @@ public class SmithChartViewModel {
     public ReadOnlyStringProperty mouseGammaTextProperty() { return mouseGammaText.getReadOnlyProperty(); }
     public ReadOnlyStringProperty mouseAdmittanceYTextProperty() { return mouseAdmittanceYText.getReadOnlyProperty(); }
     public ReadOnlyStringProperty mouseImpedanceZTextProperty() { return mouseImpedanceZText.getReadOnlyProperty(); }
+
+    // Undo Redo logic
+    private enum Operation { ADD, REMOVE }
+    private final Stack<UndoRedoEntry> undoStack = new Stack<>();
+    private final Stack<UndoRedoEntry> redoStack = new Stack<>();
+
+    private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {}
 
 
 
@@ -244,7 +255,13 @@ public class SmithChartViewModel {
 
         if (newElem == null) return;
 
+        int index = circuitElements.size();
         circuitElements.add(newElem);
+
+        // Record the ADD operation
+        undoStack.push(new UndoRedoEntry(Operation.ADD, index, newElem));
+        redoStack.clear(); // New action clears redo history
+
         recalculateImpedanceChain();
     }
 
@@ -254,7 +271,13 @@ public class SmithChartViewModel {
      */
     void removeComponentAt(int index){
         try{
+            CircuitElement removed = circuitElements.get(index);
             circuitElements.remove(index);
+
+            // Record the REMOVE operation
+            undoStack.push(new UndoRedoEntry(Operation.REMOVE, index, removed));
+            redoStack.clear(); // New action clears redo history
+
             recalculateImpedanceChain();
         } catch (ArrayIndexOutOfBoundsException e){
             Logger.getLogger("Error").log(Level.SEVERE, e.getMessage());
@@ -299,5 +322,41 @@ public class SmithChartViewModel {
     public Complex getLastImpedance() {
         if (dataPoints.isEmpty()) return null;
         return dataPoints.getLast().impedanceProperty().get();
+    }
+
+    /**
+     * Undo logic for the components ONLY
+     */
+    public void undo() {
+        if (undoStack.isEmpty()) return;
+
+        UndoRedoEntry entry = undoStack.pop();
+
+        if (entry.operation == Operation.ADD) {
+            circuitElements.remove(entry.index);
+        } else { // Operation.REMOVE
+            circuitElements.add(entry.index, entry.element);
+        }
+
+        redoStack.push(entry);
+        recalculateImpedanceChain();
+    }
+
+    /**
+     * Redo logic for the components ONLY
+     */
+    public void redo() {
+        if (redoStack.isEmpty()) return;
+
+        UndoRedoEntry entry = redoStack.pop();
+
+        if (entry.operation == Operation.ADD) {
+            circuitElements.add(entry.index, entry.element);
+        } else { // Operation.REMOVE
+            circuitElements.remove(entry.index);
+        }
+
+        undoStack.push(entry);
+        recalculateImpedanceChain();
     }
 }

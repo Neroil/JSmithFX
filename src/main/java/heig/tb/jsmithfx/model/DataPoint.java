@@ -21,7 +21,7 @@ public class DataPoint {
         this.returnLoss = new SimpleDoubleProperty(returnLoss);
     }
 
-    // --- JavaFX Property Getters ---
+    // JavaFX Property Getters
     public SimpleStringProperty labelProperty() { return label; }
     public SimpleObjectProperty<Complex> impedanceProperty() { return impedance; }
     public SimpleObjectProperty<Complex> gammaProperty() { return gamma; }

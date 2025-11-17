@@ -53,6 +53,10 @@ public abstract class CircuitElement {
         return this.elementType;
     }
 
+    public ElementPosition getPosition() {
+        return this.elementPosition;
+    }
+
     protected CircuitElement(double realWorldValue, ElementPosition elementPosition,  ElementType elementType) {
         this.realWorldValue = realWorldValue;
         this.elementPosition = elementPosition;

@@ -24,4 +24,6 @@ module heig.tb.jsmithfx {
     opens heig.tb.jsmithfx.utilities to javafx.fxml;
     exports heig.tb.jsmithfx.model;
     opens heig.tb.jsmithfx.model to javafx.fxml;
+    exports heig.tb.jsmithfx.model.Element.TypicalUnit;
+    opens heig.tb.jsmithfx.model.Element.TypicalUnit to javafx.fxml;
 }

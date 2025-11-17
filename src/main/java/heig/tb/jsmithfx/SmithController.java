@@ -13,6 +13,7 @@ import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -125,6 +126,7 @@ public class SmithController {
     private double lastMouseX = 0.0;
     private double lastMouseY = 0.0;
 
+
     /**
      * This method is called by the FXMLLoader after the FXML file has been loaded.
      */
@@ -184,6 +186,23 @@ public class SmithController {
                     setAlignment(Pos.CENTER);
                 }
             }
+        });
+
+        //Enable CTRL Z (undo) and CTRL Y (redo)
+        Platform.runLater(() -> {
+            smithCanvas.getScene().setOnKeyPressed(event -> {
+                if (event.isControlDown()) {
+                    if (event.getCode() == KeyCode.Z) {
+                        // Undo logic
+                        viewModel.undo();
+                        event.consume();
+                    } else if (event.getCode() == KeyCode.Y) {
+                        // Redo logic
+                        viewModel.redo();
+                        event.consume();
+                    }
+                }
+            });
         });
     }
 
@@ -648,6 +667,8 @@ public class SmithController {
 
         // Draw the static parts of the chart
         drawSmithGrid(gc);
+        // Draw the path between the impedances
+        drawImpedancePath(gc);
         // Draw the impedances
         drawImpedancePoints(gc);
 
@@ -842,14 +863,90 @@ public class SmithController {
      * Draws the impedance path on the chart based on the circuit elements.
      *
      * @param gc   The GraphicsContext of the canvas.
-     * @param path A list of complex impedance points to draw.
      */
-    private void drawImpedancePath(GraphicsContext gc /*, List<Complex> path */) {
-        // TODO: Loop through the list of points from the ViewModel
-        // and draw lines/arcs connecting them.
+    private void drawImpedancePath(GraphicsContext gc) {
+        List<Complex> gammas = viewModel.measuresGammaProperty().get();
+        if (gammas == null || gammas.size() < 2) return;
+
+        double width = smithCanvas.getWidth();
+        double height = smithCanvas.getHeight();
+        double centerX = width / 2.0;
+        double centerY = height / 2.0;
+        double mainRadius = Math.min(centerX, centerY) - 10;
+
+        // Clip to the Smith circle so lines don't spill outside
+        gc.save();
+        gc.beginPath();
+        gc.arc(centerX, centerY, mainRadius, mainRadius, 0, 360);
+        gc.closePath();
+        gc.clip();
+
         gc.setStroke(Color.RED);
         gc.setLineWidth(2);
-        // gc.strokeLine(startPointX, startPointY, endPointX, endPointY);
+
+        Complex previousGamma = gammas.getFirst();
+
+        for (int i = 1; i < gammas.size(); i++) {
+            Complex currGamma = gammas.get(i);
+
+            // For each transition, determine the arc's circle center
+            CircuitElement element = viewModel.circuitElements.get(i - 1);
+            Complex arcCenter = getArcCenter(previousGamma, element);
+
+            // Calculate arc radius in canvas coordinates
+            Complex radiusVector = previousGamma.subtract(arcCenter);
+            double arcRadius = radiusVector.abs() * mainRadius;
+
+            // Convert arc center to canvas coordinates
+            double arcCenterX = centerX + arcCenter.real() * mainRadius;
+            double arcCenterY = centerY - arcCenter.imag() * mainRadius;
+
+            // Calculate start and end angles
+            double startAngle = Math.toDegrees(Math.atan2(
+                    previousGamma.imag() - arcCenter.imag(),
+                    previousGamma.real() - arcCenter.real()
+            ));
+
+            double endAngle = Math.toDegrees(Math.atan2(
+                    currGamma.imag() - arcCenter.imag(),
+                    currGamma.real() - arcCenter.real()
+            ));
+
+            // Calculate arc extent (angle swept)
+            double arcExtent = endAngle - startAngle;
+
+            // Normalize to sweep in the correct direction
+            if (arcExtent > 180) arcExtent -= 360;
+            if (arcExtent < -180) arcExtent += 360;
+
+            // Draw the arc
+            gc.strokeArc(
+                    arcCenterX - arcRadius,
+                    arcCenterY - arcRadius,
+                    arcRadius * 2,
+                    arcRadius * 2,
+                    startAngle,
+                    arcExtent,
+                    javafx.scene.shape.ArcType.OPEN
+            );
+
+            previousGamma = currGamma;
+        }
+
+        gc.restore();
+    }
+
+    private Complex getArcCenter(Complex gamma, CircuitElement element) {
+        Complex impedance = SmithUtilities.gammaToImpedance(gamma, viewModel.zo.get());
+
+        if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
+            double r = impedance.real() / viewModel.zo.get();
+            return new Complex(r / (r + 1), 0);
+        } else { // PARALLEL
+            Complex admittance = new Complex(viewModel.zo.get(), 0).dividedBy(impedance);
+            double g = admittance.real();
+            return new Complex(-g / (g + 1), 0);
+        }
     }
 
     /**
@@ -1022,7 +1119,7 @@ public class SmithController {
         double finalCanvasY = (baseCanvasY * currentScale) + offsetY;
 
         // This finds the screen position of the top-left corner of the canvas
-        javafx.geometry.Point2D canvasScreenPos = smithCanvas.localToScreen(0, 0);
+        Point2D canvasScreenPos = smithCanvas.localToScreen(0, 0);
 
         // We add our calculated canvas offsets to get the final screen position.
         int screenX = (int) (canvasScreenPos.getX() + finalCanvasX);
