@@ -301,12 +301,22 @@ public class SmithChartRenderer {
                     currGamma.real() - arcCenter.real()
             ));
 
-            // Calculate arc extent (angle swept)
+            // Check which direction the arc should be drawn in
+            int expectedDirection = SmithUtilities.getExpectedDirection(element, previousGamma);
+
+            // Calculate the raw angle difference
             double arcExtent = endAngle - startAngle;
 
-            // Normalize to sweep in the correct direction
-            if (arcExtent > 180) arcExtent -= 360;
-            if (arcExtent < -180) arcExtent += 360;
+            // Normalize to the shortest path first (-180 to 180)
+            while (arcExtent <= -180) arcExtent += 360;
+            while (arcExtent > 180) arcExtent -= 360;
+
+            // Correct which path to take
+            if (arcExtent != 0 && Math.signum(arcExtent) != expectedDirection) {
+                // If the shortest path was positive (CCW) but we expected negative (CW), subtract 360.
+                // If the shortest path was negative (CW) but we expected positive (CCW), add 360.
+                arcExtent = (arcExtent > 0) ? arcExtent - 360 : arcExtent + 360;
+            }
 
             // Draw the arc
             gc.strokeArc(

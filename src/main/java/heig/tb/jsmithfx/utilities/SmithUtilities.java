@@ -101,4 +101,18 @@ public class SmithUtilities {
         }
         return new Pair<>(center, radius);
     }
+
+
+    public static int getExpectedDirection(CircuitElement element, Complex previousGamma) {
+        int expectedDirection = 0;
+        CircuitElement.ElementType type = element.getType();
+        CircuitElement.ElementPosition position = element.getPosition();
+
+        expectedDirection = (type == CircuitElement.ElementType.CAPACITOR || type == CircuitElement.ElementType.RESISTOR) ? 1 : -1;
+        expectedDirection *= (position ==  CircuitElement.ElementPosition.SERIES) ? 1 : -1;
+
+        // Correct the direction if the last gamma's imag was negative for the resistor
+        if(type == CircuitElement.ElementType.RESISTOR) expectedDirection *= (previousGamma.imag() < 0) ? -1 : 1;
+        return expectedDirection;
+    }
 }

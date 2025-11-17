@@ -40,6 +40,8 @@ public class SmithController {
     private Double previousAngle;
     private Double allowedAngleTravel;
     private Double totalAngleTraveled;
+    private double lastScreenXForAdd;
+    private double lastScreenYForAdd;
 
     private boolean isProgrammaticallyMovingCursor = false;
 
@@ -298,7 +300,18 @@ public class SmithController {
                     isProgrammaticallyMovingCursor = false;
                     return;
                 }
-                handleMouseMagnetization(new Complex(gammaX, gammaY));
+                // Calculate the movement in pixels on the screen
+                double currentScreenX = event.getScreenX();
+                double currentScreenY = event.getScreenY();
+
+                double dx = currentScreenX - lastScreenXForAdd;
+                double dy = currentScreenY - lastScreenYForAdd;
+
+                // Update the "Last" position to current to avoid accumulation errors
+                lastScreenXForAdd = currentScreenX;
+                lastScreenYForAdd = currentScreenY;
+
+                handleMouseMagnetization(dx, dy);
             }
 
             // Pass the correct Gamma coordinates to the ViewModel.
@@ -316,57 +329,60 @@ public class SmithController {
     }
 
     /**
-     * Handles the real-time snapping of the mouse to the component path.
-     * All setup calculations are assumed to have been done already.
+     * Handles the real-time snapping using Tangential Delta Mapping.
+     * This ensures smooth movement even near chart singularities.
      *
-     * @param rawMouseGamma The unprocessed gamma from the mouse cursor's position.
+     * @param dx Pixel movement in X
+     * @param dy Pixel movement in Y
      */
-    private void handleMouseMagnetization(Complex rawMouseGamma) {
-        // Get the current angle of the mouse relative to the center of the circle it will follow
-        Complex mouseVector = rawMouseGamma.subtract(circleCenterForMouseAdd);
-        double mouseAngle = mouseVector.angle();
+    private void handleMouseMagnetization(double dx, double dy) {
 
-        // On the very first movement, initialize previousAngle
-        if (previousAngle == null) {
-            previousAngle = startAngleForMouseAdd;
+        // Get the tangent vector of the circle
+        double tanX = -Math.sin(previousAngle);
+        double tanY = Math.cos(previousAngle);
+
+        // Get the value of what a pixel is in gamma
+        double mainRadius = Math.min(smithCanvas.getWidth(), smithCanvas.getHeight()) / 2 - 10;
+        double pixelToGammaScale = 1.0 / (mainRadius * currentScale);
+
+        // Invert DY because Screen Y is opposite to Cartesian/Smith Y
+        double dGammaX = dx * pixelToGammaScale;
+        double dGammaY = -dy * pixelToGammaScale;
+
+        // Project the mouse movement onto the tangent vector (Dot Product)
+        double tangentialMove = (dGammaX * tanX) + (dGammaY * tanY);
+
+        // Convert linear distance to angular change
+        // ArcLength = Radius * Angle  =>  Angle = ArcLength / Radius
+        double effectiveRadius = Math.max(circleRadiusForMouseAdd, 0.001);
+        double angleChange = tangentialMove / effectiveRadius;
+
+        // Apply the change
+        double newTotalAngleTraveled = totalAngleTraveled + (angleChange * directionMultiplier);
+
+        // Clamping the movement
+        if (newTotalAngleTraveled < 0) {
+            newTotalAngleTraveled = 0;
+        } else if (newTotalAngleTraveled > allowedAngleTravel) {
+            newTotalAngleTraveled = allowedAngleTravel;
         }
 
-        // Calculate the incremental angle change and normalize it
-        double angleDifference = mouseAngle - previousAngle;
-        while (angleDifference <= -Math.PI) angleDifference += 2 * Math.PI;
-        while (angleDifference > Math.PI) angleDifference -= 2 * Math.PI;
+        totalAngleTraveled = newTotalAngleTraveled;
 
+        // Re-calculate the absolute angle based on the clamped travel
+        double currentAngle = startAngleForMouseAdd + (totalAngleTraveled * directionMultiplier);
 
-       // Convert angle change to travel distance.
-       // This is positive for correct movement, negative for incorrect.
-       double incrementalTravel = angleDifference * directionMultiplier;
+        // Normalize angle
+        while (currentAngle <= -Math.PI) currentAngle += 2 * Math.PI;
+        while (currentAngle > Math.PI) currentAngle -= 2 * Math.PI;
 
-       // Update the total angle traveled
-       double newTotalAngleTraveled = totalAngleTraveled + incrementalTravel;
+        previousAngle = currentAngle;
 
-       if (newTotalAngleTraveled < 0) {
-           // Moved backward past the start, snap back to the start
-           mouseAngle = startAngleForMouseAdd;
-           totalAngleTraveled = 0.0;
-       } else if (newTotalAngleTraveled > allowedAngleTravel) {
-           // Moved forward past the end, revert to the previous valid position
-           mouseAngle = previousAngle;
-           // totalAngleTraveled is not updated because the move was rejected
-       } else {
-           // Movement is valid, update the total travel distance
-           totalAngleTraveled = newTotalAngleTraveled;
-       }
-
-
-        // Calculate the new snapped gamma based on the corrected angle
+        // Calculate position and Value
         snappedGammaForMouseAdd = circleCenterForMouseAdd.add(
-                new Complex(Math.cos(mouseAngle), Math.sin(mouseAngle)).multiply(circleRadiusForMouseAdd)
+                new Complex(Math.cos(currentAngle), Math.sin(currentAngle)).multiply(circleRadiusForMouseAdd)
         );
 
-        // Store the final angle for the next frame's calculation
-        previousAngle = mouseAngle;
-
-        // Calculate the value of the component for displaying
         Double liveValue = calculateComponentValue(
                 snappedGammaForMouseAdd,
                 startImpedanceForMouseAdd,
@@ -376,7 +392,6 @@ public class SmithController {
                 viewModel.frequency.get()
         );
 
-        // Display the value correctly of the graphically measured component
         if (liveValue != null) {
             Pair<ElectronicUnit, String> result = SmithUtilities.getBestUnitAndFormattedValue(
                     liveValue,
@@ -384,8 +399,6 @@ public class SmithController {
             );
             valueTextField.setText(result.getValue());
             unitComboBox.getSelectionModel().select((Enum<?>) result.getKey());
-        } else {
-            valueTextField.setText("");
         }
 
         moveCursorToGamma(snappedGammaForMouseAdd);
@@ -722,7 +735,7 @@ public class SmithController {
     @FXML
     public void onAddComponentMouse(ActionEvent actionEvent) {
 
-        //If we click on it again, exit
+        // If we click on it again, exit the mode.
         if (isAddingMouseComponent) {
             cancelMouseAddComponent();
             return;
@@ -734,61 +747,71 @@ public class SmithController {
             return;
         }
 
-        //Entering mouse mode
-        isAddingMouseComponent = true;
-        startGammaForMouseAdd = lastGamma;
-        startImpedanceForMouseAdd = viewModel.getLastImpedance();
-        snappedGammaForMouseAdd = lastGamma;
+        // Store starting impedance/gamma
+        Complex startImpedance = viewModel.getLastImpedance();
+        Complex startGamma = lastGamma;
 
-        addMouseButton.setText("Cancel (ESC)");
-        dataPointsTable.setMouseTransparent(true);
-
-        //Get the element's particularities
+        // Get the element's particularities from the UI
         CircuitElement.ElementType type = typeComboBox.getValue();
         CircuitElement.ElementPosition position = positionComboBox.getValue();
         double z0 = viewModel.zo.get();
 
-        //Get direction (counter-clockwise or clockwise)
-        int baseDirection = (type == CircuitElement.ElementType.CAPACITOR || type == CircuitElement.ElementType.RESISTOR) ? 1 : -1; // CCW for Cap, CW for Inductor
-        directionMultiplier = (position == CircuitElement.ElementPosition.SERIES) ? baseDirection : -baseDirection;
-
-        // Create a temporary element to pass to the utility method
+        // Create a temporary element to calculate the drawing arc
         CircuitElement tempElement = switch (type) {
-            case INDUCTOR -> new Inductor(0,position,type);
-            case CAPACITOR ->  new Capacitor(0,position,type);
-            case RESISTOR ->  new Resistor(0,position,type);
+            case INDUCTOR -> new Inductor(0, position, type);
+            case CAPACITOR -> new Capacitor(0, position, type);
+            case RESISTOR -> new Resistor(0, position, type);
         };
 
-        Pair<Complex, Double> arcParams = SmithUtilities.getArcParameters(startImpedanceForMouseAdd, tempElement, z0);
-        circleCenterForMouseAdd = arcParams.getKey();
-        circleRadiusForMouseAdd = arcParams.getValue();
+        // Get direction (counter-clockwise or clockwise)
+        int localDirectionMultiplier = SmithUtilities.getExpectedDirection(tempElement, startGamma);
 
-        //Get the angle from which the last gamma is to the circle that we're following
-        Complex startVector = startGammaForMouseAdd.subtract(circleCenterForMouseAdd);
-        startAngleForMouseAdd = startVector.angle();
+        Pair<Complex, Double> arcParams = SmithUtilities.getArcParameters(startImpedance, tempElement, z0);
+        Complex localCircleCenter = arcParams.getKey();
+        double localCircleRadius = arcParams.getValue();
 
-        //We want to only able to move until we arrive to either extremities of the X axis
+        // Get the angle from which the last gamma is to the circle that we're following
+        Complex startVector = startGamma.subtract(localCircleCenter);
+        double localStartAngle = startVector.angle();
+
+        // We want to only be able to move until we arrive at either extremity of the X-axis
         Complex targetGamma = (position == CircuitElement.ElementPosition.SERIES)
                 ? new Complex(1, 0)  // Open Circuit
                 : new Complex(-1, 0); // Short Circuit
 
-        //Compute how much the user can move in angle
-        Complex targetVector = targetGamma.subtract(circleCenterForMouseAdd);
+        // Compute how much the user can move in angle
+        Complex targetVector = targetGamma.subtract(localCircleCenter);
         double endAngle = targetVector.angle();
-        double travel = endAngle - startAngleForMouseAdd;
+        double travel = endAngle - localStartAngle;
 
-        if (directionMultiplier == 1) { // For CCW, we want the positive angle difference
+        if (localDirectionMultiplier == 1) { // For CCW, we want the positive angle difference
             while (travel <= 0) travel += 2 * Math.PI;
-        } else { // For CW, we want the negative angle difference, the abs it
+        } else { // For CW, we want the negative angle difference, then take its absolute value
             while (travel >= 0) travel -= 2 * Math.PI;
             travel = Math.abs(travel);
         }
-        allowedAngleTravel = travel - 0.001; // Epsilon for floating-point safety
+        double localAllowedAngleTravel = travel - 0.001; // Epsilon for floating-point safety
 
-        //Initialize state variables
-        previousAngle = null;
-        totalAngleTraveled = 0.0;
 
+        this.startGammaForMouseAdd = startGamma;
+        this.startImpedanceForMouseAdd = startImpedance;
+        this.snappedGammaForMouseAdd = startGamma;
+        this.circleCenterForMouseAdd = localCircleCenter;
+        this.circleRadiusForMouseAdd = localCircleRadius;
+        this.startAngleForMouseAdd = localStartAngle;
+        this.directionMultiplier = localDirectionMultiplier;
+        this.allowedAngleTravel = localAllowedAngleTravel;
+
+        // Initialize state variables for the mouse handler
+        this.previousAngle = localStartAngle;
+        this.totalAngleTraveled = 0.0;
+
+        // Activate mouse mode after initialization
+        this.isAddingMouseComponent = true;
+
+        // Update UI and move cursor
+        addMouseButton.setText("Cancel (ESC)");
+        dataPointsTable.setMouseTransparent(true);
         moveCursorToGamma(startGammaForMouseAdd);
         smithCanvas.requestFocus();
     }
@@ -832,6 +855,10 @@ public class SmithController {
      */
     private void moveCursor(int screenX, int screenY) {
         Platform.runLater(() -> {
+            // Update our reference to where the cursor currently IS
+            lastScreenXForAdd = screenX;
+            lastScreenYForAdd = screenY;
+
             isProgrammaticallyMovingCursor = true;
             Robot robot = new Robot();
             robot.mouseMove(screenX, screenY);
