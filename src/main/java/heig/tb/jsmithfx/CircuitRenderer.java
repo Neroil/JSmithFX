@@ -13,6 +13,7 @@ public class CircuitRenderer {
 
     private static final double PADDING_RATIO = 0.05;
     private static final double PADDING = 25;
+    private static final double DEFAULT_LINE_WIDTH = 2.0;
     private static final double MAX_PADDING = 64;
     private static final double GRID_SPACING = 20;
 
@@ -42,7 +43,7 @@ public class CircuitRenderer {
         gc.clearRect(0, 0, canvasWidth, canvasHeight);
 
         gc.setStroke(WIRE_COLOR);
-        gc.setLineWidth(2.0);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(labelFont);
 
@@ -79,10 +80,11 @@ public class CircuitRenderer {
         for (int i = 0; i < elements.size(); i++) {
             CircuitElement element = elements.get(i);
             double x = (i + 1) * slotWidth;
-            if (element.getType() == CircuitElement.ElementType.RESISTOR) {
-                drawResistance(x, lineY);
+            switch (element.getType()) {
+                case RESISTOR -> drawResistor(gc,x,lineY);
+                case CAPACITOR ->  drawCapacitor(gc,x,lineY);
+                case INDUCTOR ->  drawInductor(gc,x,lineY);
             }
-            // Add more element types here as needed
         }
     }
 
@@ -93,7 +95,7 @@ public class CircuitRenderer {
         double botWidth = 6;
 
         gc.setStroke(JUNCTION_COLOR);
-        gc.setLineWidth(2.0);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
 
         // Top line
         gc.strokeLine(x - topWidth / 2, y, x + topWidth / 2, y);
@@ -111,7 +113,7 @@ public class CircuitRenderer {
         gc.clearRect(x - radius, y - radius, diameter, diameter);
 
         gc.setStroke(COMPONENT_COLOR);
-        gc.setLineWidth(2.0);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
         gc.strokeOval(x - radius, y - radius, diameter, diameter);
 
         gc.beginPath();
@@ -121,34 +123,62 @@ public class CircuitRenderer {
         gc.stroke();
     }
 
-    private void drawLoad(double x, double y) {
-        GraphicsContext gc = circuitCanvas.getGraphicsContext2D();
-        double radius = 12;
-        gc.setStroke(JUNCTION_COLOR);
-        gc.setLineWidth(2.0);
-        gc.strokeOval(x - radius, y - radius, radius * 2, radius * 2);
-        gc.setFill(LABEL_COLOR);
-        gc.fillText("LOAD", x, y - radius - 4);
-    }
-
-
-    private void drawResistance(double x, double y) {
-        GraphicsContext gc = circuitCanvas.getGraphicsContext2D();
+    private void drawResistor(GraphicsContext gc,double x, double y) {
         double width = 40;
         double height = 16;
         double left = x - width / 2;
         double top = y - height / 2;
+        double nubLength = 6;
 
         // Draw rectangle as resistor body
         gc.setStroke(COMPONENT_COLOR);
-        gc.setLineWidth(2.0);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
         gc.clearRect(left, top, width, height);
         gc.strokeRect(left, top, width, height);
-
-        // Draw label "R"
-        gc.setFill(LABEL_COLOR);
-        gc.fillText("R", x, y + height + 12);
+        gc.strokeLine(left - nubLength, y, left, y);
+        gc.strokeLine(left + width, y, left + width + nubLength, y);
     }
+
+    private void drawCapacitor(GraphicsContext gc, double x, double y) {
+        double width = 10;
+        double height = 25;
+        double left = x - width / 2;
+        double top = y - height / 2;
+        double bottom = y + height / 2;
+        double nubLength = 6;
+
+        gc.setStroke(COMPONENT_COLOR);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
+        gc.clearRect(left, top, width, height);
+
+        gc.strokeLine(left, top, left, bottom);
+        gc.strokeLine(left + width, top, left + width, bottom);
+        gc.strokeLine(left - nubLength, y, left, y);
+        gc.strokeLine(left + width, y, left + width + nubLength, y);
+    }
+
+    private void drawInductor(GraphicsContext gc, double x, double y) {
+        double width = 40;
+        double height = 16;
+        double left = x - width / 2;
+        double top = y - height / 2;
+        double nubLength = 6;
+
+        gc.clearRect(left, top, width, height);
+        double start = left;
+        gc.setStroke(COMPONENT_COLOR);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
+        for (int i = 0; i < 4 ; ++i){
+            gc.strokeOval(start, top, width/4, height);
+            start += width/4;
+        }
+
+        gc.clearRect(left - DEFAULT_LINE_WIDTH, top + height / 2, width + 2 * DEFAULT_LINE_WIDTH, height / 2 + DEFAULT_LINE_WIDTH);
+        gc.strokeLine(left - nubLength, y, left, y);
+        gc.strokeLine(left + width, y, left + width + nubLength, y);
+
+    }
+
 
 
 }
