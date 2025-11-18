@@ -14,6 +14,7 @@ import heig.tb.jsmithfx.utilities.DialogFactory;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
+import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Point2D;
@@ -22,12 +23,14 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.robot.Robot;
 import javafx.util.Pair;
 
 public class SmithController {
+
 
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
@@ -88,6 +91,8 @@ public class SmithController {
     @FXML
     private Canvas smithCanvas;
     @FXML
+    private Canvas circuitCanvas;
+    @FXML
     private TableView<DataPoint> dataPointsTable;
     @FXML
     private ComboBox<CircuitElement.ElementType> typeComboBox; // Use ElementType enum later
@@ -109,12 +114,18 @@ public class SmithController {
     private TableColumn<DataPoint, Number> vswrColumn;
     @FXML
     private TableColumn<DataPoint, Number> returnLossColumn;
+    @FXML
+    private Label z0Label;
+    @FXML
+    private AnchorPane circuitPane;
+
 
     //Viewmodel
     private SmithChartViewModel viewModel;
 
     //Renderer
     private SmithChartRenderer smithChartRenderer;
+    private CircuitRenderer circuitRenderer;
 
     //View State for zooming and panning
     private double currentScale = 1.0;
@@ -131,12 +142,30 @@ public class SmithController {
     public void initialize() {
         this.viewModel = new SmithChartViewModel();
         this.smithChartRenderer = new SmithChartRenderer(smithCanvas);
+        circuitRenderer = new CircuitRenderer(circuitCanvas);
+
+        // 1. Bind the canvas size to the size of its parent AnchorPane.
+        circuitCanvas.widthProperty().bind(circuitPane.widthProperty());
+        circuitCanvas.heightProperty().bind(circuitPane.heightProperty());
+
+        // 2. Add listeners to redraw the circuit whenever the canvas size changes.
+        //    This makes the drawing responsive to window resizing.
+        circuitCanvas.widthProperty().addListener(observable -> circuitRenderer.render(viewModel));
+        circuitCanvas.heightProperty().addListener(observable -> circuitRenderer.render(viewModel));
+
+
         setupResizableCanvas();
         setupControls();
         bindViewModel();
-        redrawCanvas(); //Initial chart drawing
+        redrawSmithCanvas(); //Initial chart drawing
 
-        dataPointsTable.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> redrawCanvas());
+        // Whenever your circuit elements change, re-render the circuit diagram
+        viewModel.circuitElements.addListener((ListChangeListener<CircuitElement>) c -> circuitRenderer.render(viewModel));
+
+        // Initial render
+        circuitRenderer.render(viewModel);
+
+        dataPointsTable.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> redrawSmithCanvas());
 
         //Bindings to display mouse related information
         returnLossLabel.textProperty().bind(viewModel.mouseReturnLossTextProperty());
@@ -145,6 +174,8 @@ public class SmithController {
         gammaLabel.textProperty().bind(viewModel.mouseGammaTextProperty());
         yLabel.textProperty().bind(viewModel.mouseAdmittanceYTextProperty());
         zLabel.textProperty().bind(viewModel.mouseImpedanceZTextProperty());
+
+        z0Label.textProperty().bind(viewModel.zoProperty());
 
         //Enable editing of the values by double-clicking on them in the display point
         dataPointsTable.setOnMouseClicked(event -> {
@@ -158,7 +189,7 @@ public class SmithController {
                     // Call the Factory
                     DialogFactory.showComponentEditDialog(component).ifPresent(newValue -> {
                         component.setRealWorldValue(newValue);
-                        redrawCanvas();
+                        redrawSmithCanvas();
                     });
                 }
             }
@@ -211,8 +242,8 @@ public class SmithController {
         smithCanvas.heightProperty().bind(smithChartPane.heightProperty());
 
         // Add listeners to redraw the chart and update font size whenever the size changes
-        smithCanvas.widthProperty().addListener((obs, oldVal, newVal) -> redrawCanvas());
-        smithCanvas.heightProperty().addListener((obs, oldVal, newVal) -> redrawCanvas());
+        smithCanvas.widthProperty().addListener((obs, oldVal, newVal) -> redrawSmithCanvas());
+        smithCanvas.heightProperty().addListener((obs, oldVal, newVal) -> redrawSmithCanvas());
 
         smithCanvas.setOnScroll(event -> {
             double mouseX = event.getX();
@@ -230,7 +261,7 @@ public class SmithController {
             offsetX = mouseX - (mouseX - offsetX) * (deltaY > 0 ? zoomFactor : 1 / zoomFactor);
             offsetY = mouseY - (mouseY - offsetY) * (deltaY > 0 ? zoomFactor : 1 / zoomFactor);
 
-            redrawCanvas();
+            redrawSmithCanvas();
             event.consume();
         });
 
@@ -252,7 +283,7 @@ public class SmithController {
             lastMouseX = event.getX();
             lastMouseY = event.getY();
 
-            redrawCanvas();
+            redrawSmithCanvas();
         });
 
         // Stuff that happens when we click on the chart
@@ -268,7 +299,7 @@ public class SmithController {
                 currentScale = 1.0;
                 offsetX = 0.0;
                 offsetY = 0.0;
-                redrawCanvas();
+                redrawSmithCanvas();
             }
         });
 
@@ -509,7 +540,7 @@ public class SmithController {
      */
     private void cancelMouseAddComponent() {
         resetMouseAddComponentState();
-        redrawCanvas();
+        redrawSmithCanvas();
     }
 
     /**
@@ -616,7 +647,7 @@ public class SmithController {
         loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
         freqLabel.textProperty().bind(viewModel.frequencyProperty());
 
-        viewModel.measuresGammaProperty().addListener((_, _, _) -> redrawCanvas());
+        viewModel.measuresGammaProperty().addListener((_, _, _) -> redrawSmithCanvas());
 
     }
 
@@ -648,10 +679,10 @@ public class SmithController {
     // This logic is called by the initialize() method and the resize listeners.
 
     /**
-     * Clears and redraws the entire canvas. This method will be called whenever the data
+     * Clears and redraws the entire chart's canvas. This method will be called whenever the data
      * or the window size changes.
      */
-    private void redrawCanvas() {
+    private void redrawSmithCanvas() {
         if (smithChartRenderer != null) {
             int selectedIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
             smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, selectedIndex);
@@ -669,7 +700,7 @@ public class SmithController {
                 .ifPresent(zo -> {
                     if (zo > 0) {
                         viewModel.zo.setValue(zo);
-                        redrawCanvas();
+                        redrawSmithCanvas();
                     } else {
                         DialogFactory.showErrorAlert("Invalid Input", "Zo must be positive.");
                     }
@@ -687,7 +718,7 @@ public class SmithController {
         DialogFactory.showComplexInputDialog("Change Load", viewModel.loadImpedance.get())
                 .ifPresent(newLoad -> {
                     viewModel.loadImpedance.setValue(newLoad);
-                    redrawCanvas();
+                    redrawSmithCanvas();
                 });
     }
 
@@ -708,7 +739,7 @@ public class SmithController {
         offsetY = 0;
         currentScale *= 1.1;
 
-        redrawCanvas();
+        redrawSmithCanvas();
     }
 
     @FXML
@@ -716,7 +747,7 @@ public class SmithController {
         offsetX = 0;
         offsetY = 0;
         currentScale /= 1.1;
-        redrawCanvas();
+        redrawSmithCanvas();
     }
 
     @FXML
@@ -724,7 +755,7 @@ public class SmithController {
         currentScale = 1.0;
         offsetX = 0.0;
         offsetY = 0.0;
-        redrawCanvas();
+        redrawSmithCanvas();
     }
 
     @FXML

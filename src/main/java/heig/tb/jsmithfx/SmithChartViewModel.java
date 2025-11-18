@@ -26,8 +26,11 @@ public class SmithChartViewModel {
     private final ReadOnlyStringWrapper frequencyText = new ReadOnlyStringWrapper("-");
     public ReadOnlyStringProperty frequencyProperty() { return frequencyText.getReadOnlyProperty(); }
 
-    public final DoubleProperty zo = new SimpleDoubleProperty(50.0);
-    public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>(new Complex(zo.get() * 2, zo.get() * 3));
+    public final DoubleProperty zo = new SimpleDoubleProperty();
+    private final ReadOnlyStringWrapper zoText = new ReadOnlyStringWrapper("-");
+    public ReadOnlyStringProperty zoProperty() { return zoText.getReadOnlyProperty(); }
+
+    public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>();
     public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
 
     // A list of different datapoints
@@ -73,7 +76,10 @@ public class SmithChartViewModel {
 
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
-        zo.addListener((_, _, _) -> recalculateImpedanceChain());
+        zo.addListener((_, _, _) -> {
+            zoText.set(String.valueOf(zo.get()) + " Ω");
+            recalculateImpedanceChain();
+        });
         frequency.addListener((_, _, _) -> {
             //Update the display for frequency
             double freq = frequency.get();
@@ -99,6 +105,10 @@ public class SmithChartViewModel {
 
         //Set the initial frequency at 1GHz
         frequency.set(1e9);
+        //Set the characteristic impedance to 50 Ohm
+        zo.set(50.0);
+        //Set a dummy impedance value
+        loadImpedance.set(new Complex(zo.get() * 2, zo.get() * 3));
 
         loadImpedance.addListener((_, _, _) -> recalculateImpedanceChain());
 
