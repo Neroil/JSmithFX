@@ -18,7 +18,7 @@ public class CircuitRenderer {
     private static final double GRID_SPACING = 20;
 
     // Dark mode colors
-    private static final Color GRID_COLOR = Color.rgb(255, 255, 255, 0.03);
+    private static final Color GRID_COLOR = Color.rgb(255, 255, 255, 0.3);
     private static final Color WIRE_COLOR = Color.rgb(200, 200, 200);
     private static final Color COMPONENT_COLOR = Color.rgb(180, 180, 255);
     private static final Color COMPONENT_FILL = Color.rgb(40, 40, 60, 0.3);
