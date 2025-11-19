@@ -4,6 +4,7 @@ import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
+import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.binding.Bindings;
@@ -273,6 +274,7 @@ public class SmithChartViewModel {
             case INDUCTOR -> new Inductor(value, position, type);
             case CAPACITOR -> new Capacitor(value, position, type);
             case RESISTOR -> new Resistor(value, position, type);
+            case LINE ->  new Line(value, position, type);
         };
 
         if (newElem == null) return;

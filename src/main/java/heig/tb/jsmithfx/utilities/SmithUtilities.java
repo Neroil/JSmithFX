@@ -104,7 +104,7 @@ public class SmithUtilities {
 
 
     public static int getExpectedDirection(CircuitElement element, Complex previousGamma) {
-        int expectedDirection = 0;
+        int expectedDirection;
         CircuitElement.ElementType type = element.getType();
         CircuitElement.ElementPosition position = element.getPosition();
 

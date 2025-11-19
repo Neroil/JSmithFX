@@ -4,11 +4,9 @@ import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
+import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogFactory;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
@@ -570,10 +568,10 @@ public class SmithController {
         typeComboBox.valueProperty().addListener((ChangeListener<Enum<?>>) (_, _, _) -> {
             CircuitElement.ElementType selectedType = typeComboBox.getValue();
             switch (selectedType) {
-                case CircuitElement.ElementType.RESISTOR -> updateUnitComboBox(ResistanceUnit.class);
+                case CircuitElement.ElementType.RESISTOR  -> updateUnitComboBox(ResistanceUnit.class);
                 case CircuitElement.ElementType.CAPACITOR -> updateUnitComboBox(CapacitanceUnit.class);
-                case CircuitElement.ElementType.INDUCTOR -> updateUnitComboBox(InductanceUnit.class);
-                default -> unitComboBox.getItems().clear();
+                case CircuitElement.ElementType.INDUCTOR  -> updateUnitComboBox(InductanceUnit.class);
+                case CircuitElement.ElementType.LINE      -> updateUnitComboBox(DistanceUnit.class);
             }
         });
     }
@@ -786,6 +784,7 @@ public class SmithController {
             case INDUCTOR -> new Inductor(0, position, type);
             case CAPACITOR -> new Capacitor(0, position, type);
             case RESISTOR -> new Resistor(0, position, type);
+            case LINE ->  new Line(0, position, type);
         };
 
         // Get direction (counter-clockwise or clockwise)

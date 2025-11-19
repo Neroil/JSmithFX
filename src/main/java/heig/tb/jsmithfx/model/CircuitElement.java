@@ -9,7 +9,8 @@ public abstract class CircuitElement {
     public enum ElementType {
         CAPACITOR("Capacitor"),
         INDUCTOR("Inductor"),
-        RESISTOR("Resistor");
+        RESISTOR("Resistor"),
+        LINE("Line"),;
 
         private final String displayName;
 

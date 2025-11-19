@@ -1,10 +1,7 @@
 package heig.tb.jsmithfx.utilities;
 
 import heig.tb.jsmithfx.model.CircuitElement;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
 import heig.tb.jsmithfx.utilities.Complex;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -40,6 +37,7 @@ public class DialogFactory {
             case RESISTOR  ->  ResistanceUnit.values();
             case CAPACITOR ->  CapacitanceUnit.values();
             case INDUCTOR  ->  InductanceUnit.values();
+            case LINE      ->  DistanceUnit.values();
         };
 
         //Select the right unit and display the previous value
