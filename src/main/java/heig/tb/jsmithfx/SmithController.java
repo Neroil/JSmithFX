@@ -144,16 +144,6 @@ public class SmithController {
         this.smithChartRenderer = new SmithChartRenderer(smithCanvas);
         circuitRenderer = new CircuitRenderer(circuitCanvas);
 
-        // 1. Bind the canvas size to the size of its parent AnchorPane.
-        circuitCanvas.widthProperty().bind(circuitPane.widthProperty());
-        circuitCanvas.heightProperty().bind(circuitPane.heightProperty());
-
-        // 2. Add listeners to redraw the circuit whenever the canvas size changes.
-        //    This makes the drawing responsive to window resizing.
-        circuitCanvas.widthProperty().addListener(observable -> circuitRenderer.render(viewModel));
-        circuitCanvas.heightProperty().addListener(observable -> circuitRenderer.render(viewModel));
-
-
         setupResizableCanvas();
         setupControls();
         bindViewModel();
@@ -237,13 +227,17 @@ public class SmithController {
     }
 
     private void setupResizableCanvas() {
-        // Bind the canvas size to the size of its parent pane
+        // --- SMITH CHART ---
         smithCanvas.widthProperty().bind(smithChartPane.widthProperty());
         smithCanvas.heightProperty().bind(smithChartPane.heightProperty());
-
-        // Add listeners to redraw the chart and update font size whenever the size changes
         smithCanvas.widthProperty().addListener((obs, oldVal, newVal) -> redrawSmithCanvas());
         smithCanvas.heightProperty().addListener((obs, oldVal, newVal) -> redrawSmithCanvas());
+
+        // --- CIRCUIT RENDERING ---
+        circuitCanvas.widthProperty().bind(circuitPane.widthProperty());
+        circuitCanvas.heightProperty().bind(circuitPane.heightProperty());
+        circuitCanvas.widthProperty().addListener(observable -> circuitRenderer.render(viewModel));
+        circuitCanvas.heightProperty().addListener(observable -> circuitRenderer.render(viewModel));
 
         smithCanvas.setOnScroll(event -> {
             double mouseX = event.getX();
@@ -582,8 +576,6 @@ public class SmithController {
                 default -> unitComboBox.getItems().clear();
             }
         });
-
-
     }
 
     /**
