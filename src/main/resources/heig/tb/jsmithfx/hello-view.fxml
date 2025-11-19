@@ -86,10 +86,14 @@
                                 <Label text="Type:" GridPane.rowIndex="0" />
                                 <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
                                 <Label text="Value:" GridPane.rowIndex="1" />
-                                <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                    <TextField fx:id="valueTextField" />
+
+                                <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1" alignment="CENTER_LEFT">
+                                    <TextField fx:id="valueTextField" HBox.hgrow="ALWAYS" />
                                     <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
+                                    <Label fx:id="zoInputLabel" text="Z0:" visible="false"/>
+                                    <TextField fx:id="zoInputField" promptText="e.g. 50" visible="false"/>
                                 </HBox>
+
                                 <Label text="Position:" GridPane.rowIndex="2" />
                                 <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                                 <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
