@@ -138,61 +138,12 @@ public class SmithChartViewModel {
 
         newDataPoints.add(new DataPoint("LD", currentImpedance, loadGamma, loadVswr, loadRetLoss));
 
-        final double SPEED_OF_LIGHT = 299792458.0;
-
         // Sequentially add the effect of each component
         int index = 1;
         for (CircuitElement element : circuitElements) {
 
-            if (element.getType() == CircuitElement.ElementType.LINE){
-                Line line = (Line) element;
-                double z0 = line.getCharacteristicImpedance(); //Safe since we checked earlier
-                double length = element.getRealWorldValue();
-                //beta = 2pi / lambda, lambda being the wavelength in the medium
-                double vf = line.getPermittivity();
-                if (vf <= 0 || vf > 1.0) {
-                    vf = 1.0;
-                }
-                double beta = (2 * Math.PI * frequency.get()) / SPEED_OF_LIGHT * vf;
-                double electricalLength = beta * length;
-                System.out.println("Length : " + length + "electrical l : " + electricalLength);
-                Complex j = new Complex(0, 1);
-                double tan_bl = Math.tan(electricalLength);
-
-                // Z_in = Z_0 * [(Z_L + jZ_0 * tan bl) / (Z_0 + jZ_L * tan bl)]
-                if (element.getElementPosition() == CircuitElement.ElementPosition.SERIES) {
-                    Complex zl = currentImpedance;
-                    Complex z0Complex = new Complex(z0, 0);
-                    Complex numerator = zl.add(j.multiply(z0Complex).multiply(tan_bl));
-                    Complex denominator = z0Complex.add(j.multiply(zl).multiply(tan_bl));
-
-                    System.out.println("numerator: " + numerator + " denominator: " + denominator);
-
-                    if (denominator.abs() > 1e-9) { //Limit the values to not be too small
-                        currentImpedance = z0Complex.multiply(numerator.dividedBy(denominator));
-                        System.out.println("currentImpedance: " + currentImpedance);
-                    } else {
-                        currentImpedance = new Complex(1e12, 0);
-                        System.out.println("currentImpedance: " + currentImpedance);
-                    }
-                } else { //STUB component
-                    double y0 = 1.0 / z0;
-                    Complex stubAdmittance;
-
-                    if(line.getStubType() == Line.StubType.SHORT){
-                        // Y_in = -j * Y₀ * cot(βl)
-                        double cot_bl = 1.0 / Math.tan(electricalLength);
-                        stubAdmittance = j.multiply(-1).multiply(y0).multiply(cot_bl);
-                    } else { // OPEN Stub
-                        // Y_in = j * Y₀ * tan(βl)
-                        stubAdmittance = j.multiply(y0).multiply(tan_bl);
-                    }
-
-                    // Convert current impedance to admittance, add the stub's admittance, then convert back
-                    Complex currentAdmittance = currentImpedance.inverse();
-                    Complex newTotalAdmittance = currentAdmittance.add(stubAdmittance);
-                    currentImpedance = newTotalAdmittance.inverse();
-                }
+            if (element.getType() == CircuitElement.ElementType.LINE) {
+                currentImpedance = ((Line) element).calculateImpedance(currentImpedance, frequency.get());
             } else {
                 Complex elementImpedance = element.getImpedance(frequency.get());
                 currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, element.getElementPosition());

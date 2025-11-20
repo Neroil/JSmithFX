@@ -1,6 +1,7 @@
 package heig.tb.jsmithfx.utilities;
 
 import heig.tb.jsmithfx.model.CircuitElement;
+import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import javafx.util.Pair;
 
@@ -74,7 +75,36 @@ public class SmithUtilities {
 
         Complex zNorm = startImpedance.dividedBy(z0);
 
-        if (element.getType() == CircuitElement.ElementType.RESISTOR) {
+        if (element.getType() == CircuitElement.ElementType.LINE) {
+            Line line = (Line) element;
+            double Zc = line.getCharacteristicImpedance();
+
+            // g = (Zc - Z0) / (Zc + Z0)
+            double g = (Zc - z0) / (Zc + z0);
+
+            // 2. Calculate the radius of the circle in the "Zc-normalized" domain (k)
+            // Gamma_wrt_Zc = (Z_start - Zc) / (Z_start + Zc)
+            Complex num = startImpedance.subtract(new Complex(Zc, 0));
+            Complex den = startImpedance.add(new Complex(Zc, 0));
+            double k = num.dividedBy(den).abs();
+
+            // 3. Map this circle back to the System Gamma plane (Z0 domain)
+            // This handles the shift when Zc != Z0. If Zc == Z0, g is 0, center is 0, radius is k.
+            double denominator = 1 - g * g * k * k;
+
+            // Protection against division by zero (unlikely in passive circuits)
+            if (Math.abs(denominator) < 1e-9) {
+                center = new Complex(0, 0);
+                radius = 0;
+            } else {
+                double centerX = g * (1 - k * k) / denominator;
+                double radiusVal = k * (1 - g * g) / denominator;
+
+                center = new Complex(centerX, 0);
+                radius = Math.abs(radiusVal);
+            }
+        }
+        else if (element.getType() == CircuitElement.ElementType.RESISTOR) {
             // Constant Reactance (Series) or Susceptance (Parallel) Circles
             if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
                 double x = zNorm.imag();

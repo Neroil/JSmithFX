@@ -396,7 +396,7 @@ public class SmithController {
         double newTotalAngleTraveled = totalAngleTraveled + (angleChange * directionMultiplier);
 
         // Clamping the movement
-        if (newTotalAngleTraveled < 0) {
+        if (newTotalAngleTraveled < 0 && allowedAngleTravel <= 360) {
             newTotalAngleTraveled = 0;
         } else if (newTotalAngleTraveled > allowedAngleTravel) {
             newTotalAngleTraveled = allowedAngleTravel;
@@ -423,6 +423,7 @@ public class SmithController {
                 startImpedanceForMouseAdd,
                 typeComboBox.getValue(),
                 positionComboBox.getValue(),
+                stubComboBox.getValue(),
                 viewModel.zo.get(),
                 viewModel.frequency.get()
         );
@@ -454,6 +455,7 @@ public class SmithController {
                                            Complex startImpedance,
                                            CircuitElement.ElementType type,
                                            CircuitElement.ElementPosition position,
+                                           Line.StubType stubType,
                                            double z0,
                                            double frequency) {
         final double EPS = 1e-12;
@@ -472,7 +474,7 @@ public class SmithController {
         Complex zNormFinal = one.add(gamma).dividedBy(denom);
         Complex finalImpedance = zNormFinal.multiply(z0);
 
-        double componentValue;
+        double componentValue = 0;
 
         if (position == CircuitElement.ElementPosition.SERIES) {
             Complex addedImpedance = finalImpedance.subtract(startImpedance);
@@ -485,7 +487,50 @@ public class SmithController {
                 componentValue = -1.0 / (imagZ * omega); // C = -1/(Im(Z)*ω)
             } else if (type == CircuitElement.ElementType.RESISTOR) {
                 componentValue = addedImpedance.real(); // R = Re(Z)
-            } else return null;
+            } else if (type == CircuitElement.ElementType.LINE){
+                //Get the current values of εr and z_L
+                double z0_line;
+                double permittivity;
+                try {
+                    z0_line = Double.parseDouble(zoInputField.getText());
+                    permittivity = Double.parseDouble(permittivityField.getText());
+                    if (z0_line <= 0 || permittivity < 1.0) return null; // Basic validation
+                } catch (NumberFormatException e) {
+                    showError("Please make sure the z0 and εr field are filled");
+                    return null; // A value hasn't been entered yet
+                }
+
+                // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j·2·β·L)
+                // Multiplying by e^(-j·2·β·L) rotates Γ by an angle -2βL on the complex plane.
+                // So the physical length L can be recovered from the change in angle of Γ.
+
+                // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j·2·β·L))
+                // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
+                Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line,0)).dividedBy(startImpedance.add(new Complex(z0_line,0)));
+                Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line,0)).dividedBy(finalImpedance.add(new Complex(z0_line,0)));
+
+                // Calculate the change in angle. (Δθ)
+                double startAngle = gamma_start_line.angle();
+                double finalAngle = gamma_final_line.angle();
+                double angleChange = finalAngle - startAngle;
+
+                // The rotation for adding a line is always clockwise.
+                if (angleChange > 0) {
+                    angleChange -= 2.0 * Math.PI;
+                }
+                // L = ∣Δθ∣ / 2β
+                double electricalRotation = Math.abs(angleChange);
+                final double C = 299792458.0; // Speed of light in m/s
+                // β = 2πf/pv
+                double phase_velocity = C / Math.sqrt(permittivity);
+                double beta = (2.0 * Math.PI * frequency) / phase_velocity;
+
+                // Avoid division by zero if beta is somehow zero
+                if (Math.abs(beta) < EPS) return null;
+
+                // Calculate the final physical length.
+                componentValue  = electricalRotation / (2.0 * beta);
+            }
         } else { // PARALLEL
             if (Math.hypot(startImpedance.real(), startImpedance.imag()) < EPS ||
                     Math.hypot(finalImpedance.real(), finalImpedance.imag()) < EPS) {
@@ -504,7 +549,13 @@ public class SmithController {
                 componentValue = imagY / omega; // C = Im(Y)/ω
             } else if (type == CircuitElement.ElementType.RESISTOR) {
                 componentValue = 1.0 / addedY.real(); // R = 1/Re(ΔY)
-            } else return null;
+            } else if (type == CircuitElement.ElementType.LINE) {
+                if (stubType == Line.StubType.OPEN) { //Open circuit
+                    componentValue = 1.0 / addedY.real();
+                } else  { //Closed circuit
+                    componentValue = 1.0 / addedY.real();
+                }
+            }
         }
 
         if (!Double.isFinite(componentValue) || componentValue <= 0.0) return null;
@@ -520,18 +571,24 @@ public class SmithController {
 
         CircuitElement.ElementType type = typeComboBox.getValue();
         CircuitElement.ElementPosition position = positionComboBox.getValue();
+        Line.StubType stubType = stubComboBox.getValue();
 
         Double componentValue = calculateComponentValue(
                 snappedGammaForMouseAdd,
                 startImpedanceForMouseAdd,
                 type,
                 position,
+                stubType,
                 z0,
                 freq
         );
 
         if (componentValue != null) {
-            viewModel.addComponent(type, componentValue, position);
+            if (type == CircuitElement.ElementType.LINE) {
+                double z0_line = Double.parseDouble(zoInputField.getText());
+                double permittivity = Double.parseDouble(permittivityField.getText());
+                viewModel.addComponent(type,componentValue,z0_line,permittivity,null,stubType);
+            }else viewModel.addComponent(type, componentValue, position);
         }
 
         resetMouseAddComponentState();
@@ -841,7 +898,12 @@ public class SmithController {
             case INDUCTOR -> new Inductor(0, position, type);
             case CAPACITOR -> new Capacitor(0, position, type);
             case RESISTOR -> new Resistor(0, position, type);
-            case LINE ->  new Line(0, 0,0,null); //TODO: fix this with logic for stub and series line
+            case LINE ->  {
+                double impValue = Double.parseDouble(zoInputField.getText());
+                double permittivityValue = Double.parseDouble(permittivityField.getText());
+                Line.StubType stubType = stubComboBox.getValue();
+                yield new Line(0, impValue,permittivityValue,stubType);
+            }
         };
 
         // Get direction (counter-clockwise or clockwise)
@@ -865,14 +927,18 @@ public class SmithController {
         double endAngle = targetVector.angle();
         double travel = endAngle - localStartAngle;
 
-        if (localDirectionMultiplier == 1) { // For CCW, we want the positive angle difference
-            while (travel <= 0) travel += 2 * Math.PI;
-        } else { // For CW, we want the negative angle difference, then take its absolute value
-            while (travel >= 0) travel -= 2 * Math.PI;
-            travel = Math.abs(travel);
-        }
-        double localAllowedAngleTravel = travel - 0.001; // Epsilon for floating-point safety
+        double localAllowedAngleTravel = 400; //More than 360, should allow for unlimited rotations
 
+        //Bypass this if we're on a line
+        if (type != CircuitElement.ElementType.LINE) {
+            if (localDirectionMultiplier == 1) { // For CCW, we want the positive angle difference
+                while (travel <= 0) travel += 2 * Math.PI;
+            } else { // For CW, we want the negative angle difference, then take its absolute value
+                while (travel >= 0) travel -= 2 * Math.PI;
+                travel = Math.abs(travel);
+            }
+            localAllowedAngleTravel = travel - 0.001; // Epsilon for floating-point safety
+        }
 
         this.startGammaForMouseAdd = startGamma;
         this.startImpedanceForMouseAdd = startImpedance;
