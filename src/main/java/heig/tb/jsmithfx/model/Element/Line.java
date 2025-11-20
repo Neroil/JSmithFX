@@ -6,31 +6,40 @@ import heig.tb.jsmithfx.utilities.Complex;
 public class Line extends CircuitElement {
 
     public enum StubType {
-        NONE, // Not a stub, just a series line
-        OPEN,
-        SHORT
+        NONE("Series"), // Not a stub, just a series line
+        OPEN("Open circuit stub"),
+        SHORT("Short circuit stub");
+
+        private String name;
+
+        StubType(String name){
+            this.name=name;
+        }
+
+        @Override
+        public String toString(){return name;}
+
     }
 
     private final double characteristicImpedance;
     private final StubType stubType;
-    private final double velocityFactor;
+    private final double permittivity;
 
-    // TODO ADD VELOCITY FACTOR TO CONSTRUCTOR
 
     // Constructor for a standard in-line transmission line
-    public Line(double length, double characteristicImpedance) {
+    public Line(double length, double characteristicImpedance, double permittivity) {
         super(length, ElementPosition.SERIES, ElementType.LINE); // Position is always SERIES for this type
         this.characteristicImpedance = characteristicImpedance;
         this.stubType = StubType.NONE;
-        this.velocityFactor = 1.0;
+        this.permittivity = permittivity;
     }
 
     // Constructor for a stub
-    public Line(double length, double characteristicImpedance, StubType stubType) {
+    public Line(double length, double characteristicImpedance, double permittivity, StubType stubType) {
         super(length, ElementPosition.PARALLEL, ElementType.LINE); // Position is always PARALLEL for stubs
         this.characteristicImpedance = characteristicImpedance;
         this.stubType = stubType;
-        this.velocityFactor = 1.0;
+        this.permittivity = permittivity;
     }
 
     public double getCharacteristicImpedance() {
@@ -41,8 +50,8 @@ public class Line extends CircuitElement {
         return stubType;
     }
 
-    public double getVelocityFactor() {
-        return velocityFactor;
+    public double getPermittivity() {
+        return permittivity;
     }
 
     @Override

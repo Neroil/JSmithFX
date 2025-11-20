@@ -149,7 +149,7 @@ public class SmithChartViewModel {
                 double z0 = line.getCharacteristicImpedance(); //Safe since we checked earlier
                 double length = element.getRealWorldValue();
                 //beta = 2pi / lambda, lambda being the wavelength in the medium
-                double vf = line.getVelocityFactor();
+                double vf = line.getPermittivity();
                 if (vf <= 0 || vf > 1.0) {
                     vf = 1.0;
                 }
@@ -320,21 +320,25 @@ public class SmithChartViewModel {
     }
 
     void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position) {
-        addComponent(type, value, 0.0, position);
+        addComponent(type, value, 0.0, 0.0, position, null);
     }
 
     /**
      * Adds a new component to the circuit and triggers a full recalculation.
      */
-    void addComponent(CircuitElement.ElementType type, double value, double characteristicImpedance, CircuitElement.ElementPosition position) {
+    void addComponent(CircuitElement.ElementType type, double value, double characteristicImpedance, double permittivity, CircuitElement.ElementPosition position, Line.StubType stubType) {
         CircuitElement newElem = switch (type) {
             case INDUCTOR -> new Inductor(value, position, type);
             case CAPACITOR -> new Capacitor(value, position, type);
             case RESISTOR -> new Resistor(value, position, type);
-            case LINE ->  new Line(value, characteristicImpedance); //TODO : Add stub implementation
+            case LINE -> {
+                if (stubType == null || stubType == Line.StubType.NONE) {
+                    yield new Line(value, characteristicImpedance, permittivity);
+                } else {
+                    yield new Line(value, characteristicImpedance, permittivity, stubType);
+                }
+            }
         };
-
-        if (newElem == null) return;
 
         int index = circuitElements.size();
         circuitElements.add(newElem);

@@ -120,6 +120,12 @@ public class SmithController {
     private Label zoInputLabel;
     @FXML
     private TextField zoInputField;
+    @FXML
+    private Label permittivityLabel;
+    @FXML
+    private TextField permittivityField;
+    @FXML
+    private ComboBox<Line.StubType> stubComboBox;
 
 
     //Viewmodel
@@ -232,14 +238,14 @@ public class SmithController {
         // --- SMITH CHART ---
         smithCanvas.widthProperty().bind(smithChartPane.widthProperty());
         smithCanvas.heightProperty().bind(smithChartPane.heightProperty());
-        smithCanvas.widthProperty().addListener((obs, oldVal, newVal) -> redrawSmithCanvas());
-        smithCanvas.heightProperty().addListener((obs, oldVal, newVal) -> redrawSmithCanvas());
+        smithCanvas.widthProperty().addListener((_, _, _) -> redrawSmithCanvas());
+        smithCanvas.heightProperty().addListener((_, _, _) -> redrawSmithCanvas());
 
         // --- CIRCUIT RENDERING ---
         circuitCanvas.widthProperty().bind(circuitPane.widthProperty());
         circuitCanvas.heightProperty().bind(circuitPane.heightProperty());
-        circuitCanvas.widthProperty().addListener(observable -> circuitRenderer.render(viewModel));
-        circuitCanvas.heightProperty().addListener(observable -> circuitRenderer.render(viewModel));
+        circuitCanvas.widthProperty().addListener(_ -> circuitRenderer.render(viewModel));
+        circuitCanvas.heightProperty().addListener(_ -> circuitRenderer.render(viewModel));
 
         smithCanvas.setOnScroll(event -> {
             double mouseX = event.getX();
@@ -568,16 +574,28 @@ public class SmithController {
         typeComboBox.getSelectionModel().selectFirst();
         positionComboBox.getSelectionModel().selectFirst();
         unitComboBox.getSelectionModel().selectFirst();
+        stubComboBox.getItems().addAll(Line.StubType.values());
+        stubComboBox.getSelectionModel().selectFirst();
 
-        typeComboBox.valueProperty().addListener((obs, oldType, newType) -> {
+        typeComboBox.valueProperty().addListener((_, _, newType) -> {
             boolean isLineType = newType == CircuitElement.ElementType.LINE;
 
             // Make the additional info visible if it's a line
             zoInputLabel.setVisible(isLineType);
             zoInputField.setVisible(isLineType);
+            permittivityLabel.setVisible(isLineType);
+            permittivityField.setVisible(isLineType);
+            positionComboBox.setVisible(!isLineType);
+            stubComboBox.setVisible(isLineType);
 
             if (isLineType) {
                 updateUnitComboBox(DistanceUnit.class);
+                if (zoInputField.getText().isEmpty()) {
+                    zoInputField.setText("50");
+                }
+                if (permittivityField.getText().isEmpty()) {
+                    permittivityField.setText("4");
+                }
             } else if (newType == CircuitElement.ElementType.RESISTOR) {
                 updateUnitComboBox(ResistanceUnit.class);
             } else if (newType == CircuitElement.ElementType.CAPACITOR) {
@@ -589,6 +607,10 @@ public class SmithController {
 
         zoInputLabel.managedProperty().bind(zoInputLabel.visibleProperty());
         zoInputField.managedProperty().bind(zoInputField.visibleProperty());
+        permittivityLabel.managedProperty().bind(permittivityLabel.visibleProperty());
+        permittivityField.managedProperty().bind(permittivityField.visibleProperty());
+        positionComboBox.managedProperty().bind(positionComboBox.visibleProperty());
+        stubComboBox.managedProperty().bind(stubComboBox.visibleProperty());
     }
 
     /**
@@ -663,14 +685,28 @@ public class SmithController {
     protected void onAddComponent() {
         try {
             CircuitElement.ElementType type = typeComboBox.getValue();
-            CircuitElement.ElementPosition position = positionComboBox.getValue();
             double value = Double.parseDouble(valueTextField.getText());
 
             if (type != CircuitElement.ElementType.LINE){
+                CircuitElement.ElementPosition position = positionComboBox.getValue();
                 viewModel.addComponent(type, value * getSelectedUnitFactor(), position);
             } else { //It's a line, we need to get the line's characterstic impedance
                 double impValue = Double.parseDouble(zoInputField.getText());
-                viewModel.addComponent(type, value * getSelectedUnitFactor(), impValue, position);
+                double permittivityValue = Double.parseDouble(permittivityField.getText());
+                Line.StubType stubType = stubComboBox.getValue();
+
+                if (permittivityValue < 1.0) { // La permittivité relative est >= 1
+                    showError("Permittivity (εr) must be >= 1.");
+                    return;
+                }
+                viewModel.addComponent(
+                        type,
+                        value * getSelectedUnitFactor(), // Longueur physique
+                        impValue,                        // Z0
+                        permittivityValue,               // εr
+                        null,
+                        stubType
+                );
             }
         } catch (NumberFormatException e) {
             showError("Invalid value format.");
@@ -805,7 +841,7 @@ public class SmithController {
             case INDUCTOR -> new Inductor(0, position, type);
             case CAPACITOR -> new Capacitor(0, position, type);
             case RESISTOR -> new Resistor(0, position, type);
-            case LINE ->  new Line(0, 0); //TODO: fix this with logic for stub and series line
+            case LINE ->  new Line(0, 0,0,null); //TODO: fix this with logic for stub and series line
         };
 
         // Get direction (counter-clockwise or clockwise)
