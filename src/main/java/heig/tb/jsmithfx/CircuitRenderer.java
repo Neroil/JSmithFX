@@ -1,10 +1,8 @@
 package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.model.CircuitElement;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
-import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
+import heig.tb.jsmithfx.model.Element.Line;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -40,6 +38,10 @@ public class CircuitRenderer {
     private static final double RESISTOR_WIDTH = 40;
     private static final double RESISTOR_HEIGHT = 16;
     private static final double RESISTOR_NUB_LENGTH = 6;
+
+    private static final double LINE_WIDTH = 50;
+    private static final double LINE_HEIGHT = 8;
+    private static final double LINE_NUB_LENGTH = 6;
 
     private static final double CAPACITOR_WIDTH = 10;
     private static final double CAPACITOR_HEIGHT = 25;
@@ -94,7 +96,8 @@ public class CircuitRenderer {
             double x = (i + 1) * slotWidth;
             double y = lineY;
             if (element.getPosition() == CircuitElement.ElementPosition.PARALLEL) {
-                drawForkDown(x,lineY,forkBottomY,gc);
+                if(type == CircuitElement.ElementType.LINE) drawForkDown(x,lineY,forkBottomY,gc,((Line)element).getStubType() == Line.StubType.OPEN );
+                else drawForkDown(x,lineY,forkBottomY,gc);
                 gc.save();
                 gc.translate(x, y + forkBottomY / 2);
                 gc.rotate(90);
@@ -114,6 +117,10 @@ public class CircuitRenderer {
                     drawInductor(gc,x,y);
                     units = InductanceUnit.values();
                 }
+                case LINE -> {
+                    drawLine(gc,x,y, ((Line)element).getStubType() == Line.StubType.OPEN);
+                    units = DistanceUnit.values();
+                }
             }
             if (units.length > 0) {
 
@@ -131,9 +138,13 @@ public class CircuitRenderer {
     }
 
     private void drawForkDown(double x, double y1,double y2, GraphicsContext gc) {
+        drawForkDown(x,y1,y2,gc,false);
+    }
+
+    private void drawForkDown(double x, double y1,double y2, GraphicsContext gc, boolean isOpenStub) {
         gc.setStroke(WIRE_COLOR);
         gc.strokeLine(x, y1, x, y2);
-        drawGround(x,y2,gc);
+        if(!isOpenStub)drawGround(x,y2,gc);
     }
 
     private void drawGround(double x, double y, GraphicsContext gc) {
@@ -185,6 +196,22 @@ public class CircuitRenderer {
         gc.strokeRect(left, top, width, height);
         gc.strokeLine(left - nubLength, y, left, y);
         gc.strokeLine(left + width, y, left + width + nubLength, y);
+    }
+
+    private void drawLine(GraphicsContext gc, double x, double y, boolean isOpenStub) {
+        double width = LINE_WIDTH;
+        double height = LINE_HEIGHT;
+        double left = x - width / 2;
+        double top = y - height / 2;
+        double nubLength = LINE_NUB_LENGTH;
+
+        // Draw rectangle as resistor body
+        gc.setStroke(COMPONENT_COLOR);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
+        gc.clearRect(left, top, width, height);
+        gc.strokeRect(left, top, width, height);
+        gc.strokeLine(left - nubLength, y, left, y);
+        if (!isOpenStub) gc.strokeLine(left + width, y, left + width + nubLength, y);
     }
 
     private void drawCapacitor(GraphicsContext gc, double x, double y) {

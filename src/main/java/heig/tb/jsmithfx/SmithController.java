@@ -476,6 +476,87 @@ public class SmithController {
 
         double componentValue = 0;
 
+        if (type == CircuitElement.ElementType.LINE){
+            //Get the current values of εr and z_L
+            double z0_line;
+            double permittivity;
+            try {
+                z0_line = Double.parseDouble(zoInputField.getText());
+                permittivity = Double.parseDouble(permittivityField.getText());
+                if (z0_line <= 0 || permittivity < 1.0) return null; // Basic validation
+            } catch (NumberFormatException e) {
+                showError("Please make sure the z0 and εr field are filled");
+                return null; // A value hasn't been entered yet
+            }
+
+            final double C = 299792458.0; // Speed of light in m/s
+            // β = 2πf/pv, will be used for the calculations in the two branches
+            double phase_velocity = C / Math.sqrt(permittivity);
+            double beta = (2.0 * Math.PI * frequency) / phase_velocity;
+
+            if (stubType == Line.StubType.NONE){
+                    // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j2βL)
+                    // Multiplying by e^(-j2βL) rotates Γ by an angle -2βL on the complex plane.
+                    // So the physical length L can be recovered from the change in angle of Γ.
+
+                    // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j2βL))
+                    // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
+                    Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line,0)).dividedBy(startImpedance.add(new Complex(z0_line,0)));
+                    Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line,0)).dividedBy(finalImpedance.add(new Complex(z0_line,0)));
+
+                    // Calculate the change in angle. (Δθ)
+                    double startAngle = gamma_start_line.angle();
+                    double finalAngle = gamma_final_line.angle();
+                    double angleChange = finalAngle - startAngle;
+
+                    // The rotation for adding a line is always clockwise.
+                    if (angleChange > 0) {
+                        angleChange -= 2.0 * Math.PI;
+                    }
+                    // L = ∣Δθ∣ / 2β
+                    double electricalRotation = Math.abs(angleChange);
+
+                    // Avoid division by zero if beta is somehow zero
+                    if (Math.abs(beta) < EPS) return null;
+
+                    // Calculate the final physical length.
+                    componentValue  = electricalRotation / (2.0 * beta);
+                } else {
+                // Here we use the basic formula of Z_in = Z_0 * (Z_L + jZ_0tan(βL)) / (Z_0 + jZ_Ltan(βL))
+                // If it's a short circuit, Z_L becomes 0 so Z_in = jZ_0tan(βL)
+                // If it's an open circuit, Z_L becomes infinity, so we simplify the equation to get Z_in = Z_0 / jtan(βL)
+
+                // Since a stub is in parallel, we have to use admittance
+                Complex yStart = startImpedance.inverse();
+                Complex yFinal = finalImpedance.inverse();
+
+                Complex yDiff = yFinal.subtract(yStart);
+                double targetSusceptance = yDiff.imag();
+                double y0 = 1.0 / z0_line;
+                double L;
+
+                if (stubType == Line.StubType.SHORT){
+                    // For a short-circuited stub:
+                    // Y_in = 1 / (j Z_0 tan(βL)) = -j Y_0 / tan(βL)
+                    // So, tan(βL) = -Y_0 / (j Y_in) => for susceptance B, tan(βL) = -Y_0 / B
+                    // L = arctan(-Y_0 / targetSusceptance) / β
+                    L = Math.atan(-y0 / targetSusceptance) / beta;
+                } else {
+                    // For an open-circuited stub:
+                    // Y_in = j Y_0 tan(βL)
+                    // So, tan(βL) = B / Y_0
+                    // L = arctan(targetSusceptance / y0) / β
+                    L = Math.atan(targetSusceptance / y0) / beta;
+                }
+                // Get a positive value
+                while (L < 0) {
+                    L += Math.PI / beta;
+                }
+                componentValue = L;
+            }
+        }
+
+        //Logic for "normal" elements (RLC)
         if (position == CircuitElement.ElementPosition.SERIES) {
             Complex addedImpedance = finalImpedance.subtract(startImpedance);
             double imagZ = addedImpedance.imag();
@@ -487,49 +568,6 @@ public class SmithController {
                 componentValue = -1.0 / (imagZ * omega); // C = -1/(Im(Z)*ω)
             } else if (type == CircuitElement.ElementType.RESISTOR) {
                 componentValue = addedImpedance.real(); // R = Re(Z)
-            } else if (type == CircuitElement.ElementType.LINE){
-                //Get the current values of εr and z_L
-                double z0_line;
-                double permittivity;
-                try {
-                    z0_line = Double.parseDouble(zoInputField.getText());
-                    permittivity = Double.parseDouble(permittivityField.getText());
-                    if (z0_line <= 0 || permittivity < 1.0) return null; // Basic validation
-                } catch (NumberFormatException e) {
-                    showError("Please make sure the z0 and εr field are filled");
-                    return null; // A value hasn't been entered yet
-                }
-
-                // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j·2·β·L)
-                // Multiplying by e^(-j·2·β·L) rotates Γ by an angle -2βL on the complex plane.
-                // So the physical length L can be recovered from the change in angle of Γ.
-
-                // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j·2·β·L))
-                // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
-                Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line,0)).dividedBy(startImpedance.add(new Complex(z0_line,0)));
-                Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line,0)).dividedBy(finalImpedance.add(new Complex(z0_line,0)));
-
-                // Calculate the change in angle. (Δθ)
-                double startAngle = gamma_start_line.angle();
-                double finalAngle = gamma_final_line.angle();
-                double angleChange = finalAngle - startAngle;
-
-                // The rotation for adding a line is always clockwise.
-                if (angleChange > 0) {
-                    angleChange -= 2.0 * Math.PI;
-                }
-                // L = ∣Δθ∣ / 2β
-                double electricalRotation = Math.abs(angleChange);
-                final double C = 299792458.0; // Speed of light in m/s
-                // β = 2πf/pv
-                double phase_velocity = C / Math.sqrt(permittivity);
-                double beta = (2.0 * Math.PI * frequency) / phase_velocity;
-
-                // Avoid division by zero if beta is somehow zero
-                if (Math.abs(beta) < EPS) return null;
-
-                // Calculate the final physical length.
-                componentValue  = electricalRotation / (2.0 * beta);
             }
         } else { // PARALLEL
             if (Math.hypot(startImpedance.real(), startImpedance.imag()) < EPS ||
@@ -549,12 +587,6 @@ public class SmithController {
                 componentValue = imagY / omega; // C = Im(Y)/ω
             } else if (type == CircuitElement.ElementType.RESISTOR) {
                 componentValue = 1.0 / addedY.real(); // R = 1/Re(ΔY)
-            } else if (type == CircuitElement.ElementType.LINE) {
-                if (stubType == Line.StubType.OPEN) { //Open circuit
-                    componentValue = 1.0 / addedY.real();
-                } else  { //Closed circuit
-                    componentValue = 1.0 / addedY.real();
-                }
             }
         }
 
@@ -902,6 +934,9 @@ public class SmithController {
                 double impValue = Double.parseDouble(zoInputField.getText());
                 double permittivityValue = Double.parseDouble(permittivityField.getText());
                 Line.StubType stubType = stubComboBox.getValue();
+                if (stubType == null || stubType == Line.StubType.NONE) {
+                    yield new Line(0, impValue,permittivityValue);
+                }
                 yield new Line(0, impValue,permittivityValue,stubType);
             }
         };

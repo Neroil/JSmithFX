@@ -7,16 +7,13 @@ import heig.tb.jsmithfx.model.Element.Inductor;
 import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.utilities.Complex;
-import javafx.beans.binding.Bindings;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
-import javafx.util.Pair;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
-import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -166,7 +163,7 @@ public class SmithChartViewModel {
      * @return the VSWR
      */
     private double calculateVswr(Complex gamma) {
-        double gammaNorm = gamma.abs();
+        double gammaNorm = gamma.magnitude();
         return (gammaNorm < 1e-9) ? Double.POSITIVE_INFINITY : (1 + gammaNorm) / (1 - gammaNorm);
     }
 
@@ -176,7 +173,7 @@ public class SmithChartViewModel {
      * @return the return loss value
      */
     private double calculateReturnLoss(Complex gamma){
-        double gammaNorm = gamma.abs();
+        double gammaNorm = gamma.magnitude();
         return (gammaNorm < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(gammaNorm);
     }
 
@@ -192,7 +189,7 @@ public class SmithChartViewModel {
 
     public void calculateMouseInformations(double gammaX, double gammaY) {
         Complex gamma = new Complex(gammaX, gammaY);
-        double gammaMagnitude = gamma.abs();
+        double gammaMagnitude = gamma.magnitude();
 
         //Update raw data
         this.mouseGamma.set(gamma);
@@ -219,12 +216,12 @@ public class SmithChartViewModel {
         Complex denominator = one.subtract(gamma);
 
         // Check for open circuit condition (Gamma ≈ 1)
-        if (denominator.abs() < 1e-9) {
+        if (denominator.magnitude() < 1e-9) {
             // Handle open circuit - set to very high impedance or infinity
             mouseReturnLossText.set("0.00 dB");
             mouseVSWRText.set("∞");
             mouseQualityFactorText.set("∞");
-            mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.abs(), Math.toDegrees(gamma.angle())));
+            mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.magnitude(), Math.toDegrees(gamma.angle())));
             mouseAdmittanceYText.set("0.00 + j0.00 mS");
             mouseImpedanceZText.set("∞");
             return;
@@ -252,7 +249,7 @@ public class SmithChartViewModel {
         //Format strings for controller
         mouseReturnLossText.set(String.format("%.3f dB", returnLoss));
         mouseVSWRText.set(String.format("%.3f", vswr));
-        mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.abs(), Math.toDegrees(gamma.angle())));
+        mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.magnitude(), Math.toDegrees(gamma.angle())));
         mouseImpedanceZText.set(impedanceZ.toString());
         mouseAdmittanceYText.set(admittanceY.toStringmS());
         mouseQualityFactorText.set(String.format("%.3f", qFactor));

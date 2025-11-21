@@ -8,7 +8,6 @@ import javafx.util.Pair;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class SmithUtilities {
 
@@ -76,32 +75,48 @@ public class SmithUtilities {
         Complex zNorm = startImpedance.dividedBy(z0);
 
         if (element.getType() == CircuitElement.ElementType.LINE) {
-            Line line = (Line) element;
-            double Zc = line.getCharacteristicImpedance();
+            if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
+                Line line = (Line) element;
+                double zL = line.getCharacteristicImpedance();
+                // Simple case if the impedance of the line matches the impedance of the current system
+                if (Math.abs(zL - z0) < 1e-9) {
+                    Complex gamma = startImpedance.subReal(z0).dividedBy(startImpedance.addReal(z0));
+                    center = new Complex(0, 0);
+                    radius = gamma.magnitude();
+                }
+                // If mismatch
+                else {
+                    // Find the reflexion coef of the impedance to the impedance of the line
+                    Complex gammaRelToLine = startImpedance.subReal(zL).dividedBy(startImpedance.addReal(zL));
+                    double rhoLine = gammaRelToLine.magnitude();
 
-            // g = (Zc - Z0) / (Zc + Z0)
-            double g = (Zc - z0) / (Zc + z0);
+                    // Find the two extremities of the gammaRelToLine circle to the X axis using:
+                    // Z = zL * (1+Gamma)/(1-Gamma)
+                    // Using the magnitude of the Gamma makes it possible to find the pure real points
+                    double rMin = zL * (1.0 - rhoLine) / (1.0 + rhoLine);
+                    double rMax = zL * (1.0 + rhoLine) / (1.0 - rhoLine);
 
-            // 2. Calculate the radius of the circle in the "Zc-normalized" domain (k)
-            // Gamma_wrt_Zc = (Z_start - Zc) / (Z_start + Zc)
-            Complex num = startImpedance.subtract(new Complex(Zc, 0));
-            Complex den = startImpedance.add(new Complex(Zc, 0));
-            double k = num.dividedBy(den).abs();
+                    // Convert those two point to the z0 plan
+                    double gammaSysMin = (rMin - z0) / (rMin + z0);
+                    double gammaSysMax = (rMax - z0) / (rMax + z0);
 
-            // 3. Map this circle back to the System Gamma plane (Z0 domain)
-            // This handles the shift when Zc != Z0. If Zc == Z0, g is 0, center is 0, radius is k.
-            double denominator = 1 - g * g * k * k;
+                    // Find the center of the circle using those two points
+                    double centerX = (gammaSysMin + gammaSysMax) / 2.0;
 
-            // Protection against division by zero (unlikely in passive circuits)
-            if (Math.abs(denominator) < 1e-9) {
-                center = new Complex(0, 0);
-                radius = 0;
-            } else {
-                double centerX = g * (1 - k * k) / denominator;
-                double radiusVal = k * (1 - g * g) / denominator;
+                    center = new Complex(centerX, 0);
+                    radius = Math.abs(gammaSysMax - gammaSysMin) / 2.0;
+                }
+            } else { //Parallel so it's an open stub or a short stub, the center or of the arc does not change for either stubs
+
+                //We know that the circle is tangent the point -1 + j0 and to startImpedance
+                //The center will be exactly at the middle of those two points
+                Complex gamma = startImpedance.subReal(z0).dividedBy(startImpedance.addReal(z0));
+                double denom = 2 * (1 + gamma.real());
+                double nom = Math.pow(gamma.magnitude(),2) - 1;
+                double centerX = nom/denom;
 
                 center = new Complex(centerX, 0);
-                radius = Math.abs(radiusVal);
+                radius = Math.abs(centerX - (-1.0));
             }
         }
         else if (element.getType() == CircuitElement.ElementType.RESISTOR) {
@@ -137,6 +152,13 @@ public class SmithUtilities {
         int expectedDirection;
         CircuitElement.ElementType type = element.getType();
         CircuitElement.ElementPosition position = element.getPosition();
+
+        if (type == CircuitElement.ElementType.LINE){
+            expectedDirection = 1;
+            expectedDirection *= ((Line)element).getStubType() == Line.StubType.SHORT ? 1 : -1;
+
+            return expectedDirection;
+        }
 
         expectedDirection = (type == CircuitElement.ElementType.CAPACITOR || type == CircuitElement.ElementType.RESISTOR) ? 1 : -1;
         expectedDirection *= (position ==  CircuitElement.ElementPosition.SERIES) ? 1 : -1;

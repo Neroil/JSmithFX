@@ -48,6 +48,13 @@ public record Complex(double real, double imag) {
         return new Complex(imag, real + r);
     }
 
+    public Complex subReal(double r) {
+        return new Complex(real - r, imag);
+    }
+    public Complex subImag(double r) {
+        return new Complex(imag, real - r);
+    }
+
     public Complex add(Complex z) {
         return new Complex(real + z.real, imag + z.imag);
     }
@@ -57,7 +64,7 @@ public record Complex(double real, double imag) {
         return new Complex(real / denominator, (-imag) / denominator);
     }
 
-    public double abs() {
+    public double magnitude() {
         return Math.sqrt(real * real + imag * imag);
     }
 
@@ -78,7 +85,7 @@ public record Complex(double real, double imag) {
     }
 
     public Complex normalize() {
-        double abs = abs();
+        double abs = magnitude();
         return new Complex(real/abs, imag/abs);
     }
 }

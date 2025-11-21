@@ -70,7 +70,7 @@ public class Line extends CircuitElement {
             double tan_bl = Math.tan(electricalLength);
             Complex numerator = currentImpedance.add(j.multiply(z0Complex).multiply(tan_bl));
             Complex denominator = z0Complex.add(j.multiply(currentImpedance).multiply(tan_bl));
-            return denominator.abs() > 1e-9 ? z0Complex.multiply(numerator.dividedBy(denominator)) : new Complex(1e12, 0);
+            return denominator.magnitude() > 1e-9 ? z0Complex.multiply(numerator.dividedBy(denominator)) : new Complex(1e12, 0);
         } else { // Stub
             double y0 = 1.0 / characteristicImpedance;
             Complex stubAdmittance = stubType == StubType.SHORT
