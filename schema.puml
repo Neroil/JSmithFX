@@ -1,84 +1,207 @@
 @startuml
-'UML Diagram for Smith Chart Representation
+!theme plain
+hide empty members
+skinparam linetype polyline
+skinparam shadow false
+left to right direction
 
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+}
 
 package Model {
+  package "Units" <<Rectangle>> {
+      interface ElectronicUnit {
+        + getFactor(): double
+      }
 
-    class Complex {
-        - double real
-        - double imag
+      enum CapacitanceUnit {
+        PICO_FARAD
+        NANO_FARAD
+        MICRO_FARAD
+        MILLI_FARAD
+      }
 
-        + Complex(double real, double imag)
+      enum DistanceUnit {
+        M
+        MM
+        KM
+      }
 
-        + add(Complex other) : Complex
-        + invert() : Complex
-        + getReal() : double
-        + getImag() : double
-    }
+      enum InductanceUnit {
+        HENRY
+        MILLI_HENRY
+        MICRO_HENRY
+        NANO_HENRY
+      }
 
-    class CircuitModel{
-        - double frequency
+      enum ResistanceUnit {
+        OHM
+        KILO_OHM
+        MEGA_OHM
+      }
+  }
 
-        + CircuitModel(Complex loadImpedance, double frequency)
+  class Complex << record >> {
+    - real: double
+    - imag: double
+    + magnitude(): double
+    + angle(): double
+    + add(Complex): Complex
+    + subtract(Complex): Complex
+    + multiply(Complex): Complex
+    + dividedBy(Complex): Complex
+    + toStringmS(): String
+  }
 
-        + addElement(CircuitElement element)
-        + removeElement(int index)
-        + updateElement(int index, CircuitElement element)
-        + getElements() : List<CircuitElement>
-    }
+  enum StubType {
+    OPEN
+    SHORT
+  }
 
-    abstract class CircuitElement {
-        - double realValue
+  enum ElementType {
+    CAPACITOR
+    INDUCTOR
+    RESISTOR
+    LINE
+  }
 
-        + getValue() : double
-        + setValue(double value) : void
-        + {abstract} getImpedance(double frequency) : Complex
-    }
+  enum ElementPosition {
+    SERIES
+    PARALLEL
+  }
 
-    class Capacitor {
-        + getImpedance(double frequency) : Complex
-    }
+  abstract class CircuitElement {
+    # realWorldValue: DoubleProperty
+    # elementPosition: ElementPosition
+    # elementType: ElementType
+    + getImpedance(double): Complex
+  }
 
-    class Inductor {
-        + getImpedance(double frequency) : Complex
-    }
+  class Capacitor {
+    + getImpedance(double): Complex
+  }
 
-    enum ElementPosition {
-        SERIES
-        PARALLEL
-    }
+  class Inductor {
+    + getImpedance(double): Complex
+  }
+
+  class Resistor {
+    + getImpedance(double): Complex
+  }
+
+  class Line {
+    - characteristicImpedance: double
+    - permittivity: double
+    + calculateImpedance(Complex, double): Complex
+  }
+
+  class DataPoint {
+    - label: SimpleStringProperty
+    - impedance: SimpleObjectProperty<Complex>
+    - gamma: SimpleObjectProperty<Complex>
+    - vswr: SimpleDoubleProperty
+    - returnLoss: SimpleDoubleProperty
+  }
+
+  ' Relationships inside Model
+  CapacitanceUnit ..|> ElectronicUnit
+  DistanceUnit    ..|> ElectronicUnit
+  InductanceUnit  ..|> ElectronicUnit
+  ResistanceUnit  ..|> ElectronicUnit
+
+  CircuitElement <|-- Capacitor
+  CircuitElement <|-- Inductor
+  CircuitElement <|-- Resistor
+  CircuitElement <|-- Line
+
+  Line --> StubType
+  CircuitElement ..> Complex
+  CircuitElement --> ElementType
+  CircuitElement --> ElementPosition
 }
 
 package ViewModel {
-
-    class SmithChartViewModel {
-
-
-    }
+  class SmithChartViewModel {
+    + frequency: DoubleProperty
+    + mouseImpedanceZ: ObjectProperty<Complex>
+    + dataPoints: SimpleListProperty<DataPoint>
+    + circuitElements: SimpleListProperty<CircuitElement>
+    - undoStack: Stack<UndoRedoEntry>
+    + undo(): void
+    + redo(): void
+    + addComponent(...): void
+    - recalculateImpedanceChain(): void
+  }
 }
 
 package View {
+  class CircuitRenderer {
+    - circuitCanvas: Canvas
+    + render(SmithChartViewModel): void
+    - drawResistor(...): void
+    - drawCapacitor(...): void
+    - drawInductor(...): void
+  }
 
-    class SmithChartView {
-
-    }
-
-
+  class SmithChartRenderer {
+    - smithCanvas: Canvas
+    + render(SmithChartViewModel...): void
+    - drawSmithGrid(...): void
+    - drawImpedancePath(...): void
+  }
 }
-'--------------- Relations ----------------
 
-' Inheritance
-CircuitElement <|-- Capacitor
-CircuitElement <|-- Inductor
+package Controller {
+  class SmithController {
+    - viewModel: SmithChartViewModel
+    + initialize(): void
+    + onChangeFreq(ActionEvent): void
+    + onAddComponentMouse(ActionEvent): void
+    - calculateComponentValue(...): Double?
+  }
+}
 
-' Composition/Aggregation
-CircuitModel "1" *-- "0..*" CircuitElement : contains
-CircuitModel "1" --> "1" Complex : loadImpedance
+package Infrastructure {
+  class DialogFactory {
+    + showComplexInputDialog(...): Optional<Complex>
+    + showComponentEditDialog(...): Optional<Double>
+  }
 
-' Dependencies (uses as return type/parameter)
-CircuitElement ..> Complex : <<returns>>
-CircuitElement --> ElementPosition : <<uses>>
+  class SmithUtilities {
+    + gammaToImpedance(...): Complex
+    + getArcParameters(...): Pair<Complex, Double>
+  }
 
+  class JSmithFXApplication {
+    + start(Stage): void
+  }
 
+  class Launcher {
+    + main(String[]): void
+  }
+}
+
+' === Main Architecture Relationships ===
+
+' Controller manages ViewModel and View
+SmithController o--> SmithChartViewModel
+SmithController o--> SmithChartRenderer
+SmithController o--> CircuitRenderer
+
+' View renders data from ViewModel
+CircuitRenderer ..> SmithChartViewModel : <<reads>>
+SmithChartRenderer ..> SmithChartViewModel : <<reads>>
+
+' ViewModel manages Model
+SmithChartViewModel o--> "0..*" CircuitElement
+SmithChartViewModel *--> "0..*" DataPoint
+
+' Infrastructure helpers
+SmithUtilities ..> Complex
+DialogFactory ..> CircuitElement
+Launcher ..> JSmithFXApplication
 
 @enduml

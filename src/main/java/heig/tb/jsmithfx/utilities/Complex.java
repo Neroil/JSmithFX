@@ -45,14 +45,14 @@ public record Complex(double real, double imag) {
     }
 
     public Complex addImag(double r) {
-        return new Complex(imag, real + r);
+        return new Complex(real, imag + r);
     }
 
     public Complex subReal(double r) {
         return new Complex(real - r, imag);
     }
     public Complex subImag(double r) {
-        return new Complex(imag, real - r);
+        return new Complex(real, imag - r);
     }
 
     public Complex add(Complex z) {
@@ -60,6 +60,8 @@ public record Complex(double real, double imag) {
     }
 
     public Complex inverse() {
+        if(real == 0.0 && imag == 0.0)
+            throw new ArithmeticException("Division by zero is not allowed!");
         double denominator = real * real + imag * imag;
         return new Complex(real / denominator, (-imag) / denominator);
     }
@@ -86,6 +88,9 @@ public record Complex(double real, double imag) {
 
     public Complex normalize() {
         double abs = magnitude();
+        if (abs == 0) {
+            throw new ArithmeticException("Cannot normalize a zero-magnitude complex number.");
+        }
         return new Complex(real/abs, imag/abs);
     }
 }
