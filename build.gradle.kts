@@ -5,6 +5,7 @@ plugins {
     id("org.openjfx.javafxplugin") version "0.0.13"
     id("org.beryx.jlink") version "3.1.1"
     id("org.jetbrains.kotlin.jvm") version "1.9.23"
+    id("com.gradleup.shadow") version "9.2.2"
 }
 
 group = "heig.tb"
