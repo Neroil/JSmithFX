@@ -133,7 +133,7 @@ public class SmithChartViewModel {
         double loadVswr = calculateVswr(loadGamma);
         double loadRetLoss = calculateReturnLoss(loadGamma);
 
-        newDataPoints.add(new DataPoint("LD", currentImpedance, loadGamma, loadVswr, loadRetLoss));
+        newDataPoints.add(new DataPoint(frequency.get(), "LD", currentImpedance, loadGamma, loadVswr, loadRetLoss));
 
         // Sequentially add the effect of each component
         int index = 1;
@@ -150,7 +150,7 @@ public class SmithChartViewModel {
             double elVswr = calculateVswr(elGamma);
             double elRetLoss = calculateReturnLoss(elGamma);
 
-            newDataPoints.add(new DataPoint("DP" + index++, currentImpedance, elGamma, elVswr, elRetLoss));
+            newDataPoints.add(new DataPoint(frequency.get(),"DP" + index++, currentImpedance, elGamma, elVswr, elRetLoss));
         }
 
         // Atomically update the main 'measures' property with the new list.

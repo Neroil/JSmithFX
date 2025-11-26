@@ -14,7 +14,7 @@ repositories {
     mavenCentral()
 }
 
-val junitVersion = "5.12.1"
+val junitVersion = "5.10.2"
 
 java {
     toolchain {
@@ -67,7 +67,7 @@ dependencies {
 
 }
 
-tasks.withType<Test> {
+tasks.test {
     useJUnitPlatform()
 }
 
