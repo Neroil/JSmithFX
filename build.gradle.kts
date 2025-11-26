@@ -3,8 +3,9 @@ plugins {
     application
     id("org.javamodularity.moduleplugin") version "1.8.15"
     id("org.openjfx.javafxplugin") version "0.0.13"
-    id("org.beryx.jlink") version "2.25.0"
+    id("org.beryx.jlink") version "3.1.1"
     id("org.jetbrains.kotlin.jvm") version "1.9.23"
+    id("com.gradleup.shadow") version "9.2.2"
 }
 
 group = "heig.tb"
@@ -32,7 +33,7 @@ tasks.withType<JavaExec> {
 
 application {
     mainModule.set("heig.tb.jsmithfx")
-    mainClass.set("heig.tb.jsmithfx.HelloApplication")
+    mainClass.set("heig.tb.jsmithfx.Launcher")
 }
 
 javafx {
@@ -72,9 +73,7 @@ tasks.test {
 }
 
 jlink {
-    imageZip.set(layout.buildDirectory.file("/distributions/app-${javafx.platform.classifier}.zip"))
-    options.set(listOf("--strip-debug", "--compress", "2", "--no-header-files", "--no-man-pages"))
     launcher {
-        name = "app"
+        name = "Launcher"
     }
 }
