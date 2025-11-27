@@ -73,9 +73,6 @@ public class SmithChartViewModel {
     public ReadOnlyStringProperty mouseAdmittanceYTextProperty() { return mouseAdmittanceYText.getReadOnlyProperty(); }
     public ReadOnlyStringProperty mouseImpedanceZTextProperty() { return mouseImpedanceZText.getReadOnlyProperty(); }
 
-
-
-
     // Undo Redo logic
     private enum Operation { ADD, REMOVE }
     private final Stack<UndoRedoEntry> undoStack = new Stack<>();
@@ -89,9 +86,10 @@ public class SmithChartViewModel {
 
     // S1P Load option
     private boolean useS1PAsLoad = false;
-    public boolean isUseS1PAsLoad() {
-        return useS1PAsLoad;
-    }
+
+    // Ghost cursor
+    public final ObjectProperty<Complex> ghostCursorGamma = new SimpleObjectProperty<>();
+    public final BooleanProperty showGhostCursor = new SimpleBooleanProperty(false);
 
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.

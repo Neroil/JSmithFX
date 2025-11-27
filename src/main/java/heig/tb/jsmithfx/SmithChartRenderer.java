@@ -6,7 +6,6 @@ import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.chart.PieChart;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.text.Font;
@@ -18,12 +17,15 @@ import java.util.List;
 public class SmithChartRenderer {
 
     private final Canvas smithCanvas;
+    private final Canvas cursorCanvas;
+
     private final double thickLineValue = 1;
     private final double thinLineValue = 0.4;
     private Font LABEL_FONT = new Font("Arial", 10);
 
-    public SmithChartRenderer(Canvas smithCanvas) {
+    public SmithChartRenderer(Canvas smithCanvas, Canvas cursorCanvas) {
         this.smithCanvas = smithCanvas;
+        this.cursorCanvas = cursorCanvas;
     }
 
     /**
@@ -53,6 +55,23 @@ public class SmithChartRenderer {
         drawImpedancePoints(gc, viewModel, selectedIndex);
 
         gc.restore();
+    }
+
+    public void renderCursor(SmithChartViewModel viewModel, double currentScale, double offsetX, double offsetY) {
+        GraphicsContext gc = cursorCanvas.getGraphicsContext2D();
+
+        clearCursor(gc);
+
+        if (viewModel.showGhostCursor.get()) {
+            gc.save();
+
+            gc.translate(offsetX, offsetY);
+            gc.scale(currentScale, currentScale);
+
+            drawGhostCursor(gc, viewModel, currentScale);
+
+            gc.restore();
+        }
     }
 
     /**
@@ -295,6 +314,32 @@ public class SmithChartRenderer {
         gc.fillText(text, x, y + fontSize / 3);
     }
 
+    private void drawGhostCursor(GraphicsContext gc, SmithChartViewModel viewModel, double currentScale) {
+        Complex gamma = viewModel.ghostCursorGamma.get();
+        if (gamma == null) return;
+
+        double width = smithCanvas.getWidth();
+        double height = smithCanvas.getHeight();
+        double centerX = width / 2;
+        double centerY = height / 2;
+        double mainRadius = Math.min(centerX, centerY) - 10;
+
+        double pointX = centerX + gamma.real() * mainRadius;
+        double pointY = centerY - gamma.imag() * mainRadius;
+
+        gc.setStroke(Color.WHITESMOKE);
+        gc.setLineWidth(1.5 / currentScale); // Constant thickness regardless of zoom
+
+        double size = 15.0 / currentScale; // Constant size regardless of zoom
+
+        gc.strokeLine(pointX - size, pointY, pointX + size, pointY);
+        gc.strokeLine(pointX, pointY - size, pointX, pointY + size);
+
+        double radius = 6.0 / currentScale;
+        gc.setLineWidth(2.0 / currentScale);
+        gc.strokeOval(pointX - radius, pointY - radius, radius * 2, radius * 2);
+    }
+
     /**
      * Draws the impedance path on the chart based on the circuit elements.
      *
@@ -387,5 +432,14 @@ public class SmithChartRenderer {
         }
 
         gc.restore();
+    }
+
+    /**
+     * Clears the cursor canvas.
+     *
+     * @param gc The GraphicsContext of the cursor canvas.
+     */
+    public void clearCursor(GraphicsContext gc) {
+        gc.clearRect(0, 0, cursorCanvas.getWidth(), cursorCanvas.getHeight());
     }
 }

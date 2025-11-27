@@ -17,6 +17,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
@@ -96,6 +97,8 @@ public class SmithController {
     private Pane smithChartPane;
     @FXML
     private Canvas smithCanvas;
+    @FXML
+    private Canvas cursorCanvas;
     @FXML
     private Canvas circuitCanvas;
     @FXML
@@ -177,7 +180,7 @@ public class SmithController {
     @FXML
     public void initialize() {
         this.viewModel = new SmithChartViewModel();
-        this.smithChartRenderer = new SmithChartRenderer(smithCanvas);
+        this.smithChartRenderer = new SmithChartRenderer(smithCanvas, cursorCanvas);
         circuitRenderer = new CircuitRenderer(circuitCanvas);
 
         setupResizableCanvas();
@@ -319,6 +322,10 @@ public class SmithController {
         smithCanvas.heightProperty().bind(smithChartPane.heightProperty());
         smithCanvas.widthProperty().addListener((_, _, _) -> redrawSmithCanvas());
         smithCanvas.heightProperty().addListener((_, _, _) -> redrawSmithCanvas());
+
+        // --- CURSOR RENDERING ---
+        cursorCanvas.widthProperty().bind(smithCanvas.widthProperty());
+        cursorCanvas.heightProperty().bind(smithCanvas.heightProperty());
 
         // --- CIRCUIT RENDERING ---
         circuitCanvas.widthProperty().bind(circuitPane.widthProperty());
@@ -516,6 +523,8 @@ public class SmithController {
             unitComboBox.getSelectionModel().select((Enum<?>) result.getKey());
         }
 
+        viewModel.ghostCursorGamma.set(snappedGammaForMouseAdd); // Update the ghost cursor position
+        smithChartRenderer.renderCursor(viewModel, currentScale, offsetX, offsetY);
         moveCursorToGamma(snappedGammaForMouseAdd);
     }
 
@@ -729,6 +738,9 @@ public class SmithController {
         previousAngle = null;
         allowedAngleTravel = null;
         totalAngleTraveled = null;
+        viewModel.showGhostCursor.set(false);
+        smithCanvas.setCursor(javafx.scene.Cursor.DEFAULT);
+        smithChartRenderer.clearCursor(cursorCanvas.getGraphicsContext2D());
     }
 
     /**
@@ -1078,6 +1090,10 @@ public class SmithController {
 
         // Activate mouse mode after initialization
         this.isAddingMouseComponent = true;
+
+        viewModel.ghostCursorGamma.set(startGammaForMouseAdd);
+        viewModel.showGhostCursor.set(true);
+        smithCanvas.setCursor(Cursor.NONE);
 
         // Update UI and move cursor
         addMouseButton.setText("Cancel (ESC)");
