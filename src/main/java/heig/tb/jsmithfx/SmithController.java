@@ -152,6 +152,8 @@ public class SmithController {
     private TextField minFreqTextField;
     @FXML
     private TextField s1pFileNameField;
+    @FXML
+    private CheckBox useS1PAsLoadCheckBox;
 
 
     //Viewmodel
@@ -285,6 +287,12 @@ public class SmithController {
             } catch (IllegalArgumentException e) {
                 showError("Invalid frequency input: " + e.getMessage());
             }
+        });
+
+        // Tells the renderer to use the S1P data as load
+        useS1PAsLoadCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setUseS1PAsLoad(newVal);
+            redrawSmithCanvas();
         });
 
         //Enable CTRL Z (undo) and CTRL Y (redo)
@@ -496,7 +504,7 @@ public class SmithController {
                 positionComboBox.getValue(),
                 stubComboBox.getValue(),
                 viewModel.zo.get(),
-                viewModel.frequency.get()
+                viewModel.frequencyProperty().get()
         );
 
         if (liveValue != null) {
@@ -670,7 +678,7 @@ public class SmithController {
      */
     private void finalizeMouseAddComponent() {
         double z0 = viewModel.zo.get();
-        double freq = viewModel.frequency.get();
+        double freq = viewModel.frequencyProperty().get();
 
         CircuitElement.ElementType type = typeComboBox.getValue();
         CircuitElement.ElementPosition position = positionComboBox.getValue();
@@ -841,7 +849,7 @@ public class SmithController {
         });
 
         loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
-        freqLabel.textProperty().bind(viewModel.frequencyProperty());
+        freqLabel.textProperty().bind(viewModel.frequencyTextProperty());
 
         viewModel.measuresGammaProperty().addListener((_, _, _) -> redrawSmithCanvas());
 
@@ -939,10 +947,10 @@ public class SmithController {
     }
 
     public void onChangeFreq(ActionEvent actionEvent) {
-        DialogFactory.showFrequencyInputDialog("Change Frequency", viewModel.frequency.get())
+        DialogFactory.showFrequencyInputDialog("Change Frequency", viewModel.frequencyProperty().get())
                 .ifPresent(newFreq -> {
                     if (newFreq > 0) {
-                        viewModel.frequency.setValue(newFreq);
+                        viewModel.setFrequency(newFreq);
                     } else {
                         DialogFactory.showErrorAlert("Invalid Input", "Frequency must be a positive value.");
                     }

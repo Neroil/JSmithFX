@@ -88,9 +88,13 @@
                                         <Insets top="5.0" right="10.0" bottom="5.0" left="10.0" />
                                     </padding>
 
-                                    <Label text="Loaded File Name:" />
-                                    <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" />
+                                    <HBox>
 
+                                        <Label text="Loaded File Name:" />
+                                        <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" />
+                                        <Label text= "Use S1P as load"/>
+                                        <CheckBox fx:id="useS1PAsLoadCheckBox"/>
+                                    </HBox>
                                     <Label text="Frequency Range Filter:" />
                                     <HBox alignment="CENTER_LEFT" spacing="10.0">
                                         <TextField fx:id="minFreqTextField" promptText="Min" prefWidth="80" />

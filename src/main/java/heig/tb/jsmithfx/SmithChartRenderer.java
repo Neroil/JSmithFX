@@ -45,12 +45,12 @@ public class SmithChartRenderer {
 
         // Draw the static parts of the chart
         drawSmithGrid(gc, viewModel);
+        // Draw the S1P points
+        drawS1PPoints(gc, viewModel);
         // Draw the path between the impedances
         drawImpedancePath(gc, viewModel);
         // Draw the impedances
         drawImpedancePoints(gc, viewModel, selectedIndex);
-        // Draw the S1P points
-        drawS1PPoints(gc, viewModel);
 
         gc.restore();
     }
@@ -231,7 +231,7 @@ public class SmithChartRenderer {
      * @param gc the graphic context on which we'll draw the points
      */
     private void drawS1PPoints(GraphicsContext gc, SmithChartViewModel viewModel) {
-        List<DataPoint> dataPoints = viewModel.s1pDataPointsProperty();
+        List<DataPoint> dataPoints = viewModel.transformedS1PPointsProperty().get();
 
         if (dataPoints != null && !dataPoints.isEmpty()) {
             // Get the necessary information about the canvas
@@ -301,6 +301,7 @@ public class SmithChartRenderer {
      * @param gc   The GraphicsContext of the canvas.
      */
     private void drawImpedancePath(GraphicsContext gc, SmithChartViewModel viewModel) {
+
         List<Complex> gammas = viewModel.measuresGammaProperty().get();
         if (gammas == null || gammas.size() < 2) return;
 
