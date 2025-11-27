@@ -1,10 +1,12 @@
 package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.model.CircuitElement;
+import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.chart.PieChart;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.text.Font;
@@ -47,6 +49,8 @@ public class SmithChartRenderer {
         drawImpedancePath(gc, viewModel);
         // Draw the impedances
         drawImpedancePoints(gc, viewModel, selectedIndex);
+        // Draw the S1P points
+        drawS1PPoints(gc, viewModel);
 
         gc.restore();
     }
@@ -217,6 +221,49 @@ public class SmithChartRenderer {
                 drawLabel(gc, labelText, pointX, pointY - LABEL_FONT.getSize(), labelColor);
 
                 ++index;
+            }
+        }
+    }
+
+    /**
+     * Draw S1P data points using a distinct style.
+     *
+     * @param gc the graphic context on which we'll draw the points
+     */
+    private void drawS1PPoints(GraphicsContext gc, SmithChartViewModel viewModel) {
+        List<DataPoint> dataPoints = viewModel.s1pDataPointsProperty();
+
+        if (dataPoints != null && !dataPoints.isEmpty()) {
+            // Get the necessary information about the canvas
+            double width = smithCanvas.getWidth();
+            double height = smithCanvas.getHeight();
+            double centerX = width / 2;
+            double centerY = height / 2;
+            double mainRadius = Math.min(centerX, centerY) - 10;
+
+            gc.setLineWidth(1.5);
+
+
+            double pointSize = 4; // Slightly smaller or different size
+
+            // Draw each S1P point on the chart
+            for (DataPoint dataPoint : dataPoints) {
+                Complex gamma = dataPoint.getGamma();
+
+                double pointX = centerX + gamma.real() * mainRadius;
+                double pointY = centerY - gamma.imag() * mainRadius;
+
+                if(viewModel.isFrequencyInRange(dataPoint.getFrequency())) {
+                    gc.setStroke(Color.INDIANRED);
+                    gc.setFill(Color.INDIANRED);
+                } else {
+                    gc.setStroke(Color.DODGERBLUE);
+                    gc.setFill(Color.DODGERBLUE);
+                }
+
+                // Draw a small circle (oval) for S1P data
+                gc.strokeOval(pointX - pointSize / 2, pointY - pointSize / 2, pointSize, pointSize);
+                gc.fillOval(pointX - pointSize / 2, pointY - pointSize / 2, pointSize, pointSize);
             }
         }
     }

@@ -4,6 +4,7 @@ package heig.tb.jsmithfx.model;
 //https://www.kirkbymicrowave.co.uk/Support/FAQ/What-is-a-Touchstone-file/
 //https://docs.keysight.com/display/genesys2010/Touchstone+Format
 
+import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
 import heig.tb.jsmithfx.utilities.Complex;
 
 import java.io.File;
@@ -28,12 +29,6 @@ import java.util.Scanner;
 32173875	-7.475671e-001	-2.338617e-002
  */
 public class TouchstoneS1P {
-
-    enum FrequencyUnit {
-        HZ, KHZ, MHZ, GHZ;
-
-        public static final FrequencyUnit DEFAULT = GHZ;
-    }
 
     enum Parameter {
         S, Y, Z, H, G;
@@ -102,9 +97,7 @@ public class TouchstoneS1P {
         return new ParsedOptions(frequencyUnit, parameter, format, referenceResistance);
     }
 
-    static List<DataPoint> parse(String path) {
-        File file = new File(path);
-
+    public static List<DataPoint> parse(File file) {
         // Set up the defaults in case there's no # in the file
         FrequencyUnit frequencyUnit = FrequencyUnit.DEFAULT;
         Parameter parameter = Parameter.DEFAULT;
@@ -113,7 +106,6 @@ public class TouchstoneS1P {
 
         List<DataPoint> resList = new LinkedList<>();
         int index = 1;
-        double freqMultiplier = 1.0;
 
         try (Scanner myReader = new Scanner(file)) {
             while (myReader.hasNextLine()) {
@@ -127,17 +119,11 @@ public class TouchstoneS1P {
                     parameter = options.parameter;
                     format = options.format;
                     referenceResistance = options.referenceResistance;
-                    freqMultiplier = switch(frequencyUnit) {
-                        case GHZ -> 1e9;
-                        case MHZ -> 1e6;
-                        case KHZ -> 1e3;
-                        default -> 1.0;
-                    };
 
                 } else if (data.matches(("^\\s*\\d+.*"))){ //It's a number
                     String[] parts = data.split("\\s+");
                     if (parts.length >= 3) {
-                        double frequency = Double.parseDouble(parts[0]) * freqMultiplier;
+                        double frequency = Double.parseDouble(parts[0]) * frequencyUnit.getFactor();
                         double val1 = Double.parseDouble(parts[1]);
                         double val2 = Double.parseDouble(parts[2]);
 
@@ -147,7 +133,7 @@ public class TouchstoneS1P {
 
                         Complex trueGamma = calculateGammaFromZ(impedance, referenceResistance);
 
-                        resList.add(new DataPoint(frequency, "DP" + index++,
+                        resList.add(new DataPoint(frequency, "S1P" + index++,
                                 impedance, trueGamma, calculateVSWR(trueGamma), calculateReturnLoss(trueGamma)));
                     }
                 }

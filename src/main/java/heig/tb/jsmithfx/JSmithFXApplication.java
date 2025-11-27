@@ -20,9 +20,8 @@ public class JSmithFXApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
 
-        ThemeWindowManager themeWindowManager = ThemeWindowManagerFactory.create();
         Application.setUserAgentStylesheet(new NordDark().getUserAgentStylesheet());
-
+        ThemeWindowManager themeWindowManager = ThemeWindowManagerFactory.create();
 
         FXMLLoader fxmlLoader = new FXMLLoader(JSmithFXApplication.class.getResource("hello-view.fxml"));
         Parent root = fxmlLoader.load();

@@ -33,7 +33,8 @@ public class SmithChartViewModel {
 
     // A list of different datapoints
     private final SimpleListProperty<DataPoint> dataPoints = new SimpleListProperty<>(FXCollections.observableArrayList());
-
+    private final ReadOnlyListWrapper<DataPoint> s1pDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    public final ReadOnlyListProperty<DataPoint> s1pDataPointsProperty() {return s1pDataPoints.getReadOnlyProperty();}
     // A read-only list of the calculated gammas for drawing on the canvas.
     private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
 
@@ -63,12 +64,17 @@ public class SmithChartViewModel {
     public ReadOnlyStringProperty mouseAdmittanceYTextProperty() { return mouseAdmittanceYText.getReadOnlyProperty(); }
     public ReadOnlyStringProperty mouseImpedanceZTextProperty() { return mouseImpedanceZText.getReadOnlyProperty(); }
 
+
     // Undo Redo logic
     private enum Operation { ADD, REMOVE }
     private final Stack<UndoRedoEntry> undoStack = new Stack<>();
     private final Stack<UndoRedoEntry> redoStack = new Stack<>();
 
     private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {}
+
+    // RangeSlider private properties
+    private double freqRangeMin;
+    private double freqRangeMax;
 
 
 
@@ -271,6 +277,14 @@ public class SmithChartViewModel {
         addComponent(type, value, 0.0, 0.0, position, null);
     }
 
+    void addS1PDatapoints(List<DataPoint> dp){
+        s1pDataPoints.addAll(dp);
+    }
+
+    public void clearS1PDatapoints() {
+        s1pDataPoints.clear();
+    }
+
     /**
      * Adds a new component to the circuit and triggers a full recalculation.
      */
@@ -393,5 +407,17 @@ public class SmithChartViewModel {
 
         undoStack.push(entry);
         recalculateImpedanceChain();
+    }
+
+    public void setFrequencyRangeMin(double v) {
+        this.freqRangeMin = v;
+    }
+
+    public void setFrequencyRangeMax(double v) {
+        this.freqRangeMax = v;
+    }
+
+    public boolean isFrequencyInRange(double freq) {
+        return freq >= freqRangeMin && freq <= freqRangeMax;
     }
 }

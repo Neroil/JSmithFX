@@ -5,6 +5,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
+<?import org.controlsfx.control.RangeSlider?>
 <VBox xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="heig.tb.jsmithfx.SmithController">
     <MenuBar>
         <Menu text="File">
@@ -16,6 +17,10 @@
         </Menu>
         <Menu text="Set">
             <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
+        </Menu>
+        <Menu text="Import/Export">
+            <MenuItem fx:id="importS1PButton" onAction="#importS1P" text="Import S1P..." />
+            <MenuItem fx:id="exportS1PButton" onAction="#exportS1P" text="Export S1P..." />
         </Menu>
         <Menu text="Quick Settings">
             <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" selected="true" text="Toggle navigation buttons" />
@@ -77,8 +82,32 @@
                             <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
                         </padding>
                         <!-- Section 2: Controls for adding a new component -->
+                        <TitledPane fx:id="s1pTitledPane" animated="false" text="Manage S1P Data" visible="false" managed="false">
+                                <VBox fx:id="s1pLoadedView" spacing="10.0">
+                                    <padding>
+                                        <Insets top="5.0" right="10.0" bottom="5.0" left="10.0" />
+                                    </padding>
+
+                                    <Label text="Loaded File Name:" />
+                                    <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" />
+
+                                    <Label text="Frequency Range Filter:" />
+                                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                        <TextField fx:id="minFreqTextField" promptText="Min" prefWidth="80" />
+                                        <RangeSlider
+                                                fx:id="frequencyRangeSlider"
+                                                min="0.0" max="10.0"
+                                                HBox.hgrow="ALWAYS" />
+                                        <TextField fx:id="maxFreqTextField" promptText="Max" prefWidth="80" />
+                                    </HBox>
+
+                                    <HBox spacing="10.0" alignment="CENTER_LEFT">
+                                        <Button onAction="#changeS1P" text="Change S1P File" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                                        <Button onAction="#removeS1P" text="Remove S1P File" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                                    </HBox>
+                                </VBox>
+                        </TitledPane>
                         <TitledPane animated="false" text="Add Component">
-                            <!-- ... a_ll the content of Add Component GridPane ... -->
                             <GridPane hgap="10.0" vgap="10.0">
                                 <padding>
                                     <Insets top="10.0" />
@@ -155,6 +184,7 @@
                                     <TableColumn fx:id="impedanceColumn" prefWidth="150.0" text="Impedance (Z)" />
                                     <TableColumn fx:id="vswrColumn" prefWidth="75.0" text="VSWR" />
                                     <TableColumn fx:id="returnLossColumn" prefWidth="150.0" text="Return Loss (dB)" />
+                                    <TableColumn fx:id="frequencyColumn" prefWidth="90.0" text="Frequency" />
                                     <TableColumn fx:id="deleteColumn" prefWidth="50.0" text="Delete" />
                                 </columns>
                             </TableView>

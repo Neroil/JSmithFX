@@ -7,11 +7,11 @@ import heig.tb.jsmithfx.model.Element.Inductor;
 import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
+import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogFactory;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -24,8 +24,16 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.scene.robot.Robot;
+import javafx.stage.FileChooser;
 import javafx.util.Pair;
+import org.controlsfx.control.RangeSlider;
+
+import java.io.File;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class SmithController {
 
@@ -126,6 +134,24 @@ public class SmithController {
     private TextField permittivityField;
     @FXML
     private ComboBox<Line.StubType> stubComboBox;
+    @FXML
+    private TableColumn<DataPoint, String> frequencyColumn;
+    @FXML
+    private MenuItem importS1PButton;
+    @FXML
+    private MenuItem exportS1PButton;
+    @FXML
+    private TitledPane s1pTitledPane;
+    @FXML
+    private VBox s1pLoadedView;
+    @FXML
+    private TextField maxFreqTextField;
+    @FXML
+    private RangeSlider frequencyRangeSlider;
+    @FXML
+    private TextField minFreqTextField;
+    @FXML
+    private TextField s1pFileNameField;
 
 
     //Viewmodel
@@ -213,6 +239,47 @@ public class SmithController {
                     setGraphic(deleteButton);
                     setAlignment(Pos.CENTER);
                 }
+            }
+        });
+
+        // Listen for changes in the range slider
+        frequencyRangeSlider.lowValueProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setFrequencyRangeMin(newVal.doubleValue());
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(
+                    newVal.doubleValue(),
+                    FrequencyUnit.values());
+
+            minFreqTextField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
+            redrawSmithCanvas();
+        });
+
+        frequencyRangeSlider.highValueProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setFrequencyRangeMax(newVal.doubleValue());
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(
+                    newVal.doubleValue(),
+                    FrequencyUnit.values());
+
+            maxFreqTextField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
+            redrawSmithCanvas();
+        });
+
+        minFreqTextField.setOnAction(event -> {
+            String text = minFreqTextField.getText();
+            try {
+                double freqInHz = SmithUtilities.parseValueWithUnit(text, FrequencyUnit.values());
+                frequencyRangeSlider.setLowValue(freqInHz);
+            } catch (IllegalArgumentException e) {
+                showError("Invalid frequency input: " + e.getMessage());
+            }
+        });
+
+        maxFreqTextField.setOnAction(event -> {
+            String text = maxFreqTextField.getText();
+            try {
+                double freqInHz = SmithUtilities.parseValueWithUnit(text, FrequencyUnit.values());
+                frequencyRangeSlider.setHighValue(freqInHz);
+            } catch (IllegalArgumentException e) {
+                showError("Invalid frequency input: " + e.getMessage());
             }
         });
 
@@ -723,6 +790,15 @@ public class SmithController {
         impedanceColumn.setCellValueFactory(cellData -> cellData.getValue().impedanceProperty());
         vswrColumn.setCellValueFactory(cellData -> cellData.getValue().vswrProperty());
         returnLossColumn.setCellValueFactory(cellData -> cellData.getValue().returnLossProperty());
+        frequencyColumn.setCellValueFactory(cellData -> {
+            double freq = cellData.getValue().frequencyProperty().get();
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(
+                    freq,
+                    FrequencyUnit.values()
+            );
+            String display = toDisplay.getValue() + " " + toDisplay.getKey().toString();
+            return new javafx.beans.property.SimpleStringProperty(display);
+        });
 
         impedanceColumn.setCellFactory(column -> new TableCell<>() {
             @Override
@@ -1045,5 +1121,79 @@ public class SmithController {
             Robot robot = new Robot();
             robot.mouseMove(screenX, screenY);
         });
+    }
+
+    public void importS1P(ActionEvent actionEvent) {
+        FileChooser fileChooser = new FileChooser();
+        File selectedFile = fileChooser.showOpenDialog(smithCanvas.getScene().getWindow());
+        if (selectedFile != null) {
+            try {
+                List<DataPoint> importedElements = TouchstoneS1P.parse(selectedFile);
+                viewModel.addS1PDatapoints(importedElements);
+                s1pFileNameField.setText(selectedFile.getName());
+
+                Pair<Double, Double> minMax = importedElements.stream()
+                        .collect(Collectors.teeing(
+                                Collectors.minBy(Comparator.comparingDouble(DataPoint::getFrequency)),
+                                Collectors.maxBy(Comparator.comparingDouble(DataPoint::getFrequency)),
+                                (minOpt, maxOpt) -> new Pair<>(
+                                        minOpt.map(DataPoint::getFrequency).orElse(0.0),
+                                        maxOpt.map(DataPoint::getFrequency).orElse(0.0)
+                                )
+                        ));
+
+
+                double minFreq = minMax.getKey();
+                double maxFreq = minMax.getValue();
+
+                var minDisplayValue = SmithUtilities.getBestUnitAndFormattedValue(
+                        minFreq,
+                        FrequencyUnit.values()
+                );
+                var maxDisplayValue = SmithUtilities.getBestUnitAndFormattedValue(
+                        maxFreq,
+                        FrequencyUnit.values()
+                );
+
+
+                minFreqTextField.setText(minDisplayValue.getValue() + " " + minDisplayValue.getKey().toString());
+                maxFreqTextField.setText(maxDisplayValue.getValue() + " " + maxDisplayValue.getKey().toString());
+
+                // Set the slider's overall range
+                frequencyRangeSlider.setMin(minFreq);
+                frequencyRangeSlider.setMax(maxFreq);
+
+                // Set the thumbs to the full range initially
+                frequencyRangeSlider.setLowValue(minFreq);
+                frequencyRangeSlider.setHighValue(maxFreq);
+
+                //Display the S1P controls
+                s1pTitledPane.setVisible(true);
+                s1pTitledPane.setExpanded(true);
+                s1pTitledPane.setManaged(true);
+
+                redrawSmithCanvas();
+            } catch (IllegalArgumentException e) {
+                showError("Invalid S1P file: " + e.getMessage());
+            }
+        }
+    }
+
+    public void exportS1P(ActionEvent actionEvent) {
+    }
+
+    public void changeS1P(ActionEvent actionEvent) {
+        importS1P(actionEvent);
+    }
+
+    public void removeS1P(ActionEvent actionEvent) {
+        viewModel.clearS1PDatapoints();
+        s1pFileNameField.setText("");
+
+        //Hide the S1P controls
+        s1pTitledPane.setVisible(false);
+        s1pTitledPane.setManaged(false);
+
+        redrawSmithCanvas();
     }
 }

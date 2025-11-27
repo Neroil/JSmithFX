@@ -3,6 +3,7 @@ package heig.tb.jsmithfx.utilities;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
 import javafx.util.Pair;
 
 import java.util.Arrays;
@@ -166,5 +167,18 @@ public class SmithUtilities {
         // Correct the direction if the last gamma's imag was negative for the resistor
         if(type == CircuitElement.ElementType.RESISTOR) expectedDirection *= (previousGamma.imag() < 0) ? -1 : 1;
         return expectedDirection;
+    }
+
+    public static double parseValueWithUnit(String text, FrequencyUnit[] values) {
+        for (FrequencyUnit unit : values) {
+            String[] splitText = text.split(" "); // SplitText[1] should be the unit
+            if (splitText.length == 2 && splitText[1].equalsIgnoreCase(unit.toString())) {
+                String numberPart = splitText[0];
+                double numericValue = Double.parseDouble(numberPart);
+                return numericValue * unit.getFactor();
+            }
+        }
+        // If no unit is found, assume the base unit
+        return Double.parseDouble(text);
     }
 }

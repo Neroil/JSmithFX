@@ -3,6 +3,7 @@ package heig.tb.jsmithfx.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
 import heig.tb.jsmithfx.model.TouchstoneS1P;
 
 import org.junit.jupiter.api.Test;
@@ -97,19 +98,19 @@ public class TouchstoneS1PTest {
 
         // Expected results for each test case
         TouchstoneS1P.ParsedOptions[] expectedResults = {
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.GHZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.KHZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DEFAULT, 75.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DB, 100.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DEFAULT, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.MHZ, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 25.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0),
-                new TouchstoneS1P.ParsedOptions(TouchstoneS1P.FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0) // Invalid case
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.GHZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.KHZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DEFAULT, 75.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DB, 100.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DEFAULT, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.MHZ, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 25.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.HZ, TouchstoneS1P.Parameter.S, TouchstoneS1P.Format.DB, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0),
+                new TouchstoneS1P.ParsedOptions(FrequencyUnit.DEFAULT, TouchstoneS1P.Parameter.DEFAULT, TouchstoneS1P.Format.DEFAULT, 50.0) // Invalid case
         };
 
         // Run each test case
