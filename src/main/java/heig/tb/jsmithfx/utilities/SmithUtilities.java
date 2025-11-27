@@ -178,7 +178,7 @@ public class SmithUtilities {
                 return numericValue * unit.getFactor();
             }
         }
-        // If no unit is found, assume the base unit
+        // If no unit is found, try to parse directly as a double (will throw exception if invalid)
         return Double.parseDouble(text);
     }
 }

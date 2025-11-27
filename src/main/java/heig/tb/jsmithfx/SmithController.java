@@ -205,16 +205,20 @@ public class SmithController {
         dataPointsTable.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 int selectedIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
-
-                // if index <= 0, then it's either no selection or selecting the load value
+                // if index > 0 (skipping Load), edit the element
                 if (selectedIndex > 0) {
                     CircuitElement component = viewModel.circuitElements.get(selectedIndex - 1);
+                    promptEditForComponent(component);
+                }
+            }
+        });
 
-                    // Call the Factory
-                    DialogFactory.showComponentEditDialog(component).ifPresent(newValue -> {
-                        component.setRealWorldValue(newValue);
-                        redrawSmithCanvas();
-                    });
+        // Circuit Diagram Editing
+        circuitCanvas.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                CircuitElement clickedElement = circuitRenderer.getElementAt(event.getX(), event.getY());
+                if (clickedElement != null) {
+                    promptEditForComponent(clickedElement);
                 }
             }
         });
@@ -1195,5 +1199,12 @@ public class SmithController {
         s1pTitledPane.setManaged(false);
 
         redrawSmithCanvas();
+    }
+
+    private void promptEditForComponent(CircuitElement component) {
+        DialogFactory.showComponentEditDialog(component).ifPresent(newValue -> {
+            component.setRealWorldValue(newValue);
+            redrawSmithCanvas();
+        });
     }
 }

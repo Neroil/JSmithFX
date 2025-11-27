@@ -4,6 +4,7 @@ import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -11,7 +12,9 @@ import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Pair;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CircuitRenderer {
 
@@ -26,6 +29,9 @@ public class CircuitRenderer {
 
     private final Canvas circuitCanvas;
     private final Font labelFont;
+
+    // Hitbox map for editing components
+    private final Map<CircuitElement, Rectangle2D> hitBoxes = new HashMap<>();
 
     private static final double LINE_Y = 10;
     private static final double SOURCE_RADIUS = 20;
@@ -52,9 +58,27 @@ public class CircuitRenderer {
     private static final double INDUCTOR_NUB_LENGTH = 6;
     private static final int INDUCTOR_LOOPS = 4;
 
+    private static final double MAX_COMPONENT_W = 50;
+    private static final double MAX_COMPONENT_H = 30;
+
     public CircuitRenderer(Canvas canvas) {
         this.circuitCanvas = canvas;
         this.labelFont = new Font("Segoe UI", 16);
+    }
+
+    /**
+     * Checks if a user clicked on a specific circuit element.
+     * @param x mouse X
+     * @param y mouse Y
+     * @return The element clicked, or null.
+     */
+    public CircuitElement getElementAt(double x, double y) {
+        for (Map.Entry<CircuitElement, Rectangle2D> entry : hitBoxes.entrySet()) {
+            if (entry.getValue().contains(x, y)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     public void render(SmithChartViewModel viewModel) {
@@ -81,9 +105,10 @@ public class CircuitRenderer {
         drawForkDown(PADDING,lineY,forkBottomY,gc);
         // Right fork
         drawForkDown(canvasWidth - PADDING, lineY,forkBottomY,gc);
-
-        //Draw the source
-        drawSource(gc, PADDING, (forkBottomY - lineY)/2 + lineY );
+        // Draw the source
+        drawSource(canvasWidth - PADDING, (forkBottomY - lineY)/2 + lineY, gc);
+        // Draw the load
+        drawLoad(PADDING, (forkBottomY - lineY)/2 + lineY, gc);
 
         // Calculate component grid
         double slotWidth = (canvasWidth) / (elements.size() + 1) ;
@@ -101,24 +126,30 @@ public class CircuitRenderer {
                 gc.save();
                 gc.translate(x, y + forkBottomY / 2);
                 gc.rotate(90);
+
+                registerHitBox(element, x, y + forkBottomY / 2, true);
+
                 x = 0;
                 y = 0;
+            } else {
+                registerHitBox(element, x, y, false);
             }
+
             switch (type) {
                 case RESISTOR -> {
-                    drawResistor(gc,x,y);
+                    drawResistor(x, y, gc);
                     units = ResistanceUnit.values();
                 }
                 case CAPACITOR ->  {
-                    drawCapacitor(gc,x,y);
+                    drawCapacitor(x, y, gc);
                     units = CapacitanceUnit.values();
                 }
                 case INDUCTOR ->  {
-                    drawInductor(gc,x,y);
+                    drawInductor(x, y, gc);
                     units = InductanceUnit.values();
                 }
                 case LINE -> {
-                    drawLine(gc,x,y, ((Line)element).getStubType() == Line.StubType.OPEN);
+                    drawLine(x,y, ((Line)element).getStubType() == Line.StubType.OPEN, gc);
                     units = DistanceUnit.values();
                 }
             }
@@ -135,6 +166,14 @@ public class CircuitRenderer {
             if (element.getPosition() == CircuitElement.ElementPosition.PARALLEL) gc.restore();
 
         }
+    }
+
+    private void registerHitBox(CircuitElement element, double centerX, double centerY, boolean isRotated) {
+        // Use a generous bounding box that covers the largest component type
+        double w = isRotated ? MAX_COMPONENT_H : MAX_COMPONENT_W;
+        double h = isRotated ? MAX_COMPONENT_W : MAX_COMPONENT_H;
+
+        hitBoxes.put(element, new Rectangle2D(centerX - w/2, centerY - h/2, w, h));
     }
 
     private void drawForkDown(double x, double y1,double y2, GraphicsContext gc) {
@@ -164,7 +203,7 @@ public class CircuitRenderer {
         gc.strokeLine(x - botWidth / 2, y + 2 * lineSpacing, x + botWidth / 2, y + 2 * lineSpacing);
     }
 
-    private void drawSource(GraphicsContext gc, double x, double y) {
+    private void drawSource(double x, double y, GraphicsContext gc) {
         double radius = SOURCE_RADIUS;
         double innerPadding = radius / 2;
         double diameter = radius * 2;
@@ -182,7 +221,22 @@ public class CircuitRenderer {
         gc.stroke();
     }
 
-    private void drawResistor(GraphicsContext gc,double x, double y) {
+    private void drawLoad(double x, double y, GraphicsContext gc) {
+        double width = RESISTOR_HEIGHT;
+        double height = RESISTOR_WIDTH;
+        double left = x - width / 2;
+        double top = y - height / 2;
+        double nubLength = RESISTOR_NUB_LENGTH;
+
+        gc.setStroke(COMPONENT_COLOR);
+        gc.setLineWidth(DEFAULT_LINE_WIDTH);
+        gc.clearRect(left, top, width, height);
+        gc.strokeRect(left, top, width, height);
+        gc.strokeLine(x, top - nubLength, x, top); // Top nub
+        gc.strokeLine(x, top + height, x, top + height + nubLength); // Bottom nub
+    }
+
+    private void drawResistor(double x, double y, GraphicsContext gc) {
         double width = RESISTOR_WIDTH;
         double height = RESISTOR_HEIGHT;
         double left = x - width / 2;
@@ -198,7 +252,7 @@ public class CircuitRenderer {
         gc.strokeLine(left + width, y, left + width + nubLength, y);
     }
 
-    private void drawLine(GraphicsContext gc, double x, double y, boolean isOpenStub) {
+    private void drawLine(double x, double y, boolean isOpenStub, GraphicsContext gc) {
         double width = LINE_WIDTH;
         double height = LINE_HEIGHT;
         double left = x - width / 2;
@@ -214,7 +268,7 @@ public class CircuitRenderer {
         if (!isOpenStub) gc.strokeLine(left + width, y, left + width + nubLength, y);
     }
 
-    private void drawCapacitor(GraphicsContext gc, double x, double y) {
+    private void drawCapacitor(double x, double y, GraphicsContext gc) {
         double width = CAPACITOR_WIDTH;
         double height = CAPACITOR_HEIGHT;
         double left = x - width / 2;
@@ -232,7 +286,7 @@ public class CircuitRenderer {
         gc.strokeLine(left + width, y, left + width + nubLength, y);
     }
 
-    private void drawInductor(GraphicsContext gc, double x, double y) {
+    private void drawInductor(double x, double y, GraphicsContext gc) {
         double width = INDUCTOR_WIDTH;
         double height = INDUCTOR_HEIGHT;
         double left = x - width / 2;
