@@ -259,6 +259,7 @@ public class SmithController {
                     FrequencyUnit.values());
 
             minFreqTextField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
+            viewModel.updateMiddleRangePoint();
             redrawSmithCanvas();
         });
 
@@ -269,6 +270,7 @@ public class SmithController {
                     FrequencyUnit.values());
 
             maxFreqTextField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
+            viewModel.updateMiddleRangePoint();
             redrawSmithCanvas();
         });
 
@@ -526,6 +528,20 @@ public class SmithController {
         viewModel.ghostCursorGamma.set(snappedGammaForMouseAdd); // Update the ghost cursor position
         smithChartRenderer.renderCursor(viewModel, currentScale, offsetX, offsetY);
         moveCursorToGamma(snappedGammaForMouseAdd);
+
+        //TODO MAKE THE COMPONENTS UPDATE LIVE
+
+        if(useS1PAsLoadCheckBox.isSelected()){
+            if (liveValue != null) {
+                if (typeComboBox.getValue() == CircuitElement.ElementType.LINE) {
+                    double z0_line = Double.parseDouble(zoInputField.getText());
+                    double permittivity = Double.parseDouble(permittivityField.getText());
+                    viewModel.addLiveComponentPreview(liveValue,z0_line,permittivity,stubComboBox.getValue());
+
+                } else viewModel.addLiveComponentPreview(typeComboBox.getValue(), liveValue, positionComboBox.getValue());
+                smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0);
+            }
+        }
     }
 
     /**
@@ -726,6 +742,10 @@ public class SmithController {
      * Resets every variables and elements related to the mouse add component event
      */
     private void resetMouseAddComponentState() {
+        viewModel.showGhostCursor.set(false);
+        smithCanvas.setCursor(javafx.scene.Cursor.DEFAULT);
+        smithChartRenderer.clearCursor(cursorCanvas.getGraphicsContext2D());
+        viewModel.clearLiveComponentPreview();
         isAddingMouseComponent = false;
         startGammaForMouseAdd = null;
         startImpedanceForMouseAdd = null;
@@ -738,9 +758,6 @@ public class SmithController {
         previousAngle = null;
         allowedAngleTravel = null;
         totalAngleTraveled = null;
-        viewModel.showGhostCursor.set(false);
-        smithCanvas.setCursor(javafx.scene.Cursor.DEFAULT);
-        smithChartRenderer.clearCursor(cursorCanvas.getGraphicsContext2D());
     }
 
     /**
@@ -1221,6 +1238,8 @@ public class SmithController {
         //Hide the S1P controls
         s1pTitledPane.setVisible(false);
         s1pTitledPane.setManaged(false);
+
+        viewModel.setUseS1PAsLoad(false);
 
         redrawSmithCanvas();
     }

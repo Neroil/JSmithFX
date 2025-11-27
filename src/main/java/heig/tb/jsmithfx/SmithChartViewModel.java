@@ -20,43 +20,31 @@ import java.util.stream.Collectors;
 
 public class SmithChartViewModel {
 
-    private final DoubleProperty frequency = new SimpleDoubleProperty();
-    private final ReadOnlyStringWrapper frequencyText = new ReadOnlyStringWrapper("-");
-    public final ReadOnlyDoubleProperty  frequencyProperty() { return frequency; }
-    public ReadOnlyStringProperty frequencyTextProperty() { return frequencyText.getReadOnlyProperty(); }
-
-    // Memory property for the characteristic impedance
-    private double savedFrequency = 1e9; // 1 GHz
-    private Complex savedLoadImpedance = new Complex(100.0, 50.0); // 100 + j50 Ohm
-
     public final DoubleProperty zo = new SimpleDoubleProperty();
-    private final ReadOnlyStringWrapper zoText = new ReadOnlyStringWrapper("-");
-    public ReadOnlyStringProperty zoProperty() { return zoText.getReadOnlyProperty(); }
-
     public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>();
     public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
-
-    // A list of different datapoints
-    private final SimpleListProperty<DataPoint> dataPoints = new SimpleListProperty<>(FXCollections.observableArrayList());
-    private final ReadOnlyListWrapper<DataPoint> s1pDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
-    public final ReadOnlyListProperty<DataPoint> s1pDataPointsProperty() {return s1pDataPoints.getReadOnlyProperty();}
-    // Logic to store transformed S1P points for drawing
-    private final ReadOnlyListWrapper<DataPoint> transformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
-    public ReadOnlyListProperty<DataPoint> transformedS1PPointsProperty() { return transformedS1PPoints.getReadOnlyProperty(); }
-
-    // A read-only list of the calculated gammas for drawing on the canvas.
-    private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
-
     //==========================
     //--- Mouse informations ---
     //==========================
     public final DoubleProperty mouseReturnLoss = new SimpleDoubleProperty(0);
     public final DoubleProperty mouseVSWR = new SimpleDoubleProperty(0);
     public final DoubleProperty mouseQualityFactor = new SimpleDoubleProperty(0);
-    public final ObjectProperty<Complex> mouseGamma = new SimpleObjectProperty<>(new Complex(0.0,0.0));
-    public final ObjectProperty<Complex> mouseAdmittanceY = new SimpleObjectProperty<>(new Complex(0.0,0.0));
-    public final ObjectProperty<Complex> mouseImpedanceZ = new SimpleObjectProperty<>(new Complex(0.0,0.0));
-
+    public final ObjectProperty<Complex> mouseGamma = new SimpleObjectProperty<>(new Complex(0.0, 0.0));
+    public final ObjectProperty<Complex> mouseAdmittanceY = new SimpleObjectProperty<>(new Complex(0.0, 0.0));
+    public final ObjectProperty<Complex> mouseImpedanceZ = new SimpleObjectProperty<>(new Complex(0.0, 0.0));
+    // Ghost cursor
+    public final ObjectProperty<Complex> ghostCursorGamma = new SimpleObjectProperty<>();
+    public final BooleanProperty showGhostCursor = new SimpleBooleanProperty(false);
+    private final DoubleProperty frequency = new SimpleDoubleProperty();
+    private final ReadOnlyStringWrapper frequencyText = new ReadOnlyStringWrapper("-");
+    private final ReadOnlyStringWrapper zoText = new ReadOnlyStringWrapper("-");
+    // A list of different datapoints
+    private final SimpleListProperty<DataPoint> dataPoints = new SimpleListProperty<>(FXCollections.observableArrayList());
+    private final ReadOnlyListWrapper<DataPoint> s1pDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    // Logic to store transformed S1P points for drawing
+    private final ReadOnlyListWrapper<DataPoint> transformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    // A read-only list of the calculated gammas for drawing on the canvas.
+    private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     // Ui bindings
     private final ReadOnlyStringWrapper mouseReturnLossText = new ReadOnlyStringWrapper("- dB");
     private final ReadOnlyStringWrapper mouseVSWRText = new ReadOnlyStringWrapper("-");
@@ -64,43 +52,29 @@ public class SmithChartViewModel {
     private final ReadOnlyStringWrapper mouseGammaText = new ReadOnlyStringWrapper("-");
     private final ReadOnlyStringWrapper mouseAdmittanceYText = new ReadOnlyStringWrapper("Y: -");
     private final ReadOnlyStringWrapper mouseImpedanceZText = new ReadOnlyStringWrapper("Z: -");
-
-    // Binding getters
-    public ReadOnlyStringProperty mouseReturnLossTextProperty() { return mouseReturnLossText.getReadOnlyProperty(); }
-    public ReadOnlyStringProperty mouseVSWRTextProperty() { return mouseVSWRText.getReadOnlyProperty(); }
-    public ReadOnlyStringProperty mouseQualityFactorTextProperty() { return mouseQualityFactorText.getReadOnlyProperty(); }
-    public ReadOnlyStringProperty mouseGammaTextProperty() { return mouseGammaText.getReadOnlyProperty(); }
-    public ReadOnlyStringProperty mouseAdmittanceYTextProperty() { return mouseAdmittanceYText.getReadOnlyProperty(); }
-    public ReadOnlyStringProperty mouseImpedanceZTextProperty() { return mouseImpedanceZText.getReadOnlyProperty(); }
-
-    // Undo Redo logic
-    private enum Operation { ADD, REMOVE }
+    private final ReadOnlyListWrapper<DataPoint> previewTransformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     private final Stack<UndoRedoEntry> undoStack = new Stack<>();
     private final Stack<UndoRedoEntry> redoStack = new Stack<>();
-
-    private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {}
-
+    // Memory property for the characteristic impedance
+    private double savedFrequency = 1e9; // 1 GHz
+    private Complex savedLoadImpedance = new Complex(100.0, 50.0); // 100 + j50 Ohm
+    private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
     // RangeSlider private properties
     private double freqRangeMin;
     private double freqRangeMax;
-
     // S1P Load option
     private boolean useS1PAsLoad = false;
-
-    // Ghost cursor
-    public final ObjectProperty<Complex> ghostCursorGamma = new SimpleObjectProperty<>();
-    public final BooleanProperty showGhostCursor = new SimpleBooleanProperty(false);
 
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> {
-            zoText.set(String.valueOf(zo.get()) + " Ω");
+            zoText.set(zo.get() + " Ω");
             recalculateImpedanceChain();
         });
         frequency.addListener((_, _, _) -> {
             //Update the display for frequency
             double freq = frequency.get();
-            String newFreqText =  switch ((int) Math.log10(freq)) {
+            String newFreqText = switch ((int) Math.log10(freq)) {
                 case 0, 1, 2 -> String.format("%.2f Hz", freq);
                 case 3, 4, 5 -> String.format("%.2f kHz", freq / 1_000);
                 case 6, 7, 8 -> String.format("%.2f MHz", freq / 1_000_000);
@@ -137,33 +111,114 @@ public class SmithChartViewModel {
 
         s1pDataPoints.addListener((ListChangeListener<DataPoint>) _ -> recalculateS1PChain());
 
+        previewElement.addListener((_, _, _) -> recalculateS1PChain());
 
         // Perform the initial calculation when the view model is created.
         recalculateImpedanceChain();
     }
 
-    public void setUseS1PAsLoad(Boolean newVal) {
-        this.useS1PAsLoad = newVal;
-        if(useS1PAsLoad) {
-            if (s1pDataPoints.isEmpty()) return; //No S1P data to use
-            int s1pIndexMin = getS1PIndexAtRange(freqRangeMin);
-            int s1pIndexMax = getS1PIndexAtRange(freqRangeMax);
-            if (s1pIndexMin > s1pIndexMax) {
-                // Invalid range, skip calculation
-                return;
-            }
-            DataPoint middlePoint = s1pDataPoints.get((s1pIndexMin + s1pIndexMax) / 2);
+    public final ReadOnlyDoubleProperty frequencyProperty() {
+        return frequency;
+    }
 
+    public ReadOnlyStringProperty frequencyTextProperty() {
+        return frequencyText.getReadOnlyProperty();
+    }
+
+    public ReadOnlyStringProperty zoProperty() {
+        return zoText.getReadOnlyProperty();
+    }
+
+    public final ReadOnlyListProperty<DataPoint> s1pDataPointsProperty() {
+        return s1pDataPoints.getReadOnlyProperty();
+    }
+
+    public ReadOnlyListProperty<DataPoint> transformedS1PPointsProperty() {
+        return transformedS1PPoints.getReadOnlyProperty();
+    }
+
+    // Binding getters
+    public ReadOnlyStringProperty mouseReturnLossTextProperty() {
+        return mouseReturnLossText.getReadOnlyProperty();
+    }
+
+    public ReadOnlyStringProperty mouseVSWRTextProperty() {
+        return mouseVSWRText.getReadOnlyProperty();
+    }
+
+    public ReadOnlyStringProperty mouseQualityFactorTextProperty() {
+        return mouseQualityFactorText.getReadOnlyProperty();
+    }
+
+    public ReadOnlyStringProperty mouseGammaTextProperty() {
+        return mouseGammaText.getReadOnlyProperty();
+    }
+
+    public ReadOnlyStringProperty mouseAdmittanceYTextProperty() {
+        return mouseAdmittanceYText.getReadOnlyProperty();
+    }
+
+    public ReadOnlyStringProperty mouseImpedanceZTextProperty() {
+        return mouseImpedanceZText.getReadOnlyProperty();
+    }
+
+    public ReadOnlyListProperty<DataPoint> previewTransformedS1PPointsProperty() {
+        return previewTransformedS1PPoints.getReadOnlyProperty();
+    }
+
+    public void addLiveComponentPreview(Double liveValue, double z0Line, double permittivity, Line.StubType stubType) {
+        if (stubType == null || stubType == Line.StubType.NONE) {
+            previewElement.set(new Line(liveValue, z0Line, permittivity));
+        } else {
+            previewElement.set(new Line(liveValue, z0Line, permittivity, stubType));
+        }
+    }
+
+    public void addLiveComponentPreview(CircuitElement.ElementType type, Double liveValue, CircuitElement.ElementPosition position) {
+        CircuitElement element = switch (type) {
+            case INDUCTOR -> new Inductor(liveValue, position, type);
+            case CAPACITOR -> new Capacitor(liveValue, position, type);
+            case RESISTOR -> new Resistor(liveValue, position, type);
+            default -> null;
+        };
+        previewElement.set(element);
+    }
+
+    public void clearLiveComponentPreview() {
+        previewElement.set(null);
+    }
+
+    public void setUseS1PAsLoad(Boolean newVal) {
+        if (this.useS1PAsLoad == newVal) return; //No change
+
+        this.useS1PAsLoad = newVal;
+        if (useS1PAsLoad) {
             // Save current state
             savedFrequency = frequency.get();
             savedLoadImpedance = loadImpedance.get();
 
-            loadImpedance.set(middlePoint.getImpedance());
-            frequency.set(middlePoint.getFrequency());
+            updateMiddleRangePoint();
+
         } else {
+            // Restore saved state
             loadImpedance.set(savedLoadImpedance);
             frequency.set(savedFrequency);
         }
+    }
+
+    public void updateMiddleRangePoint() {
+        if (!useS1PAsLoad) return; //Only update if we are using S1P as load
+
+        if (s1pDataPoints.isEmpty()) return; //No S1P data to use
+        int s1pIndexMin = getS1PIndexAtRange(freqRangeMin);
+        int s1pIndexMax = getS1PIndexAtRange(freqRangeMax);
+        if (s1pIndexMin > s1pIndexMax) {
+            // Invalid range, skip calculation
+            return;
+        }
+        DataPoint middlePoint = s1pDataPoints.get((s1pIndexMin + s1pIndexMax) / 2);
+        loadImpedance.set(middlePoint.getImpedance());
+        frequency.set(middlePoint.getFrequency());
     }
 
     public void setFrequency(Double newFreq) {
@@ -203,7 +258,7 @@ public class SmithChartViewModel {
             double elVswr = calculateVswr(elGamma);
             double elRetLoss = calculateReturnLoss(elGamma);
 
-            newDataPoints.add(new DataPoint(freq,"DP" + index++, currentImpedance, elGamma, elVswr, elRetLoss));
+            newDataPoints.add(new DataPoint(freq, "DP" + index++, currentImpedance, elGamma, elVswr, elRetLoss));
         }
 
         // Atomically update the main 'measures' property with the new list.
@@ -223,6 +278,7 @@ public class SmithChartViewModel {
 
     /**
      * Calculate the VSWR using the reflection coefficients (Gamma)
+     *
      * @param gamma the reflection coefficients
      * @return the VSWR
      */
@@ -233,10 +289,11 @@ public class SmithChartViewModel {
 
     /**
      * Calculate the return loss value using the reflection coefficients (Gamma)
+     *
      * @param gamma the reflection coefficients
      * @return the return loss value
      */
-    private double calculateReturnLoss(Complex gamma){
+    private double calculateReturnLoss(Complex gamma) {
         double gammaNorm = gamma.magnitude();
         return (gammaNorm < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(gammaNorm);
     }
@@ -318,8 +375,10 @@ public class SmithChartViewModel {
         mouseAdmittanceYText.set(admittanceY.toStringmS());
         mouseQualityFactorText.set(String.format("%.3f", qFactor));
     }
+
     /**
      * Calculates the reflection coefficient (Gamma) for a given impedance Z.
+     *
      * @param z The complex impedance.
      * @return The complex reflection coefficient.
      */
@@ -335,7 +394,7 @@ public class SmithChartViewModel {
         addComponent(type, value, 0.0, 0.0, position, null);
     }
 
-    void addS1PDatapoints(List<DataPoint> dp){
+    void addS1PDatapoints(List<DataPoint> dp) {
         s1pDataPoints.addAll(dp);
     }
 
@@ -357,7 +416,14 @@ public class SmithChartViewModel {
 
             Complex currentImpedance = originalPoint.getImpedance();
 
-            for (CircuitElement element : circuitElements) {
+            ArrayList<CircuitElement> circuitElementsCopy = new ArrayList<>(circuitElements);
+
+            if (previewElement.get() != null) {
+                circuitElementsCopy.add(previewElement.get());
+            }
+
+            // Apply all circuit elements in sequence to every S1P points...
+            for (CircuitElement element : circuitElementsCopy) {
                 if (element.getType() == CircuitElement.ElementType.LINE) {
                     currentImpedance = ((Line) element).calculateImpedance(currentImpedance, freq);
                 } else {
@@ -403,10 +469,11 @@ public class SmithChartViewModel {
 
     /**
      * Remove the component using their index number, used to remove from the point list
+     *
      * @param index of the component to remove
      */
-    void removeComponentAt(int index){
-        try{
+    void removeComponentAt(int index) {
+        try {
             if (index < 0 || index >= circuitElements.size()) return; //Boundary check
 
             CircuitElement removed = circuitElements.get(index);
@@ -417,7 +484,7 @@ public class SmithChartViewModel {
             redoStack.clear(); // New action clears redo history
 
             recalculateImpedanceChain();
-        } catch (ArrayIndexOutOfBoundsException e){
+        } catch (ArrayIndexOutOfBoundsException e) {
             Logger.getLogger("Error").log(Level.SEVERE, e.getMessage());
         }
 
@@ -425,9 +492,10 @@ public class SmithChartViewModel {
 
     /**
      * Helper function to calculate the resulting impedance after adding a new component.
+     *
      * @param previousImpedance The impedance at the previous point in the chain.
-     * @param impedanceToAdd The impedance of the new component.
-     * @param position Whether the component is in SERIES or PARALLEL.
+     * @param impedanceToAdd    The impedance of the new component.
+     * @param position          Whether the component is in SERIES or PARALLEL.
      * @return The new total impedance.
      */
     private Complex calculateNextImpedance(Complex previousImpedance, Complex impedanceToAdd, CircuitElement.ElementPosition position) {
@@ -442,12 +510,9 @@ public class SmithChartViewModel {
         }
     }
 
-    public Complex getLastGamma(){
+    public Complex getLastGamma() {
         return measuresGamma.getLast();
     }
-
-
-    // --- Public Properties for Binding ---
 
     public ReadOnlyListProperty<Complex> measuresGammaProperty() {
         return measuresGamma.getReadOnlyProperty();
@@ -456,6 +521,9 @@ public class SmithChartViewModel {
     public SimpleListProperty<DataPoint> dataPointsProperty() {
         return dataPoints;
     }
+
+
+    // --- Public Properties for Binding ---
 
     public Complex getLastImpedance() {
         if (dataPoints.isEmpty()) return null;
@@ -508,5 +576,11 @@ public class SmithChartViewModel {
 
     public boolean isFrequencyInRange(double freq) {
         return freq >= freqRangeMin && freq <= freqRangeMax;
+    }
+
+    // Undo Redo logic
+    private enum Operation {ADD, REMOVE}
+
+    private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
     }
 }
