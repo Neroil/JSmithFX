@@ -1,5 +1,6 @@
-package heig.tb.jsmithfx;
+package heig.tb.jsmithfx.view;
 
+import heig.tb.jsmithfx.SmithChartViewModel;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.utilities.Complex;
@@ -34,6 +35,7 @@ public class SmithChartRenderer {
      */
     public void render(SmithChartViewModel viewModel, double currentScale, double offsetX, double offsetY, int selectedIndex) {
         GraphicsContext gc = smithCanvas.getGraphicsContext2D();
+        SmithChartLayout layout = new SmithChartLayout(smithCanvas.getWidth(), smithCanvas.getHeight());
 
         gc.save();
 
@@ -46,15 +48,35 @@ public class SmithChartRenderer {
         updateFontSize();
 
         // Draw the static parts of the chart
-        drawSmithGrid(gc, viewModel);
-        // Draw the S1P points
-        drawS1PPoints(gc, viewModel);
-        // Draw the path between the impedances
-        drawImpedancePath(gc, viewModel);
-        // Draw the impedances
-        drawImpedancePoints(gc, viewModel, selectedIndex);
+        drawSmithGrid(gc, viewModel, layout);
+        drawVSWRCircles(gc, viewModel, layout);
+        drawS1PPoints(gc, viewModel, layout);
+        drawImpedancePath(gc, viewModel, layout);
+        drawImpedancePoints(gc, viewModel, layout, selectedIndex);
 
         gc.restore();
+    }
+
+    private void drawVSWRCircles(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
+        List<Double> vswrValues = viewModel.vswrCirclesProperty().get();
+        if (vswrValues == null || vswrValues.isEmpty()) return;
+
+        double centerX = layout.getCenterX();
+        double centerY = layout.getCenterY();
+        double mainRadius = layout.getRadius();
+
+        gc.setStroke(Color.LIGHTGRAY);
+        gc.setLineWidth(thinLineValue);
+
+        for (double vswr : vswrValues) {
+            if (vswr < 1.0) continue; // Invalid VSWR value
+
+            double r = (vswr - 1) / (vswr + 1); // Reflection coefficient magnitude
+            double circleRadius = r * mainRadius;
+            gc.strokeOval(centerX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
+
+            drawLabel(gc, String.format("VSWR %.1f", vswr), centerX, centerY - circleRadius, Color.LIGHTGRAY);
+        }
     }
 
     public void renderCursor(SmithChartViewModel viewModel, double currentScale, double offsetX, double offsetY) {
@@ -68,7 +90,7 @@ public class SmithChartRenderer {
             gc.translate(offsetX, offsetY);
             gc.scale(currentScale, currentScale);
 
-            drawGhostCursor(gc, viewModel, currentScale);
+            drawGhostCursor(gc, viewModel, currentScale, new SmithChartLayout(smithCanvas.getWidth(), smithCanvas.getHeight()));
 
             gc.restore();
         }
@@ -87,17 +109,12 @@ public class SmithChartRenderer {
      *
      * @param gc The GraphicsContext of the canvas.
      */
-    private void drawSmithGrid(GraphicsContext gc, SmithChartViewModel viewModel) {
-        double width = smithCanvas.getWidth();
-        double height = smithCanvas.getHeight();
-        double centerX = width / 2;
-        double centerY = height / 2;
-        double mainRadius = Math.min(centerX, centerY) - 10;
+    private void drawSmithGrid(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
 
         //Save the current graphics state and apply clipping so the lines don't get out of the circle of the chart
         gc.save();
         gc.beginPath();
-        gc.arc(centerX, centerY, mainRadius, mainRadius, 0, 360);
+        gc.arc(layout.getCenterX(), layout.getCenterY(), layout.getRadius(), layout.getRadius(), 0, 360);
         gc.closePath();
         gc.clip(); // Anything drawn after this will be clipped to the circle
 
@@ -105,10 +122,10 @@ public class SmithChartRenderer {
 
         // Draw the Outer Circle (r=0, g=0)
         gc.setStroke(Color.GRAY);
-        gc.strokeOval(centerX - mainRadius, centerY - mainRadius, mainRadius * 2, mainRadius * 2);
+        gc.strokeOval(layout.getCenterX() - layout.getRadius(), layout.getCenterY() - layout.getRadius(), layout.getRadius() * 2, layout.getRadius() * 2);
 
         // Draw the Horizontal Line (x=0, b=0)
-        gc.strokeLine(centerX - mainRadius, centerY, centerX + mainRadius, centerY);
+        gc.strokeLine(layout.getCenterX() - layout.getRadius(), layout.getCenterY(), layout.getCenterX() + layout.getRadius(), layout.getCenterY());
 
         double[] stepValues = {0.2, 0.5, 1.0, 2.0, 4.0, 10.0};
 
@@ -118,27 +135,27 @@ public class SmithChartRenderer {
         gc.setLineWidth(thinLineValue);
         gc.setStroke(Color.CORNFLOWERBLUE);
         for (double g : stepValues) {
-            double circleRadius = mainRadius / (g + 1);
-            double circleCenterX = centerX - mainRadius * g / (g + 1);
+            double circleRadius = layout.getRadius() / (g + 1);
+            double circleCenterX = layout.getCenterX() - layout.getRadius() * g / (g + 1);
             if (g == 1) gc.setLineWidth(thickLineValue); //If it's the circle that leads to the center of the chart, making the line thicker
-            gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
+            gc.strokeOval(circleCenterX - circleRadius, layout.getCenterY() - circleRadius, circleRadius * 2, circleRadius * 2);
             if (g == 1) gc.setLineWidth(thinLineValue);
 
-            drawLabel(gc, String.format("%.1f mS", g / viewModel.zo.get() * 1000), circleCenterX, centerY - circleRadius, Color.WHITE);
+            drawLabel(gc, String.format("%.1f mS", g / viewModel.zo.get() * 1000), circleCenterX, layout.getCenterY() - circleRadius, Color.WHITE);
         }
 
         // Draw Constant Susceptance (b) Arcs
         gc.setStroke(Color.DARKGREEN); // New color for susceptance
         for (double b : stepValues) {
-            double arcRadius = mainRadius / b;
-            double arcCenterX = centerX - mainRadius;
+            double arcRadius = layout.getRadius() / b;
+            double arcCenterX = layout.getCenterX() - layout.getRadius();
 
             // Positive Susceptance Arcs (upper half)
-            double arcCenterY = centerY - arcRadius;
+            double arcCenterY = layout.getCenterY() - arcRadius;
             gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
 
             // Negative Susceptance Arcs (lower half)
-            arcCenterY = centerY + arcRadius;
+            arcCenterY = layout.getCenterY() + arcRadius;
             gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
         }
 
@@ -146,26 +163,26 @@ public class SmithChartRenderer {
         // Draw Constant Resistance (r) Circles
         gc.setStroke(Color.CORAL); // Color for resistance
         for (double r : stepValues) {
-            double circleRadius = mainRadius / (r + 1);
-            double circleCenterX = centerX + mainRadius * r / (r + 1);
+            double circleRadius = layout.getRadius() / (r + 1);
+            double circleCenterX = layout.getCenterX() + layout.getRadius() * r / (r + 1);
             if (r == 1) gc.setLineWidth(thickLineValue); //Same logic than for the admittance
-            gc.strokeOval(circleCenterX - circleRadius, centerY - circleRadius, circleRadius * 2, circleRadius * 2);
+            gc.strokeOval(circleCenterX - circleRadius, layout.getCenterY() - circleRadius, circleRadius * 2, circleRadius * 2);
             if (r == 1) gc.setLineWidth(thinLineValue);
 
-            drawLabel(gc, String.format("%.1f", r * viewModel.zo.get()), circleCenterX, centerY + circleRadius, Color.WHITE);
+            drawLabel(gc, String.format("%.1f", r * viewModel.zo.get()), circleCenterX, layout.getCenterY() + circleRadius, Color.WHITE);
         }
 
         // Draw Constant Reactance (x) Arcs
         gc.setStroke(Color.BROWN); // Color for reactance
         for (double x : stepValues) {
-            double arcRadius = mainRadius / x;
+            double arcRadius = layout.getRadius() / x;
             // Positive Reactance Arcs (upper half)
-            double arcCenterX = centerX + mainRadius;
-            double arcCenterY = centerY - arcRadius;
+            double arcCenterX = layout.getCenterX() + layout.getRadius();
+            double arcCenterY = layout.getCenterY() - arcRadius;
             gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
 
             // Negative Reactance Arcs (lower half)
-            arcCenterY = centerY + arcRadius;
+            arcCenterY = layout.getCenterY() + arcRadius;
             gc.strokeOval(arcCenterX - arcRadius, arcCenterY - arcRadius, arcRadius * 2, arcRadius * 2);
         }
 
@@ -176,8 +193,8 @@ public class SmithChartRenderer {
         //Draw the labels on the circles reprensenting the values
         for (double b : stepValues) {
             double angle = 2 * Math.atan(1.0 / b);
-            double labelX = centerX + mainRadius * Math.cos(Math.PI - angle);
-            double labelY = centerY + mainRadius * Math.sin(Math.PI - angle);
+            double labelX = layout.getCenterX() + layout.getRadius() * Math.cos(Math.PI - angle);
+            double labelY = layout.getCenterY() + layout.getRadius() * Math.sin(Math.PI - angle);
             String label = String.format("+%.1f", viewModel.zo.get() / b);
             drawLabel(gc, label, labelX, labelY, Color.DARKGREEN);
 
@@ -185,8 +202,8 @@ public class SmithChartRenderer {
 
         for (double x : stepValues) {
             double angle = 2 * Math.atan(1.0 / x);
-            double labelX = centerX + mainRadius * Math.cos(-angle);
-            double labelY = centerY + mainRadius * Math.sin(-angle);
+            double labelX = layout.getCenterX() + layout.getRadius() * Math.cos(-angle);
+            double labelY = layout.getCenterY() + layout.getRadius() * Math.sin(-angle);
             String label = String.format("%.1f", x * viewModel.zo.get());
             drawLabel(gc, label, labelX, labelY, Color.BROWN);
         }
@@ -197,7 +214,7 @@ public class SmithChartRenderer {
      *
      * @param gc the graphic context on which we'll draw the points
      */
-    private void drawImpedancePoints(GraphicsContext gc, SmithChartViewModel viewModel, int selectedItemIndex) {
+    private void drawImpedancePoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout, int selectedItemIndex) {
         List<Complex> gammas = viewModel.measuresGammaProperty().get();
 
         if (gammas != null) {
@@ -216,8 +233,8 @@ public class SmithChartRenderer {
                 String labelText = (index == 0) ? "LP" : "DP" + index;
                 Color labelColor;
 
-                double pointX = centerX + gamma.real() * mainRadius;
-                double pointY = centerY - gamma.imag() * mainRadius;
+                double pointX = layout.toScreenX(gamma);
+                double pointY = layout.toScreenY(gamma);
 
                 gc.setLineWidth(2 * thickLineValue);
                 double pointSize = 5;
@@ -249,7 +266,7 @@ public class SmithChartRenderer {
      *
      * @param gc the graphic context on which we'll draw the points
      */
-    private void drawS1PPoints(GraphicsContext gc, SmithChartViewModel viewModel) {
+    private void drawS1PPoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
         List<DataPoint> dataPoints = viewModel.transformedS1PPointsProperty().get();
 
         if (dataPoints != null && !dataPoints.isEmpty()) {
@@ -269,8 +286,8 @@ public class SmithChartRenderer {
             for (DataPoint dataPoint : dataPoints) {
                 Complex gamma = dataPoint.getGamma();
 
-                double pointX = centerX + gamma.real() * mainRadius;
-                double pointY = centerY - gamma.imag() * mainRadius;
+                double pointX = layout.toScreenX(gamma);
+                double pointY = layout.toScreenY(gamma);
 
                 if(viewModel.isFrequencyInRange(dataPoint.getFrequency())) {
                     gc.setStroke(Color.INDIANRED);
@@ -314,18 +331,12 @@ public class SmithChartRenderer {
         gc.fillText(text, x, y + fontSize / 3);
     }
 
-    private void drawGhostCursor(GraphicsContext gc, SmithChartViewModel viewModel, double currentScale) {
+    private void drawGhostCursor(GraphicsContext gc, SmithChartViewModel viewModel, double currentScale, SmithChartLayout layout) {
         Complex gamma = viewModel.ghostCursorGamma.get();
         if (gamma == null) return;
 
-        double width = smithCanvas.getWidth();
-        double height = smithCanvas.getHeight();
-        double centerX = width / 2;
-        double centerY = height / 2;
-        double mainRadius = Math.min(centerX, centerY) - 10;
-
-        double pointX = centerX + gamma.real() * mainRadius;
-        double pointY = centerY - gamma.imag() * mainRadius;
+        double pointX = layout.toScreenX(gamma);
+        double pointY = layout.toScreenY(gamma);
 
         gc.setStroke(Color.WHITESMOKE);
         gc.setLineWidth(1.5 / currentScale); // Constant thickness regardless of zoom
@@ -345,16 +356,14 @@ public class SmithChartRenderer {
      *
      * @param gc   The GraphicsContext of the canvas.
      */
-    private void drawImpedancePath(GraphicsContext gc, SmithChartViewModel viewModel) {
+    private void drawImpedancePath(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
 
         List<Complex> gammas = viewModel.measuresGammaProperty().get();
         if (gammas == null || gammas.size() < 2) return;
 
-        double width = smithCanvas.getWidth();
-        double height = smithCanvas.getHeight();
-        double centerX = width / 2.0;
-        double centerY = height / 2.0;
-        double mainRadius = Math.min(centerX, centerY) - 10;
+        double centerX = layout.getCenterX();
+        double centerY = layout.getCenterY();
+        double mainRadius = layout.getRadius();
 
         // Clip to the Smith circle so lines don't spill outside
         gc.save();
@@ -386,8 +395,8 @@ public class SmithChartRenderer {
             double arcRadius = arcParams.getValue() * mainRadius;
 
             // Convert arc center to canvas coordinates
-            double arcCenterX = centerX + arcCenter.real() * mainRadius;
-            double arcCenterY = centerY - arcCenter.imag() * mainRadius;
+            double arcCenterX = layout.toScreenX(arcCenter);
+            double arcCenterY = layout.toScreenY(arcCenter);
 
             // Calculate start and end angles
             double startAngle = Math.toDegrees(Math.atan2(
@@ -443,3 +452,4 @@ public class SmithChartRenderer {
         gc.clearRect(0, 0, cursorCanvas.getWidth(), cursorCanvas.getHeight());
     }
 }
+

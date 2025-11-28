@@ -11,6 +11,9 @@ import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogFactory;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
+import heig.tb.jsmithfx.utilities.dialogs.CircleDialog;
+import heig.tb.jsmithfx.view.CircuitRenderer;
+import heig.tb.jsmithfx.view.SmithChartRenderer;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
@@ -38,9 +41,6 @@ import java.util.stream.Collectors;
 
 public class SmithController {
 
-
-    public Button sweepButton;
-    public Button tuneButton;
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
@@ -159,6 +159,12 @@ public class SmithController {
     private TextField s1pFileNameField;
     @FXML
     private CheckBox useS1PAsLoadCheckBox;
+    @FXML
+    private MenuItem setDisplayCirclesOptionsButton;
+    @FXML
+    private Button sweepButton;
+    @FXML
+    private Button tuneButton;
 
 
     //Viewmodel
@@ -1258,8 +1264,17 @@ public class SmithController {
     }
 
     public void onSweep(ActionEvent actionEvent) {
+
     }
 
     public void onTune(ActionEvent actionEvent) {
+
+    }
+
+    public void setDisplayCirclesOptions(ActionEvent actionEvent) {
+        CircleDialog.getInstance().showAndWait().ifPresent(options -> {
+            viewModel.setCircleDisplayOptions(options);
+            redrawSmithCanvas();
+        });
     }
 }

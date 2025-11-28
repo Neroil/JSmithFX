@@ -1,5 +1,6 @@
-package heig.tb.jsmithfx;
+package heig.tb.jsmithfx.view;
 
+import heig.tb.jsmithfx.SmithChartViewModel;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.*;

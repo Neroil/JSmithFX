@@ -67,6 +67,10 @@ public class SmithChartViewModel {
     private double freqRangeMax;
     // S1P Load option
     private boolean useS1PAsLoad = false;
+    // Circle display options
+    private ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    public ReadOnlyListProperty<Double> vswrCirclesProperty() {return vswrCircles.getReadOnlyProperty();}
+
 
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
@@ -611,10 +615,13 @@ public class SmithChartViewModel {
     public boolean isFrequencyInRange(double freq) {
         return freq >= freqRangeMin && freq <= freqRangeMax;
     }
-
     // Undo Redo logic
     private enum Operation {ADD, REMOVE}
 
     private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
+    }
+
+    public void setCircleDisplayOptions(List<Double> options) {
+        vswrCircles.setAll(options);
     }
 }

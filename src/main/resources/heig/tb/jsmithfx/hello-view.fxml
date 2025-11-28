@@ -18,6 +18,7 @@
         </Menu>
         <Menu text="Set">
             <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
+            <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options..." />
         </Menu>
         <Menu text="Import/Export">
             <MenuItem fx:id="importS1PButton" onAction="#importS1P" text="Import S1P..." />
