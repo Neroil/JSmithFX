@@ -5,15 +5,30 @@ import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
 import heig.tb.jsmithfx.utilities.Complex;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.util.Pair;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Optional;
 
 public class DialogFactory {
+
+    enum DataType {
+        IMPEDANCE,
+        ADMITTANCE,
+        REFLECTION
+    }
+
+    enum DataFormat {
+        CARTESIAN,
+        POLAR
+    }
 
     /**
      * Shows a dialog to edit a component's value with a Unit selector.
@@ -91,35 +106,144 @@ public class DialogFactory {
     public static Optional<Complex> showComplexInputDialog(String title, Complex current) {
         Dialog<Complex> dialog = new Dialog<>();
         dialog.setTitle(title);
-        dialog.setHeaderText("Enter Real and Imaginary parts:");
-        dialog.setGraphic(null);
+        dialog.setHeaderText("Enter complex value (Impedance, Admittance or Reflection):");
 
         ButtonType okButton = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(okButton, ButtonType.CANCEL);
 
-        TextField reField = new TextField(String.valueOf(current.real()));
-        TextField imField = new TextField(String.valueOf(current.imag()));
+        ToggleGroup dataTypeGroup = new ToggleGroup();
+        RadioButton impedanceRadio = new RadioButton("Impedance (Z)");
+        impedanceRadio.setUserData(DataType.IMPEDANCE);
+        RadioButton admittanceRadio = new RadioButton("Admittance (Y)");
+        admittanceRadio.setUserData(DataType.ADMITTANCE);
+        RadioButton reflectionRadio = new RadioButton("Reflection (Gamma)");
+        reflectionRadio.setUserData(DataType.REFLECTION);
+        dataTypeGroup.getToggles().addAll(impedanceRadio, admittanceRadio, reflectionRadio);
+        impedanceRadio.setSelected(true); // Impedance default
 
+        ToggleGroup formatGroup = new ToggleGroup();
+        RadioButton cartesianRadio = new RadioButton("Cartesian (Re + j Im)");
+        cartesianRadio.setUserData(DataFormat.CARTESIAN);
+        RadioButton polarRadio = new RadioButton("Polar (Mag ∠ Ang)");
+        polarRadio.setUserData(DataFormat.POLAR);
+        formatGroup.getToggles().addAll(cartesianRadio, polarRadio);
+        cartesianRadio.setSelected(true); // Cartesian default
+
+        // Dynamic fields and labels
+        TextField field1 = new TextField(String.valueOf(current.real())); // Initialized to real part
+        TextField field2 = new TextField(String.valueOf(current.imag())); // Initialized to imaginary part
+        Label label1 = new Label("Real (Ω):");
+        Label label2 = new Label("Imaginary (jΩ):");
+        Label unitLabel = new Label("Ω");
+
+        // Layout (GridPane)
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-        grid.add(new Label("Real (Ω):"), 0, 0);
-        grid.add(reField, 1, 0);
-        grid.add(new Label("Imaginary (jΩ):"), 0, 1);
-        grid.add(imField, 1, 1);
+        grid.setPadding(new Insets(20, 10, 10, 10));
+
+        // Row 0: Data Type (Z, Y, Gamma)
+        HBox dataTypeBox = new HBox(15, impedanceRadio, admittanceRadio, reflectionRadio);
+        dataTypeBox.setAlignment(Pos.CENTER_LEFT);
+        grid.add(new Label("Data Type:"), 0, 0);
+        grid.add(dataTypeBox, 1, 0, 2, 1);
+
+        // Row 1: Format (Cartesian/Polar)
+        HBox formatBox = new HBox(15, cartesianRadio, polarRadio);
+        formatBox.setAlignment(Pos.CENTER_LEFT);
+        grid.add(new Label("Format:"), 0, 1);
+        grid.add(formatBox, 1, 1, 2, 1);
+
+        // Row 2 & 3: Dynamic input fields
+        grid.add(label1, 0, 2);
+        HBox field1Box = new HBox(5, field1, new Label(unitLabel.getText())); // Field 1 with unit
+        field1Box.setAlignment(Pos.CENTER_LEFT);
+        grid.add(field1Box, 1, 2);
+        grid.add(label2, 0, 3);
+        HBox field2Box = new HBox(5, field2, new Label("°")); // Field 2 with '°' for angle or 'jΩ' for imaginary
+        field2Box.setAlignment(Pos.CENTER_LEFT);
+        grid.add(field2Box, 1, 3);
+
+        // This function updates labels and displayed values
+        Runnable updateLabels = () -> {
+            DataFormat format = (DataFormat) formatGroup.getSelectedToggle().getUserData();
+            DataType type = (DataType) dataTypeGroup.getSelectedToggle().getUserData();
+            Complex valueToDisplay = current;
+
+            // If type is Admittance, we must invert the value before display
+            if (type == DataType.ADMITTANCE) {
+                valueToDisplay = current.inverse();
+                unitLabel.setText("mS"); // Siemens (conductance/susceptance)
+            } else if (type == DataType.IMPEDANCE) {
+                unitLabel.setText("Ω"); // Ohms (resistance/reactance)
+            } else { // REFLECTION
+                unitLabel.setText(""); // No unit
+            }
+
+            // Use US Locale to ensure dots are used as separators, matching Double.parseDouble
+            DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
+            DecimalFormat df = new DecimalFormat("0.###", symbols);
+
+            // Update labels and values in fields
+            if (format == DataFormat.CARTESIAN) {
+                dialog.setHeaderText("Enter Real and Imaginary parts:");
+                label1.setText(type == DataType.IMPEDANCE ? "Real (R):" : type == DataType.ADMITTANCE ? "Real (G):" : "Real:");
+                label2.setText(type == DataType.IMPEDANCE ? "Imag. (jX):" : type == DataType.ADMITTANCE ? "Imag. (jB):" : "Imag.:");
+                field1.setText(df.format(valueToDisplay.real() * (type == DataType.ADMITTANCE ? 1000 : 1))); // Convert to mS if Admittance
+                field2.setText(df.format(valueToDisplay.imag() * (type == DataType.ADMITTANCE ? 1000 : 1)));
+                ((Label) field2Box.getChildren().get(1)).setText(type == DataType.IMPEDANCE ? "j" + unitLabel.getText() : unitLabel.getText());
+                ((Label) field1Box.getChildren().get(1)).setText(unitLabel.getText());
+
+            } else { // POLAR
+                dialog.setHeaderText("Enter Magnitude and Angle:");
+                label1.setText("Magnitude (M):");
+                label2.setText("Angle (θ):");
+                field1.setText(df.format(valueToDisplay.magnitude() * (type == DataType.ADMITTANCE ? 1000 : 1)));
+                field2.setText(df.format(Math.toDegrees(valueToDisplay.angle())));
+                ((Label) field2Box.getChildren().get(1)).setText("°"); // Angle in degrees
+                ((Label) field1Box.getChildren().get(1)).setText(unitLabel.getText());
+            }
+        };
+
+        // Attach listener to type and format change
+        dataTypeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> updateLabels.run());
+        formatGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> updateLabels.run());
+
+        // Execute once to initialize UI
+        updateLabels.run();
 
         dialog.getDialogPane().setContent(grid);
+        Platform.runLater(field1::requestFocus);
 
+        // Convert result back to Complex
         dialog.setResultConverter(button -> {
             if (button == okButton) {
                 try {
-                    return new Complex(
-                            Double.parseDouble(reField.getText()),
-                            Double.parseDouble(imField.getText())
-                    );
+                    double val1 = Double.parseDouble(field1.getText());
+                    double val2 = Double.parseDouble(field2.getText());
+
+                    Complex result;
+
+                    // Convert fields to a complex number (Z, Y or Gamma)
+                    DataFormat format = (DataFormat) formatGroup.getSelectedToggle().getUserData();
+                    if (format == DataFormat.CARTESIAN) {
+                        result = new Complex(val1, val2);
+                    } else { // POLAR (Mag ∠ Ang)
+                        double angleRadians = Math.toRadians(val2);
+                        result = new Complex(val1 * Math.cos(angleRadians), val1 * Math.sin(angleRadians));
+                    }
+
+                    // If selected type was Admittance (Y), invert to get Z.
+                    DataType type = (DataType) dataTypeGroup.getSelectedToggle().getUserData();
+                    if (type == DataType.ADMITTANCE) {
+                        return result.dividedBy(1000.0).inverse(); // Convert mS back to S
+                    }
+
+                    return result; // Returns Z or Gamma
                 } catch (NumberFormatException e) {
-                    showErrorAlert("Error", "Invalid number format.");
+                    showErrorAlert("Format Error", "Please enter valid numbers.");
+                } catch (NullPointerException e) {
+                    showErrorAlert("Error", "Please select a format and data type.");
                 }
             }
             return null;
@@ -209,8 +333,8 @@ public class DialogFactory {
             displayValue = currentFrequencyHz;
             hzButton.setSelected(true);
         }
-        // Use a general format specifier to avoid unnecessary trailing zeros
-        valueField.setText(String.format("%s", displayValue));
+        // Use a general format specifier to avoid unnecessary trailing zeros, forcing US locale for dots
+        valueField.setText(String.format(Locale.US, "%s", displayValue));
 
         // --- Layout ---
         GridPane grid = new GridPane();

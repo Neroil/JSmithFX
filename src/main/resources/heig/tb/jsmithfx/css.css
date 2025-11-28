@@ -32,3 +32,19 @@
     /* Use the standard text color for the tick labels */
     -fx-tick-label-fill: -color-fg-default;
 }
+
+.menu-bar-container {
+    -fx-background-color: -color-neutral-muted;
+    -fx-border-color: -color-neutral-emphasis;
+}
+
+.menu-bar-container .button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -color-fg-default;
+}
+
+.menu-bar-container .button:hover {
+    -fx-background-color: -color-accent-muted; /* Change background on hover */
+}
+

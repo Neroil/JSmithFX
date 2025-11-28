@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 public class SmithController {
 
 
+    public Button sweepButton;
+    public Button tuneButton;
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
@@ -189,7 +191,10 @@ public class SmithController {
         redrawSmithCanvas(); //Initial chart drawing
 
         // Whenever your circuit elements change, re-render the circuit diagram
-        viewModel.circuitElements.addListener((ListChangeListener<CircuitElement>) c -> circuitRenderer.render(viewModel));
+        viewModel.circuitElements.addListener((ListChangeListener<CircuitElement>) _ -> circuitRenderer.render(viewModel));
+        // Whenever the preview element changes, re-render the chart
+        viewModel.previewElementProperty().addListener(_ -> smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0));
+
 
         // Initial render
         circuitRenderer.render(viewModel);
@@ -539,7 +544,6 @@ public class SmithController {
                     viewModel.addLiveComponentPreview(liveValue,z0_line,permittivity,stubComboBox.getValue());
 
                 } else viewModel.addLiveComponentPreview(typeComboBox.getValue(), liveValue, positionComboBox.getValue());
-                smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0);
             }
         }
     }
@@ -597,6 +601,8 @@ public class SmithController {
             // β = 2πf/pv, will be used for the calculations in the two branches
             double phase_velocity = C / Math.sqrt(permittivity);
             double beta = (2.0 * Math.PI * frequency) / phase_velocity;
+
+            if (beta < EPS) return null; // Avoid division by zero
 
             if (stubType == Line.StubType.NONE){
                     // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j2βL)
@@ -1249,5 +1255,11 @@ public class SmithController {
             component.setRealWorldValue(newValue);
             redrawSmithCanvas();
         });
+    }
+
+    public void onSweep(ActionEvent actionEvent) {
+    }
+
+    public void onTune(ActionEvent actionEvent) {
     }
 }

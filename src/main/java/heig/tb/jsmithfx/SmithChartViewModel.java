@@ -10,6 +10,7 @@ import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +44,7 @@ public class SmithChartViewModel {
     private final ReadOnlyListWrapper<DataPoint> s1pDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     // Logic to store transformed S1P points for drawing
     private final ReadOnlyListWrapper<DataPoint> transformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    private final List<DataPoint> cachedS1PPoints = new ArrayList<>();
     // A read-only list of the calculated gammas for drawing on the canvas.
     private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     // Ui bindings
@@ -59,6 +61,7 @@ public class SmithChartViewModel {
     private double savedFrequency = 1e9; // 1 GHz
     private Complex savedLoadImpedance = new Complex(100.0, 50.0); // 100 + j50 Ohm
     private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
+    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() { return previewElement; }
     // RangeSlider private properties
     private double freqRangeMin;
     private double freqRangeMax;
@@ -111,7 +114,14 @@ public class SmithChartViewModel {
 
         s1pDataPoints.addListener((ListChangeListener<DataPoint>) _ -> recalculateS1PChain());
 
-        previewElement.addListener((_, _, _) -> recalculateS1PChain());
+        previewElement.addListener((_, _, _) -> {
+            if(previewElement.get() == null){
+                previewTransformedS1PPoints.clear();
+                cachedS1PPoints.clear();
+                return;
+            }
+            recalculateS1PChain();
+        });
 
         // Perform the initial calculation when the view model is created.
         recalculateImpedanceChain();
@@ -186,6 +196,8 @@ public class SmithChartViewModel {
 
     public void clearLiveComponentPreview() {
         previewElement.set(null);
+        cachedS1PPoints.clear();
+        recalculateS1PChain();
     }
 
     public void setUseS1PAsLoad(Boolean newVal) {
@@ -406,24 +418,41 @@ public class SmithChartViewModel {
         if (!useS1PAsLoad || s1pDataPoints.isEmpty()) {
             transformedS1PPoints.clear();
             if (!useS1PAsLoad) transformedS1PPoints.setAll(s1pDataPoints);
+            cachedS1PPoints.clear(); // Just in case
             return;
         }
 
         List<DataPoint> newTransformedPoints = new ArrayList<>();
+        boolean isPreviewing = previewElement.get() != null;
 
-        for (DataPoint originalPoint : s1pDataPoints) {
+        List<DataPoint> sourcePoints;
+
+        if (isPreviewing) {
+            if (cachedS1PPoints.isEmpty()) {
+                sourcePoints = s1pDataPoints;
+                isPreviewing = false; // No valid cache, do full calc
+            } else {
+                sourcePoints = cachedS1PPoints;
+            }
+        } else {
+            sourcePoints = s1pDataPoints;
+        }
+
+        List<CircuitElement> elementsToApply;
+
+        if (isPreviewing) {
+            elementsToApply = new ArrayList<>();
+            elementsToApply.add(previewElement.get()); // Only the preview element
+        } else {
+            elementsToApply = circuitElements.get();
+        }
+
+        for (DataPoint originalPoint : sourcePoints) {
             double freq = originalPoint.getFrequency();
 
             Complex currentImpedance = originalPoint.getImpedance();
 
-            ArrayList<CircuitElement> circuitElementsCopy = new ArrayList<>(circuitElements);
-
-            if (previewElement.get() != null) {
-                circuitElementsCopy.add(previewElement.get());
-            }
-
-            // Apply all circuit elements in sequence to every S1P points...
-            for (CircuitElement element : circuitElementsCopy) {
+            for (CircuitElement element : elementsToApply) {
                 if (element.getType() == CircuitElement.ElementType.LINE) {
                     currentImpedance = ((Line) element).calculateImpedance(currentImpedance, freq);
                 } else {
@@ -433,11 +462,16 @@ public class SmithChartViewModel {
             }
 
             Complex newGamma = calculateGamma(currentImpedance);
-
             newTransformedPoints.add(new DataPoint(freq, originalPoint.getLabel(), currentImpedance, newGamma, calculateVswr(newGamma), calculateReturnLoss(newGamma)));
         }
 
         transformedS1PPoints.setAll(newTransformedPoints);
+
+        // Update cache only if not previewing (means we added a new component)
+        if (!isPreviewing) {
+            cachedS1PPoints.clear();
+            cachedS1PPoints.addAll(newTransformedPoints);
+        }
     }
 
     /**
