@@ -13,6 +13,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Pair;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class SmithChartRenderer {
@@ -23,6 +24,9 @@ public class SmithChartRenderer {
     private final double thickLineValue = 1;
     private final double thinLineValue = 0.4;
     private Font LABEL_FONT = new Font("Arial", 10);
+
+    private final List<ChartPoint> activePoints = new ArrayList<>();
+    private int currentSelectedIndex = -1;
 
     public SmithChartRenderer(Canvas smithCanvas, Canvas cursorCanvas) {
         this.smithCanvas = smithCanvas;
@@ -37,8 +41,9 @@ public class SmithChartRenderer {
         GraphicsContext gc = smithCanvas.getGraphicsContext2D();
         SmithChartLayout layout = new SmithChartLayout(smithCanvas.getWidth(), smithCanvas.getHeight());
 
-        gc.save();
+        activePoints.clear();
 
+        gc.save();
         // Clear the canvas before redrawing
         gc.clearRect(0, 0, smithCanvas.getWidth(), smithCanvas.getHeight());
 
@@ -50,9 +55,9 @@ public class SmithChartRenderer {
         // Draw the static parts of the chart
         drawSmithGrid(gc, viewModel, layout);
         drawVSWRCircles(gc, viewModel, layout);
-        drawS1PPoints(gc, viewModel, layout);
+        drawS1PPoints(gc, viewModel, layout, currentScale, offsetX, offsetY);
         drawImpedancePath(gc, viewModel, layout);
-        drawImpedancePoints(gc, viewModel, layout, selectedIndex);
+        drawImpedancePoints(gc, viewModel, layout, selectedIndex, currentScale, offsetX, offsetY);
 
         gc.restore();
     }
@@ -214,47 +219,39 @@ public class SmithChartRenderer {
      *
      * @param gc the graphic context on which we'll draw the points
      */
-    private void drawImpedancePoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout, int selectedItemIndex) {
+    private void drawImpedancePoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout,
+                                     int selectedItemIndex, double scale, double offX, double offY) {
         List<Complex> gammas = viewModel.measuresGammaProperty().get();
 
         if (gammas != null) {
             int index = 0;
 
-            //Get the necessary information about the canvas
-            double width = smithCanvas.getWidth();
-            double height = smithCanvas.getHeight();
-            double centerX = width / 2;
-            double centerY = height / 2;
-            double mainRadius = Math.min(centerX, centerY) - 10;
-
-            //Draw each impedance on the chart
+            // Draw each impedance point
             for (Complex gamma : gammas) {
-
                 String labelText = (index == 0) ? "LP" : "DP" + index;
-                Color labelColor;
 
-                double pointX = layout.toScreenX(gamma);
-                double pointY = layout.toScreenY(gamma);
+                double localX = layout.toScreenX(gamma);
+                double localY = layout.toScreenY(gamma);
 
-                gc.setLineWidth(2 * thickLineValue);
+                // Store absolute position for Tooltip
+                double absoluteX = (localX * scale) + offX;
+                double absoluteY = (localY * scale) + offY;
+
+                // Add to active points with a specific label
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText));
+
                 double pointSize = 5;
 
-                //Change the color of the selected position on the chart
                 if (selectedItemIndex == index) {
                     gc.setStroke(Color.CORAL);
                     gc.setFill(Color.CORAL);
-                    labelColor = Color.CORAL;
                 } else {
                     gc.setStroke(Color.YELLOW);
                     gc.setFill(Color.YELLOW);
-                    labelColor = Color.YELLOW;
                 }
 
-                //Draw the point
-                gc.strokeRect(pointX - pointSize / 2, pointY - pointSize / 2, pointSize, pointSize);
-
-                //Add the label on top of it
-                drawLabel(gc, labelText, pointX, pointY - LABEL_FONT.getSize(), labelColor);
+                gc.strokeRect(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+                drawLabel(gc, labelText, localX, localY - LABEL_FONT.getSize(), Color.YELLOW);
 
                 ++index;
             }
@@ -266,29 +263,30 @@ public class SmithChartRenderer {
      *
      * @param gc the graphic context on which we'll draw the points
      */
-    private void drawS1PPoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
+    private void drawS1PPoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout,
+                               double scale, double offX, double offY) {
         List<DataPoint> dataPoints = viewModel.transformedS1PPointsProperty().get();
 
         if (dataPoints != null && !dataPoints.isEmpty()) {
-            // Get the necessary information about the canvas
-            double width = smithCanvas.getWidth();
-            double height = smithCanvas.getHeight();
-            double centerX = width / 2;
-            double centerY = height / 2;
-            double mainRadius = Math.min(centerX, centerY) - 10;
+            double pointSize = 4 / scale;
 
-            gc.setLineWidth(1.5);
-
-
-            double pointSize = 4; // Slightly smaller or different size
-
-            // Draw each S1P point on the chart
             for (DataPoint dataPoint : dataPoints) {
                 Complex gamma = dataPoint.getGamma();
 
-                double pointX = layout.toScreenX(gamma);
-                double pointY = layout.toScreenY(gamma);
+                // Local coordinates (relative to the transformed canvas)
+                double localX = layout.toScreenX(gamma);
+                double localY = layout.toScreenY(gamma);
 
+                // Calculate ABSOLUTE coordinates for hit testing
+                // Formula: (Local * Scale) + Translate
+                double absoluteX = (localX * scale) + offX;
+                double absoluteY = (localY * scale) + offY;
+
+                // Create and store the ChartPoint
+                String label = String.format("%.2f MHz", dataPoint.getFrequency() / 1e6);
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label));
+
+                // Drawing logic
                 if(viewModel.isFrequencyInRange(dataPoint.getFrequency())) {
                     gc.setStroke(Color.INDIANRED);
                     gc.setFill(Color.INDIANRED);
@@ -297,9 +295,8 @@ public class SmithChartRenderer {
                     gc.setFill(Color.DODGERBLUE);
                 }
 
-                // Draw a small circle (oval) for S1P data
-                gc.strokeOval(pointX - pointSize / 2, pointY - pointSize / 2, pointSize, pointSize);
-                gc.fillOval(pointX - pointSize / 2, pointY - pointSize / 2, pointSize, pointSize);
+                gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+                gc.fillOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
             }
         }
     }
@@ -451,5 +448,52 @@ public class SmithChartRenderer {
     public void clearCursor(GraphicsContext gc) {
         gc.clearRect(0, 0, cursorCanvas.getWidth(), cursorCanvas.getHeight());
     }
+
+    public void handleTooltip(double mouseX, double mouseY, double scale) {
+        double threshold = scale * 0.7;
+        ChartPoint hitPoint = null;
+
+        // Find the closest point
+        int index = 0;
+        for (ChartPoint p : activePoints) {
+            if (p.isHit(mouseX, mouseY, threshold)) {
+                hitPoint = p;
+                break; // Stop at first hit
+            }
+            ++index;
+        }
+
+        GraphicsContext gc = cursorCanvas.getGraphicsContext2D();
+
+        if (index == currentSelectedIndex) return;
+
+        clearCursor(gc);
+        if (hitPoint != null) {
+            drawTooltip(gc, hitPoint, hitPoint.screenX(), hitPoint.screenY());
+            currentSelectedIndex = index;
+        } else {
+            currentSelectedIndex = -1;
+        }
+    }
+    private void drawTooltip(GraphicsContext gc, ChartPoint point, double mx, double my) {
+        gc.setFont(new Font("Arial", 12));
+        double padding = 5;
+        double textWidth = 100;
+        double textHeight = 30;
+
+        double boxX = mx + 10;
+        double boxY = my + 10;
+
+        // Draw Background Box
+        gc.setFill(Color.rgb(0, 0, 0, 0.6));
+        gc.fillRoundRect(boxX, boxY, textWidth, textHeight, 5, 5);
+
+        // Draw Text
+        gc.setFill(Color.WHITE);
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.fillText(point.getTooltipText(), boxX + padding, boxY + 15);
+    }
+
+
 }
 

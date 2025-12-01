@@ -86,6 +86,9 @@ public class CircuitRenderer {
         GraphicsContext gc = circuitCanvas.getGraphicsContext2D();
         List<CircuitElement> elements = viewModel.circuitElements.get();
 
+        // Reset hitboxes
+        hitBoxes.clear();
+
         double canvasWidth = circuitCanvas.getWidth();
         double canvasHeight = circuitCanvas.getHeight();
 

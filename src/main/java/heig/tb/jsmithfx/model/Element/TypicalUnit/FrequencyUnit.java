@@ -25,4 +25,12 @@ public enum FrequencyUnit implements ElectronicUnit {
     public double getFactor() {
         return factor;
     }
+
+    public static FrequencyUnit bestFit(double frequencyHz) {
+        double absHz = Math.abs(frequencyHz);
+        if (absHz >= GHZ.factor) return GHZ;
+        if (absHz >= MHZ.factor) return MHZ;
+        if (absHz >= KHZ.factor) return KHZ;
+        return HZ;
+    }
 }

@@ -9,9 +9,12 @@ import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
 import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
-import heig.tb.jsmithfx.utilities.DialogFactory;
+import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import heig.tb.jsmithfx.utilities.dialogs.CircleDialog;
+import heig.tb.jsmithfx.utilities.dialogs.ComplexInputDialog;
+import heig.tb.jsmithfx.utilities.dialogs.ComponentEditDialog;
+import heig.tb.jsmithfx.utilities.dialogs.FrequencyInputDialog;
 import heig.tb.jsmithfx.view.CircuitRenderer;
 import heig.tb.jsmithfx.view.SmithChartRenderer;
 import javafx.application.Platform;
@@ -446,6 +449,8 @@ public class SmithController {
                 lastScreenYForAdd = currentScreenY;
 
                 handleMouseMagnetization(dx, dy);
+            } else {
+                smithChartRenderer.handleTooltip(mouseX, mouseY, currentScale);
             }
 
             // Pass the correct Gamma coordinates to the ViewModel.
@@ -961,13 +966,13 @@ public class SmithController {
      * @param actionEvent unused here
      */
     public void setCharacteristicImpedance(ActionEvent actionEvent) {
-        DialogFactory.showDoubleInputDialog("Characteristic Impedance", "Enter Zo (Ohms):", viewModel.zo.get())
+        DialogUtils.showDoubleInputDialog("Characteristic Impedance", "Enter Zo (Ohms):", viewModel.zo.get())
                 .ifPresent(zo -> {
                     if (zo > 0) {
                         viewModel.zo.setValue(zo);
                         redrawSmithCanvas();
                     } else {
-                        DialogFactory.showErrorAlert("Invalid Input", "Zo must be positive.");
+                        DialogUtils.showErrorAlert("Invalid Input", "Zo must be positive.");
                     }
                 });
     }
@@ -980,7 +985,7 @@ public class SmithController {
     }
 
     public void onChangeLoad(ActionEvent actionEvent) {
-        DialogFactory.showComplexInputDialog("Change Load", viewModel.loadImpedance.get())
+        new ComplexInputDialog("Change Load", viewModel.loadImpedance.get()).showAndWait()
                 .ifPresent(newLoad -> {
                     viewModel.loadImpedance.setValue(newLoad);
                     redrawSmithCanvas();
@@ -988,12 +993,12 @@ public class SmithController {
     }
 
     public void onChangeFreq(ActionEvent actionEvent) {
-        DialogFactory.showFrequencyInputDialog("Change Frequency", viewModel.frequencyProperty().get())
+        new FrequencyInputDialog("Change Frequency", viewModel.frequencyProperty().get()).showAndWait()
                 .ifPresent(newFreq -> {
                     if (newFreq > 0) {
                         viewModel.setFrequency(newFreq);
                     } else {
-                        DialogFactory.showErrorAlert("Invalid Input", "Frequency must be a positive value.");
+                        DialogUtils.showErrorAlert("Invalid Input", "Frequency must be a positive value.");
                     }
                 });
     }
@@ -1041,7 +1046,7 @@ public class SmithController {
 
         Complex lastGamma = viewModel.getLastGamma();
         if (lastGamma == null) {
-            DialogFactory.showErrorAlert("Operation Failed", "Cannot add a component without a starting point.");
+            DialogUtils.showErrorAlert("Operation Failed", "Cannot add a component without a starting point.");
             return;
         }
 
@@ -1229,6 +1234,8 @@ public class SmithController {
                 s1pTitledPane.setExpanded(true);
                 s1pTitledPane.setManaged(true);
 
+                viewModel.setUseS1PAsLoad(useS1PAsLoadCheckBox.isSelected());
+
                 redrawSmithCanvas();
             } catch (IllegalArgumentException e) {
                 showError("Invalid S1P file: " + e.getMessage());
@@ -1257,7 +1264,7 @@ public class SmithController {
     }
 
     private void promptEditForComponent(CircuitElement component) {
-        DialogFactory.showComponentEditDialog(component).ifPresent(newValue -> {
+        new ComponentEditDialog(component).showAndWait().ifPresent(newValue -> {
             component.setRealWorldValue(newValue);
             redrawSmithCanvas();
         });
