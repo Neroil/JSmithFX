@@ -98,18 +98,18 @@
                                         <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
                                     </padding>
 
-                                    <HBox>
+                                    <HBox alignment="CENTER_LEFT" spacing="10.0">
 
                                         <Label text="Loaded File Name:" />
-                                        <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" />
+                                        <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" HBox.hgrow="ALWAYS"/>
                                         <Label text="Use S1P as load" />
                                         <CheckBox fx:id="useS1PAsLoadCheckBox" />
                                     </HBox>
                                     <Label text="Frequency Range Filter:" />
                                     <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                        <TextField fx:id="minFreqTextField" prefWidth="80" promptText="Min" />
+                                        <TextField fx:id="minFreqTextField" prefWidth="100" promptText="Min" />
                                         <RangeSlider fx:id="frequencyRangeSlider" max="10.0" min="0.0" HBox.hgrow="ALWAYS" />
-                                        <TextField fx:id="maxFreqTextField" prefWidth="80" promptText="Max" />
+                                        <TextField fx:id="maxFreqTextField" prefWidth="100" promptText="Max" />
                                     </HBox>
 
                                     <HBox alignment="CENTER_LEFT" spacing="10.0">

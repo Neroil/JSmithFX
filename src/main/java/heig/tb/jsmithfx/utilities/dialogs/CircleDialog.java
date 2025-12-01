@@ -55,7 +55,7 @@ public class CircleDialog extends Dialog<List<Double>> {
 
         VBox contentRight = new VBox(
                 10,
-                new Button("Clear All")
+                ClearAllButton
         );
 
         HBox content = new HBox(10, contentLeft, contentRight);

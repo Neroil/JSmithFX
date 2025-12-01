@@ -12,14 +12,20 @@ import java.util.List;
 
 public class SmithUtilities {
 
+
+    public static Pair<ElectronicUnit, String> getBestUnitAndFormattedValue(double actualValue,ElectronicUnit[] values) {
+        return getBestUnitAndFormattedValue(actualValue, values, "%.3f");
+    }
+
     /**
      * Determines the best unit and calculates the formatted display value for a given actual value.
      *
      * @param actualValue The actual value to format.
      * @param values      The array of unit enums to choose from.
+     * @param format      The string format to use for the display value.
      * @return A Pair containing the selected unit and the formatted display value.
      */
-    public static Pair<ElectronicUnit, String> getBestUnitAndFormattedValue(double actualValue,ElectronicUnit[] values) {
+    public static Pair<ElectronicUnit, String> getBestUnitAndFormattedValue(double actualValue,ElectronicUnit[] values, String format) {
         //Safety
         if (values == null || values.length == 0) {
             return new Pair<>(null, "0");
@@ -40,7 +46,7 @@ public class SmithUtilities {
         for (ElectronicUnit unit : sortedUnits) {
             double displayValue = actualValue / unit.getFactor();
             if (displayValue >= 1.0) { //Why the order is descending
-                String formattedValue = String.format("%.3g", displayValue);
+                String formattedValue = String.format(format, displayValue);
                 return new Pair<>(unit, formattedValue);
             }
         }
@@ -48,7 +54,7 @@ public class SmithUtilities {
         // In case we don't have small enough values, get the smallest one
         ElectronicUnit smallestUnit = sortedUnits.getLast();
         double displayValue = actualValue / smallestUnit.getFactor();
-        String formattedValue = String.format("%.3g", displayValue);
+        String formattedValue = String.format(format, displayValue);
 
         return new Pair<>(smallestUnit, formattedValue);
     }
