@@ -11,6 +11,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
+import javafx.scene.text.Text;
 import javafx.util.Pair;
 
 import java.util.ArrayList;
@@ -75,7 +76,7 @@ public class SmithChartRenderer {
 
         // Make line width and point size invariant to the zoom level
         double lineWidth = 1.5;
-        double pointSize = 4;
+        double pointSize = 4; // logical size
 
         gc.setLineWidth(lineWidth);
 
@@ -84,6 +85,7 @@ public class SmithChartRenderer {
 
         boolean isFirst = true;
 
+        int index = 0;
         for (DataPoint point : sweepPoints) {
             Complex gamma = point.getGamma();
 
@@ -91,7 +93,6 @@ public class SmithChartRenderer {
             double localX = layout.toScreenX(gamma);
             double localY = layout.toScreenY(gamma);
 
-            // 1. Path Construction: Move to first point, line to subsequent points
             if (isFirst) {
                 gc.moveTo(localX, localY);
                 isFirst = false;
@@ -99,20 +100,16 @@ public class SmithChartRenderer {
                 gc.lineTo(localX, localY);
             }
 
-            // 2. Draw the individual point (dot)
-            // We draw this immediately so the dots are 'under' the stroke or integrated
-            // (Alternatively, you can loop twice to draw lines then dots)
+            // Draw the dots
             gc.fillOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
 
-            // 3. Add to Active Points for Tooltip Interaction
-            // Calculate absolute coordinates for the hit-testing logic used in handleTooltip
+            // Calculate ABSOLUTE coordinates for hit testing
             double absoluteX = (localX * currentScale) + offsetX;
             double absoluteY = (localY * currentScale) + offsetY;
 
-            String label = String.format("Swp: %.1f MHz", point.getFrequency() / 1e6);
+            String label = "SWP" + index++;
 
-            // Add to the list that handleTooltip checks
-            activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, point.getFrequency(), label, pointSize));
+            activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, point.getFrequency(), label, pointSize * currentScale));
         }
 
         // Draw the connected line
@@ -294,10 +291,10 @@ public class SmithChartRenderer {
                 double absoluteX = (localX * scale) + offX;
                 double absoluteY = (localY * scale) + offY;
 
-                double pointSize = 5;
+                double pointSize = 5; // logical size
 
                 // Add to active points with a specific label
-                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText, pointSize));
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText, pointSize * scale));
 
                 if (selectedItemIndex == index) {
                     gc.setStroke(Color.CORAL);
@@ -325,8 +322,9 @@ public class SmithChartRenderer {
         List<DataPoint> dataPoints = viewModel.transformedS1PPointsProperty().get();
 
         if (dataPoints != null && !dataPoints.isEmpty()) {
-            double pointSize = 1;
+            double pointSize = 1; // logical size
 
+            int index = 0;
             for (DataPoint dataPoint : dataPoints) {
                 Complex gamma = dataPoint.getGamma();
 
@@ -340,8 +338,8 @@ public class SmithChartRenderer {
                 double absoluteY = (localY * scale) + offY;
 
                 // Create and store the ChartPoint
-                String label = String.format("%.2f MHz", dataPoint.getFrequency() / 1e6);
-                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label, pointSize));
+                String label = "S1P" + index++;
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label, pointSize * scale));
 
                 // Drawing logic
                 if(viewModel.isFrequencyInRange(dataPoint.getFrequency())) {
@@ -507,13 +505,14 @@ public class SmithChartRenderer {
     }
 
     public void handleTooltip(double mouseX, double mouseY, double scale) {
-        double threshold = scale * 0.7;
+        // Constant padding independent of zoom for consistent UX
+        double padding = 6.0;
         ChartPoint hitPoint = null;
 
         // Find the closest point
         int index = 0;
         for (ChartPoint p : activePoints) {
-            if (p.isHit(mouseX, mouseY, threshold)) {
+            if (p.isHit(mouseX, mouseY, padding)) {
                 hitPoint = p;
                 break; // Stop at first hit
             }
@@ -533,22 +532,48 @@ public class SmithChartRenderer {
         }
     }
     private void drawTooltip(GraphicsContext gc, ChartPoint point, double mx, double my) {
-        gc.setFont(new Font("Arial", 12));
-        double padding = 5;
-        double textWidth = 100;
-        double textHeight = 30;
-
-        double boxX = mx + 10;
-        double boxY = my + 10;
-
-        // Draw Background Box
-        gc.setFill(Color.rgb(0, 0, 0, 0.6));
-        gc.fillRoundRect(boxX, boxY, textWidth, textHeight, 5, 5);
-
-        // Draw Text
-        gc.setFill(Color.WHITE);
+        Font font = new Font("Arial", 12);
+        gc.setFont(font);
         gc.setTextAlign(TextAlignment.LEFT);
-        gc.fillText(point.getTooltipText(), boxX + padding, boxY + 15);
+
+        String[] lines = point.getTooltipText().split("\n");
+        double padding = 6.0;
+
+        double maxLineWidth = 0.0;
+        double lineHeight = 0.0;
+        for (String line : lines) {
+            Text txt = new Text(line);
+            txt.setFont(font);
+            double w = txt.getLayoutBounds().getWidth();
+            if (w > maxLineWidth) maxLineWidth = w;
+            if (lineHeight == 0.0) lineHeight = txt.getLayoutBounds().getHeight();
+        }
+
+        double textWidth = maxLineWidth;
+        double textHeight = lineHeight * lines.length;
+        double boxWidth = textWidth + padding * 2;
+        double boxHeight = textHeight + padding * 2;
+
+        double boxX = mx + 12;
+        double boxY = my + 12;
+
+        // Ensure tooltip stays within canvas bounds
+        if (boxX + boxWidth > cursorCanvas.getWidth()) {
+            boxX = cursorCanvas.getWidth() - boxWidth - 4;
+        }
+        if (boxY + boxHeight > cursorCanvas.getHeight()) {
+            boxY = cursorCanvas.getHeight() - boxHeight - 4;
+        }
+
+        gc.setFill(Color.rgb(0, 0, 0, 0.65));
+        gc.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 6, 6);
+
+        gc.setFill(Color.WHITE);
+        double yCursor = boxY + padding + lineHeight * 0.8; // baseline adjustment
+        for (String line : lines) {
+            gc.fillText(line, boxX + padding, yCursor);
+            yCursor += lineHeight;
+        }
     }
 
 

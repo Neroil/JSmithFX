@@ -14,7 +14,7 @@ module heig.tb.jsmithfx {
     requires atlantafx.base;
     requires com.pixelduke.fxthemes;
     requires transitive javafx.base;
-    requires javafx.graphics;
+    requires transitive javafx.graphics;
     requires annotations;
     requires java.logging;
 
