@@ -11,10 +11,7 @@ import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
-import heig.tb.jsmithfx.utilities.dialogs.CircleDialog;
-import heig.tb.jsmithfx.utilities.dialogs.ComplexInputDialog;
-import heig.tb.jsmithfx.utilities.dialogs.ComponentEditDialog;
-import heig.tb.jsmithfx.utilities.dialogs.FrequencyInputDialog;
+import heig.tb.jsmithfx.utilities.dialogs.*;
 import heig.tb.jsmithfx.view.CircuitRenderer;
 import heig.tb.jsmithfx.view.SmithChartRenderer;
 import javafx.application.Platform;
@@ -962,10 +959,8 @@ public class SmithController {
 
     /**
      * Set what will be the center point of the chart
-     *
-     * @param actionEvent unused here
      */
-    public void setCharacteristicImpedance(ActionEvent actionEvent) {
+    public void setCharacteristicImpedance() {
         DialogUtils.showDoubleInputDialog("Characteristic Impedance", "Enter Zo (Ohms):", viewModel.zo.get())
                 .ifPresent(zo -> {
                     if (zo > 0) {
@@ -984,7 +979,7 @@ public class SmithController {
         alert.showAndWait();
     }
 
-    public void onChangeLoad(ActionEvent actionEvent) {
+    public void onChangeLoad() {
         new ComplexInputDialog("Change Load", viewModel.loadImpedance.get()).showAndWait()
                 .ifPresent(newLoad -> {
                     viewModel.loadImpedance.setValue(newLoad);
@@ -992,7 +987,7 @@ public class SmithController {
                 });
     }
 
-    public void onChangeFreq(ActionEvent actionEvent) {
+    public void onChangeFreq() {
         new FrequencyInputDialog("Change Frequency", viewModel.frequencyProperty().get()).showAndWait()
                 .ifPresent(newFreq -> {
                     if (newFreq > 0) {
@@ -1029,14 +1024,14 @@ public class SmithController {
     }
 
     @FXML
-    public void toggleNavButton(ActionEvent actionEvent) {
+    public void toggleNavButton() {
         boolean isSelected = toggleNavButton.isSelected();
         buttonSmithHBox.setVisible(isSelected);
         buttonSmithHBox.setManaged(isSelected); // Ensures layout adjusts when hidden
     }
 
     @FXML
-    public void onAddComponentMouse(ActionEvent actionEvent) {
+    public void onAddComponentMouse() {
 
         // If we click on it again, exit the mode.
         if (isAddingMouseComponent) {
@@ -1185,7 +1180,7 @@ public class SmithController {
         });
     }
 
-    public void importS1P(ActionEvent actionEvent) {
+    public void importS1P() {
         FileChooser fileChooser = new FileChooser();
         File selectedFile = fileChooser.showOpenDialog(smithCanvas.getScene().getWindow());
         if (selectedFile != null) {
@@ -1243,14 +1238,14 @@ public class SmithController {
         }
     }
 
-    public void exportS1P(ActionEvent actionEvent) {
+    public void exportS1P() {
     }
 
-    public void changeS1P(ActionEvent actionEvent) {
-        importS1P(actionEvent);
+    public void changeS1P() {
+        importS1P();
     }
 
-    public void removeS1P(ActionEvent actionEvent) {
+    public void removeS1P() {
         viewModel.clearS1PDatapoints();
         s1pFileNameField.setText("");
 
@@ -1270,15 +1265,19 @@ public class SmithController {
         });
     }
 
-    public void onSweep(ActionEvent actionEvent) {
+    public void onSweep() {
+        new SweepDialog().showAndWait()
+                .ifPresent(sweepValues -> {
+                    viewModel.performFrequencySweep(sweepValues);
+                    redrawSmithCanvas();
+                });
+    }
+
+    public void onTune() {
 
     }
 
-    public void onTune(ActionEvent actionEvent) {
-
-    }
-
-    public void setDisplayCirclesOptions(ActionEvent actionEvent) {
+    public void setDisplayCirclesOptions() {
         CircleDialog.getInstance().showAndWait().ifPresent(options -> {
             viewModel.setCircleDisplayOptions(options);
             redrawSmithCanvas();

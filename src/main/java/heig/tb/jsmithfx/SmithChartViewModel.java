@@ -10,7 +10,6 @@ import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,8 +44,19 @@ public class SmithChartViewModel {
     // Logic to store transformed S1P points for drawing
     private final ReadOnlyListWrapper<DataPoint> transformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     private final List<DataPoint> cachedS1PPoints = new ArrayList<>();
+    // Sweep points
+    private final ReadOnlyListWrapper<DataPoint> sweepDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() {
+        return sweepDataPoints.getReadOnlyProperty();
+    }
+
+
+
     // A read-only list of the calculated gammas for drawing on the canvas.
     private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+
+
+
     // Ui bindings
     private final ReadOnlyStringWrapper mouseReturnLossText = new ReadOnlyStringWrapper("- dB");
     private final ReadOnlyStringWrapper mouseVSWRText = new ReadOnlyStringWrapper("-");
@@ -623,5 +633,33 @@ public class SmithChartViewModel {
 
     public void setCircleDisplayOptions(List<Double> options) {
         vswrCircles.setAll(options);
+    }
+
+    public void performFrequencySweep(List<Double> frequencies) {
+        if (frequencies.isEmpty()) return;
+
+        List<DataPoint> sweepPoints = new ArrayList<>();
+
+        for (Double freq : frequencies) {
+            Complex currentImpedance = loadImpedance.get();
+
+            for (CircuitElement element : circuitElements) {
+                if (element.getType() == CircuitElement.ElementType.LINE) {
+                    currentImpedance = ((Line) element).calculateImpedance(currentImpedance, freq);
+                } else {
+                    Complex elementImpedance = element.getImpedance(freq);
+                    currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, element.getElementPosition());
+                }
+            }
+
+            Complex gamma = calculateGamma(currentImpedance);
+            double vswr = calculateVswr(gamma);
+            double retLoss = calculateReturnLoss(gamma);
+
+            sweepPoints.add(new DataPoint(freq, "SWEEP", currentImpedance, gamma, vswr, retLoss));
+        }
+
+        // Replace existing data points with the sweep results
+        sweepDataPoints.setAll(sweepPoints);
     }
 }

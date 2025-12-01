@@ -68,7 +68,7 @@ public class TouchstoneS1PTest {
         }
 
         // Call the parse method
-        List<DataPoint> result = TouchstoneS1P.parse(tempFile.getAbsolutePath());
+        List<DataPoint> result = TouchstoneS1P.parse(tempFile);
 
         List<DataPoint> expected = new ArrayList<>();
 
