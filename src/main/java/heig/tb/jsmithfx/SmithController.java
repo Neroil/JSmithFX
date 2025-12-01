@@ -200,7 +200,7 @@ public class SmithController {
         viewModel.circuitElements.addListener((ListChangeListener<CircuitElement>) _ -> circuitRenderer.render(viewModel));
         // Whenever the preview element changes, re-render the chart
         viewModel.previewElementProperty().addListener(_ -> smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0));
-
+        viewModel.sweepDataPointsProperty().addListener((ListChangeListener<DataPoint>) _ -> {smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0);});
 
         // Initial render
         circuitRenderer.render(viewModel);
@@ -1269,7 +1269,6 @@ public class SmithController {
         new SweepDialog().showAndWait()
                 .ifPresent(sweepValues -> {
                     viewModel.performFrequencySweep(sweepValues);
-                    redrawSmithCanvas();
                 });
     }
 

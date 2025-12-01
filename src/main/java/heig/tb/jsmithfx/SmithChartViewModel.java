@@ -46,6 +46,7 @@ public class SmithChartViewModel {
     private final List<DataPoint> cachedS1PPoints = new ArrayList<>();
     // Sweep points
     private final ReadOnlyListWrapper<DataPoint> sweepDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    private final SimpleListProperty<Double> pointToSweep = new SimpleListProperty<>(FXCollections.observableArrayList());
     public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() {
         return sweepDataPoints.getReadOnlyProperty();
     }
@@ -105,7 +106,10 @@ public class SmithChartViewModel {
             while (change.next()) {
                 if (change.wasAdded()) {
                     for (CircuitElement elem : change.getAddedSubList()) {
-                        elem.realWorldValueProperty().addListener((_, _, _) -> recalculateImpedanceChain());
+                        elem.realWorldValueProperty().addListener((_, _, _) -> {
+                            recalculateImpedanceChain();
+                            performFrequencySweep();
+                        });
                     }
                 }
             }
@@ -291,6 +295,8 @@ public class SmithChartViewModel {
         dataPoints.setAll(newDataPoints);
         // Also recalculate the S1P chain if needed
         recalculateS1PChain();
+        // Finally, perform a frequency sweep if needed
+        performFrequencySweep();
     }
 
     private int getS1PIndexAtRange(double freq) {
@@ -635,31 +641,49 @@ public class SmithChartViewModel {
         vswrCircles.setAll(options);
     }
 
+    private void performFrequencySweep() {
+        System.out.println("Performing frequency sweep");
+        performFrequencySweep(pointToSweep);
+    }
+
     public void performFrequencySweep(List<Double> frequencies) {
-        if (frequencies.isEmpty()) return;
+        if (frequencies.isEmpty()) {
+            System.out.println("oh noo, empty freq");
+            return;
+        }
+
+        var lovelyFrequencies = List.copyOf(frequencies); // Create an immutable copy, otherwise it explodes the list
+
+        pointToSweep.setAll(lovelyFrequencies); // Save in case the circuit changes
 
         List<DataPoint> sweepPoints = new ArrayList<>();
 
-        for (Double freq : frequencies) {
-            Complex currentImpedance = loadImpedance.get();
+        Complex startingLoad = loadImpedance.get();
 
-            for (CircuitElement element : circuitElements) {
-                if (element.getType() == CircuitElement.ElementType.LINE) {
-                    currentImpedance = ((Line) element).calculateImpedance(currentImpedance, freq);
-                } else {
-                    Complex elementImpedance = element.getImpedance(freq);
-                    currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, element.getElementPosition());
-                }
-            }
+        for (Double freq : lovelyFrequencies) {
 
-            Complex gamma = calculateGamma(currentImpedance);
+            Complex finalImpedance = propagateThroughElements(startingLoad, freq, circuitElements.get());
+
+            Complex gamma = calculateGamma(finalImpedance);
             double vswr = calculateVswr(gamma);
             double retLoss = calculateReturnLoss(gamma);
 
-            sweepPoints.add(new DataPoint(freq, "SWEEP", currentImpedance, gamma, vswr, retLoss));
+            sweepPoints.add(new DataPoint(freq, "SWEEP", finalImpedance, gamma, vswr, retLoss));
         }
 
-        // Replace existing data points with the sweep results
         sweepDataPoints.setAll(sweepPoints);
+    }
+
+    private Complex propagateThroughElements(Complex startImpedance, double freq, List<CircuitElement> elements) {
+        Complex currentImpedance = startImpedance;
+        for (CircuitElement element : elements) {
+            if (element.getType() == CircuitElement.ElementType.LINE) {
+                currentImpedance = ((Line) element).calculateImpedance(currentImpedance, freq);
+            } else {
+                Complex elementImpedance = element.getImpedance(freq);
+                currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, element.getElementPosition());
+            }
+        }
+        return currentImpedance;
     }
 }

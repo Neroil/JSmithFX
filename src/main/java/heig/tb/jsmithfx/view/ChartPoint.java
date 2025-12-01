@@ -8,7 +8,7 @@ import heig.tb.jsmithfx.utilities.SmithUtilities;
  * @param frequency Optional, only if it's an S1P point
  * @param label     E.g., "DP1" or "1.5 GHz"
  */
-public record ChartPoint(double screenX, double screenY, Complex gamma, double frequency, String label) {
+public record ChartPoint(double screenX, double screenY, Complex gamma, double frequency, String label, double pointSize) {
 
     public String getTooltipText() {
         var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(frequency, FrequencyUnit.values());
@@ -18,6 +18,6 @@ public record ChartPoint(double screenX, double screenY, Complex gamma, double f
     // Check if mouse is near this point (hit detection)
     public boolean isHit(double mouseX, double mouseY, double threshold) {
         double dist = Math.sqrt(Math.pow(mouseX - screenX, 2) + Math.pow(mouseY - screenY, 2));
-        return dist <= threshold;
+        return dist <= threshold + pointSize / 2;
     }
 }

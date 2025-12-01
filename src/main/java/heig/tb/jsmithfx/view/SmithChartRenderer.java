@@ -58,8 +58,65 @@ public class SmithChartRenderer {
         drawS1PPoints(gc, viewModel, layout, currentScale, offsetX, offsetY);
         drawImpedancePath(gc, viewModel, layout);
         drawImpedancePoints(gc, viewModel, layout, selectedIndex, currentScale, offsetX, offsetY);
+        drawSweepPoints(gc, viewModel, layout, currentScale, offsetX, offsetY);
 
         gc.restore();
+    }
+
+    private void drawSweepPoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout, double currentScale, double offsetX, double offsetY) {
+
+        List<DataPoint> sweepPoints = viewModel.sweepDataPointsProperty();
+
+        if (sweepPoints == null || sweepPoints.isEmpty()) return;
+
+        // Visual styling
+        gc.setStroke(Color.MAGENTA);
+        gc.setFill(Color.MAGENTA);
+
+        // Make line width and point size invariant to the zoom level
+        double lineWidth = 1.5;
+        double pointSize = 4;
+
+        gc.setLineWidth(lineWidth);
+
+        // We will draw a connected line (path) through the sweep points
+        gc.beginPath();
+
+        boolean isFirst = true;
+
+        for (DataPoint point : sweepPoints) {
+            Complex gamma = point.getGamma();
+
+            // Convert from Smith Chart math coordinates to Canvas coordinates
+            double localX = layout.toScreenX(gamma);
+            double localY = layout.toScreenY(gamma);
+
+            // 1. Path Construction: Move to first point, line to subsequent points
+            if (isFirst) {
+                gc.moveTo(localX, localY);
+                isFirst = false;
+            } else {
+                gc.lineTo(localX, localY);
+            }
+
+            // 2. Draw the individual point (dot)
+            // We draw this immediately so the dots are 'under' the stroke or integrated
+            // (Alternatively, you can loop twice to draw lines then dots)
+            gc.fillOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+
+            // 3. Add to Active Points for Tooltip Interaction
+            // Calculate absolute coordinates for the hit-testing logic used in handleTooltip
+            double absoluteX = (localX * currentScale) + offsetX;
+            double absoluteY = (localY * currentScale) + offsetY;
+
+            String label = String.format("Swp: %.1f MHz", point.getFrequency() / 1e6);
+
+            // Add to the list that handleTooltip checks
+            activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, point.getFrequency(), label, pointSize));
+        }
+
+        // Draw the connected line
+        gc.stroke();
     }
 
     private void drawVSWRCircles(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
@@ -237,10 +294,10 @@ public class SmithChartRenderer {
                 double absoluteX = (localX * scale) + offX;
                 double absoluteY = (localY * scale) + offY;
 
-                // Add to active points with a specific label
-                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText));
-
                 double pointSize = 5;
+
+                // Add to active points with a specific label
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText, pointSize));
 
                 if (selectedItemIndex == index) {
                     gc.setStroke(Color.CORAL);
@@ -268,7 +325,7 @@ public class SmithChartRenderer {
         List<DataPoint> dataPoints = viewModel.transformedS1PPointsProperty().get();
 
         if (dataPoints != null && !dataPoints.isEmpty()) {
-            double pointSize = 4 / scale;
+            double pointSize = 1;
 
             for (DataPoint dataPoint : dataPoints) {
                 Complex gamma = dataPoint.getGamma();
@@ -284,7 +341,7 @@ public class SmithChartRenderer {
 
                 // Create and store the ChartPoint
                 String label = String.format("%.2f MHz", dataPoint.getFrequency() / 1e6);
-                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label));
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label, pointSize));
 
                 // Drawing logic
                 if(viewModel.isFrequencyInRange(dataPoint.getFrequency())) {
