@@ -44,6 +44,8 @@ public class SmithChartRenderer {
 
         activePoints.clear();
 
+        gc.setImageSmoothing(true);
+
         gc.save();
         // Clear the canvas before redrawing
         gc.clearRect(0, 0, smithCanvas.getWidth(), smithCanvas.getHeight());

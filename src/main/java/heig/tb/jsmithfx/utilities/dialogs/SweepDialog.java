@@ -1,7 +1,10 @@
 package heig.tb.jsmithfx.utilities.dialogs;
 
+import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
+import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogUtils;
+import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
@@ -27,15 +30,24 @@ public class SweepDialog extends Dialog<List<Double>> {
     ComboBox<String> cbMaxFq = new ComboBox<>();
 
 
-    public SweepDialog() {
+    public SweepDialog(DataPoint dp) {
         setTitle("Sweep Settings");
         setHeaderText("Configure sweep parameters.");
+
+        var currentFreq = dp.getFrequency();
+        var toDisplayMin = SmithUtilities.getBestUnitAndFormattedValue(currentFreq * 0.5, FrequencyUnit.values());
+        var toDisplayMax = SmithUtilities.getBestUnitAndFormattedValue(currentFreq * 1.5, FrequencyUnit.values());
 
         String[] comboItems = Arrays.stream(FrequencyUnit.values()).map(Enum::toString).toArray(String[]::new);
         cbMinFq.getItems().addAll(comboItems);
         cbMinFq.getSelectionModel().selectFirst();
         cbMaxFq.getItems().addAll(comboItems);
         cbMaxFq.getSelectionModel().selectFirst();
+
+        tfMinFq.setText(String.valueOf(toDisplayMin.getValue()));
+        cbMinFq.setValue(toDisplayMin.getKey().toString());
+        tfMaxFq.setText(String.valueOf(toDisplayMax.getValue()));
+        cbMaxFq.setValue(toDisplayMax.getKey().toString());
 
 
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);

@@ -51,6 +51,16 @@ public class SmithChartViewModel {
         return sweepDataPoints.getReadOnlyProperty();
     }
 
+    // Combined data points for display
+    private final ReadOnlyListWrapper<DataPoint> combinedDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    public ReadOnlyListProperty<DataPoint> dataPointsProperty() {
+        return combinedDataPoints.getReadOnlyProperty();
+    }
+
+    // Display options
+    private boolean showSweepInDataPoints = false;
+    private boolean showS1PInDataPoints = false;
+
 
 
     // A read-only list of the calculated gammas for drawing on the canvas.
@@ -143,6 +153,14 @@ public class SmithChartViewModel {
 
         // Perform the initial calculation when the view model is created.
         recalculateImpedanceChain();
+
+        // Listen for changes in the main data points and update combined points
+        dataPoints.addListener((ListChangeListener<DataPoint>) _ -> updateCombinedDataPoints());
+        s1pDataPoints.addListener((ListChangeListener<DataPoint>) _ -> updateCombinedDataPoints());
+        sweepDataPoints.addListener((ListChangeListener<DataPoint>) _ -> updateCombinedDataPoints());
+
+        // Ensure combined points are initialized
+        updateCombinedDataPoints();
     }
 
     public final ReadOnlyDoubleProperty frequencyProperty() {
@@ -434,6 +452,11 @@ public class SmithChartViewModel {
         s1pDataPoints.clear();
     }
 
+    public void clearSweepPoints() {
+        sweepDataPoints.clear();
+        pointToSweep.clear();
+    }
+
     private void recalculateS1PChain() {
         if (!useS1PAsLoad || s1pDataPoints.isEmpty()) {
             transformedS1PPoints.clear();
@@ -565,15 +588,26 @@ public class SmithChartViewModel {
     }
 
     public Complex getLastGamma() {
-        return measuresGamma.getLast();
+        if (dataPoints.isEmpty()) return null;
+        return dataPoints.getLast().gammaProperty().get();
+    }
+
+    public DataPoint getLastDataPoint() {
+        if (dataPoints.isEmpty()) return null;
+        return dataPoints.getLast();
     }
 
     public ReadOnlyListProperty<Complex> measuresGammaProperty() {
         return measuresGamma.getReadOnlyProperty();
     }
 
-    public SimpleListProperty<DataPoint> dataPointsProperty() {
-        return dataPoints;
+
+
+    private void updateCombinedDataPoints() {
+        var combined = FXCollections.observableArrayList(dataPoints);
+        if (showS1PInDataPoints) combined.addAll(s1pDataPoints);
+        if (showSweepInDataPoints) combined.addAll(sweepDataPoints);
+        combinedDataPoints.setAll(combined);
     }
 
 
@@ -631,6 +665,21 @@ public class SmithChartViewModel {
     public boolean isFrequencyInRange(double freq) {
         return freq >= freqRangeMin && freq <= freqRangeMax;
     }
+
+    public void setShowSweepDataPoints(boolean selected) {
+        if (this.showSweepInDataPoints != selected) {
+            this.showSweepInDataPoints = selected;
+            updateCombinedDataPoints();
+        }
+    }
+
+    public void setShowS1PDataPoints(boolean selected) {
+        if (this.showS1PInDataPoints != selected) {
+            this.showS1PInDataPoints = selected;
+            updateCombinedDataPoints();
+        }
+    }
+
     // Undo Redo logic
     private enum Operation {ADD, REMOVE}
 

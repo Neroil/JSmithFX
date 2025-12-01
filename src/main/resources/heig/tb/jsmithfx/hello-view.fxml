@@ -8,34 +8,37 @@
 
 <VBox xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="heig.tb.jsmithfx.SmithController">
     <HBox spacing="20.0" styleClass="menu-bar-container">
-    <MenuBar>
-        <Menu text="File">
-            <MenuItem text="New" />
-            <MenuItem text="Open..." />
-            <MenuItem text="Save" />
-            <SeparatorMenuItem />
-            <MenuItem text="Exit" />
-        </Menu>
-        <Menu text="Set">
-            <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
-            <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options..." />
-        </Menu>
-        <Menu text="Import/Export">
-            <MenuItem fx:id="importS1PButton" onAction="#importS1P" text="Import S1P..." />
-            <MenuItem fx:id="exportS1PButton" onAction="#exportS1P" text="Export S1P..." />
-        </Menu>
-        <Menu text="Quick Settings">
-            <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" selected="true" text="Toggle navigation buttons" />
-        </Menu>
-        <Menu text="Help">
-            <MenuItem text="About" />
-        </Menu>
-    </MenuBar>
+        <MenuBar>
+            <Menu text="File">
+                <MenuItem text="New" />
+                <MenuItem text="Open..." />
+                <MenuItem text="Save" />
+                <SeparatorMenuItem />
+                <MenuItem text="Exit" />
+            </Menu>
+            <Menu text="Set">
+                <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
+                <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options..." />
+            </Menu>
+            <Menu text="Import/Export">
+                <MenuItem fx:id="importS1PButton" onAction="#importS1P" text="Import S1P..." />
+                <MenuItem fx:id="exportS1PButton" onAction="#exportS1P" text="Export S1P..." />
+            </Menu>
+            <Menu text="Show">
+                <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" selected="true" text="Show navigation buttons" />
+                <CheckMenuItem fx:id="toggleSweepInDataPointsButton" onAction="#toggleSweepInDataPoints" text="Show sweep points in data points table" />
+                <CheckMenuItem fx:id="toggleS1PInDataPointsButton" onAction="#toggleS1PInDataPoints" text="Show S1P points in data points table" />
+            </Menu>
+            <Menu text="Help">
+                <MenuItem text="About" />
+            </Menu>
+        </MenuBar>
         <Button fx:id="sweepButton" onAction="#onSweep" text="Sweep" />
+        <Button fx:id="clearSweepButton" onAction="#onClearSweep" text="Clr Sweep" />
         <Button fx:id="tuneButton" onAction="#onTune" text="Tune" />
-      <VBox.margin>
-         <Insets />
-      </VBox.margin>
+        <VBox.margin>
+            <Insets />
+        </VBox.margin>
     </HBox>
 
     <SplitPane dividerPositions="0.6" prefHeight="800.0" prefWidth="1800.0" style="-fx-background-color: -color-bg-default;" VBox.vgrow="ALWAYS">
@@ -85,123 +88,132 @@
                     </children>
                 </AnchorPane>
 
-                <!-- BOTTOM PART: The Scrollable Controls -->
-                <ScrollPane fitToWidth="true">
-                    <VBox spacing="10.0">
-                        <padding>
-                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-                        </padding>
-                        <!-- Section 2: Controls for adding a new component -->
-                        <TitledPane fx:id="s1pTitledPane" animated="false" managed="false" text="Manage S1P Data" visible="false">
-                                <VBox fx:id="s1pLoadedView" spacing="10.0">
-                                    <padding>
-                                        <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
-                                    </padding>
-
-                                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-
-                                        <Label text="Loaded File Name:" />
-                                        <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" HBox.hgrow="ALWAYS"/>
-                                        <Label text="Use S1P as load" />
-                                        <CheckBox fx:id="useS1PAsLoadCheckBox" />
-                                    </HBox>
-                                    <Label text="Frequency Range Filter:" />
-                                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                        <TextField fx:id="minFreqTextField" prefWidth="100" promptText="Min" />
-                                        <RangeSlider fx:id="frequencyRangeSlider" max="10.0" min="0.0" HBox.hgrow="ALWAYS" />
-                                        <TextField fx:id="maxFreqTextField" prefWidth="100" promptText="Max" />
-                                    </HBox>
-
-                                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                        <Button maxWidth="Infinity" onAction="#changeS1P" text="Change S1P File" HBox.hgrow="ALWAYS" />
-                                        <Button maxWidth="Infinity" onAction="#removeS1P" text="Remove S1P File" HBox.hgrow="ALWAYS" />
-                                    </HBox>
-                                </VBox>
-                        </TitledPane>
-                        <TitledPane animated="false" text="Add Component">
-                            <GridPane hgap="10.0" vgap="10.0">
-                                <padding>
-                                    <Insets top="10.0" />
-                                </padding>
-                                <Label text="Type:" GridPane.rowIndex="0" />
-                                <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                                <Label text="Value:" GridPane.rowIndex="1" />
-
-                                <HBox alignment="CENTER_LEFT" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                    <TextField fx:id="valueTextField" HBox.hgrow="ALWAYS" />
-                                    <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
-                                    <Label fx:id="zoInputLabel" text="Z0:" visible="false" />
-                                    <TextField fx:id="zoInputField" promptText="e.g. 50" visible="false" />
-                                    <Label fx:id="permittivityLabel" text="εr:" visible="false" />
-                                    <TextField fx:id="permittivityField" prefWidth="50" promptText="e.g. 4.4" visible="false" />
-                                </HBox>
-
-                                <Label text="Position:" GridPane.rowIndex="2" />
-                                <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                                <ComboBox fx:id="stubComboBox" prefWidth="200.0" visible="false" GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                                <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
-                                    <Button fx:id="addButton" onAction="#onAddComponent" text="Add" />
-                                    <Button fx:id="addMouseButton" onAction="#onAddComponentMouse" text="Mouse add" />
-                                </HBox>
-                                <columnConstraints>
-                                    <ColumnConstraints />
-                                    <ColumnConstraints hgrow="ALWAYS" />
-                                </columnConstraints>
-                                <rowConstraints>
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                </rowConstraints>
-                            </GridPane>
-                        </TitledPane>
-                        <TitledPane animated="false" collapsible="false" text="Cursor Values">
-                            <!-- ... all the content of Cursor Values GridPane ... -->
-                            <GridPane hgap="10.0" vgap="10.0">
+                <!-- BOTTOM PART: The Scrollable Controls and Data Points Table -->
+                <SplitPane dividerPositions="0.5" orientation="VERTICAL">
+                    <items>
+                        <ScrollPane fitToWidth="true">
+                            <VBox spacing="10.0">
                                 <padding>
                                     <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
                                 </padding>
-                                <columnConstraints>
-                                    <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
-                                    <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
-                                    <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
-                                    <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
-                                </columnConstraints>
-                                <Label text="Return Loss" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                                <Label fx:id="returnLossLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                                <Label text="VSWR" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-                                <Label fx:id="vswrLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="0" />
-                                <Label text="Q" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                                <Label fx:id="qLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                                <Label text="Γ" GridPane.columnIndex="2" GridPane.rowIndex="1" />
-                                <Label fx:id="gammaLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="1" />
-                                <Label text="Y" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-                                <Label fx:id="yLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                                <Label text="Z" GridPane.columnIndex="2" GridPane.rowIndex="2" />
-                                <Label fx:id="zLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="2" />
-                                <rowConstraints>
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                </rowConstraints>
-                            </GridPane>
-                        </TitledPane>
-                        <TitledPane animated="false" text="Data Points">
-                            <!-- ... all the content of Data Points TableView ... -->
-                            <TableView fx:id="dataPointsTable" prefHeight="200.0">
-                                <columns>
-                                    <TableColumn fx:id="labelColumn" prefWidth="60.0" text="Point" />
-                                    <TableColumn fx:id="impedanceColumn" prefWidth="150.0" text="Impedance (Z)" />
-                                    <TableColumn fx:id="vswrColumn" prefWidth="75.0" text="VSWR" />
-                                    <TableColumn fx:id="returnLossColumn" prefWidth="150.0" text="Return Loss (dB)" />
-                                    <TableColumn fx:id="frequencyColumn" prefWidth="90.0" text="Frequency" />
-                                    <TableColumn fx:id="deleteColumn" prefWidth="50.0" text="Delete" />
-                                </columns>
-                            </TableView>
-                        </TitledPane>
-                    </VBox>
-                </ScrollPane>
+                                <!-- Section 2: Controls for adding a new component -->
+                                <TitledPane fx:id="s1pTitledPane" animated="false" managed="false" text="Manage S1P Data" visible="false">
+                                    <VBox fx:id="s1pLoadedView" spacing="10.0">
+                                        <padding>
+                                            <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
+                                        </padding>
+
+                                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+
+                                            <Label text="Loaded File Name:" />
+                                            <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" HBox.hgrow="ALWAYS"/>
+                                            <Label text="Use S1P as load" />
+                                            <CheckBox fx:id="useS1PAsLoadCheckBox" />
+                                        </HBox>
+                                        <Label text="Frequency Range Filter:" />
+                                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                            <TextField fx:id="minFreqTextField" prefWidth="100" promptText="Min" />
+                                            <RangeSlider fx:id="frequencyRangeSlider" max="10.0" min="0.0" HBox.hgrow="ALWAYS" />
+                                            <TextField fx:id="maxFreqTextField" prefWidth="100" promptText="Max" />
+                                        </HBox>
+
+                                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                            <Button maxWidth="Infinity" onAction="#changeS1P" text="Change S1P File" HBox.hgrow="ALWAYS" />
+                                            <Button maxWidth="Infinity" onAction="#removeS1P" text="Remove S1P File" HBox.hgrow="ALWAYS" />
+                                        </HBox>
+                                    </VBox>
+                                </TitledPane>
+                                <TitledPane animated="false" text="Add Component">
+                                    <GridPane hgap="10.0" vgap="10.0">
+                                        <padding>
+                                            <Insets top="10.0" />
+                                        </padding>
+                                        <Label text="Type:" GridPane.rowIndex="0" />
+                                        <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                                        <Label text="Value:" GridPane.rowIndex="1" />
+
+                                        <HBox alignment="CENTER_LEFT" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                            <TextField fx:id="valueTextField" HBox.hgrow="ALWAYS" />
+                                            <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
+                                            <Label fx:id="zoInputLabel" text="Z0:" visible="false" />
+                                            <TextField fx:id="zoInputField" promptText="e.g. 50" visible="false" />
+                                            <Label fx:id="permittivityLabel" text="εr:" visible="false" />
+                                            <TextField fx:id="permittivityField" prefWidth="50" promptText="e.g. 4.4" visible="false" />
+                                        </HBox>
+
+                                        <Label text="Position:" GridPane.rowIndex="2" />
+                                        <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                        <ComboBox fx:id="stubComboBox" prefWidth="200.0" visible="false" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                        <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
+                                            <Button fx:id="addButton" onAction="#onAddComponent" text="Add" />
+                                            <Button fx:id="addMouseButton" onAction="#onAddComponentMouse" text="Mouse add" />
+                                        </HBox>
+                                        <columnConstraints>
+                                            <ColumnConstraints />
+                                            <ColumnConstraints hgrow="ALWAYS" />
+                                        </columnConstraints>
+                                        <rowConstraints>
+                                            <RowConstraints />
+                                            <RowConstraints />
+                                            <RowConstraints />
+                                            <RowConstraints />
+                                        </rowConstraints>
+                                    </GridPane>
+                                </TitledPane>
+                                <TitledPane animated="false" collapsible="false" text="Cursor Values">
+                                    <!-- ... all the content of Cursor Values GridPane ... -->
+                                    <GridPane hgap="10.0" vgap="10.0">
+                                        <padding>
+                                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                                        </padding>
+                                        <columnConstraints>
+                                            <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
+                                            <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
+                                            <ColumnConstraints halignment="LEFT" hgrow="NEVER" />
+                                            <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" minWidth="80.0" />
+                                        </columnConstraints>
+                                        <Label text="Return Loss" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                                        <Label fx:id="returnLossLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                                        <Label text="VSWR" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                                        <Label fx:id="vswrLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+                                        <Label text="Q" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                                        <Label fx:id="qLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                        <Label text="Γ" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                                        <Label fx:id="gammaLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+                                        <Label text="Y" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                                        <Label fx:id="yLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                        <Label text="Z" GridPane.columnIndex="2" GridPane.rowIndex="2" />
+                                        <Label fx:id="zLabel" text="-" GridPane.columnIndex="3" GridPane.rowIndex="2" />
+                                        <rowConstraints>
+                                            <RowConstraints />
+                                            <RowConstraints />
+                                            <RowConstraints />
+                                            <RowConstraints />
+                                        </rowConstraints>
+                                    </GridPane>
+                                </TitledPane>
+                            </VBox>
+                        </ScrollPane>
+                        <AnchorPane>
+                            <children>
+                                <TitledPane animated="false" text="Data Points" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                                    <content>
+                                        <TableView fx:id="dataPointsTable">
+                                            <columns>
+                                                <TableColumn fx:id="labelColumn" prefWidth="60.0" text="Point" />
+                                                <TableColumn fx:id="impedanceColumn" prefWidth="150.0" text="Impedance (Z)" />
+                                                <TableColumn fx:id="vswrColumn" prefWidth="75.0" text="VSWR" />
+                                                <TableColumn fx:id="returnLossColumn" prefWidth="150.0" text="Return Loss (dB)" />
+                                                <TableColumn fx:id="frequencyColumn" prefWidth="90.0" text="Frequency" />
+                                                <TableColumn fx:id="deleteColumn" prefWidth="50.0" text="Delete" />
+                                            </columns>
+                                        </TableView>
+                                    </content>
+                                </TitledPane>
+                            </children>
+                        </AnchorPane>
+                    </items>
+                </SplitPane>
             </items>
         </SplitPane>
     </SplitPane>

@@ -165,6 +165,9 @@ public class SmithController {
     private Button sweepButton;
     @FXML
     private Button tuneButton;
+    @FXML private CheckMenuItem toggleSweepInDataPointsButton;
+    @FXML private CheckMenuItem toggleS1PInDataPointsButton;
+    @FXML private Button clearSweepButton;
 
 
     //Viewmodel
@@ -222,7 +225,7 @@ public class SmithController {
             if (event.getClickCount() == 2) {
                 int selectedIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
                 // if index > 0 (skipping Load), edit the element
-                if (selectedIndex > 0) {
+                if (selectedIndex > 0 && selectedIndex <= viewModel.circuitElements.size()) {
                     CircuitElement component = viewModel.circuitElements.get(selectedIndex - 1);
                     promptEditForComponent(component);
                 }
@@ -246,14 +249,19 @@ public class SmithController {
             {
                 deleteButton.setOnAction(_ -> {
                     dataPointsTable.getSelectionModel().clearSelection();
-                    viewModel.removeComponentAt(getIndex() - 1);
+                    if (getIndex() - 1 < viewModel.circuitElements.size()) {
+                        viewModel.removeComponentAt(getIndex() - 1);
+                    }
                 });
             }
 
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || getIndex() < 1) {
+                int componentCount = viewModel.circuitElements.size();
+
+                // The first few elements are the circuits elements, editable
+                if (empty || getIndex() < 1 || getIndex() > componentCount) {
                     setGraphic(null);
                 } else {
                     setGraphic(deleteButton);
@@ -841,6 +849,7 @@ public class SmithController {
      */
     private void bindViewModel() {
         dataPointsTable.itemsProperty().bind(viewModel.dataPointsProperty());
+
         labelColumn.setCellValueFactory(cellData -> cellData.getValue().labelProperty());
         impedanceColumn.setCellValueFactory(cellData -> cellData.getValue().impedanceProperty());
         vswrColumn.setCellValueFactory(cellData -> cellData.getValue().vswrProperty());
@@ -953,7 +962,6 @@ public class SmithController {
         if (smithChartRenderer != null) {
             int selectedIndex = dataPointsTable.getSelectionModel().getSelectedIndex();
             smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, selectedIndex);
-
         }
     }
 
@@ -1266,7 +1274,7 @@ public class SmithController {
     }
 
     public void onSweep() {
-        new SweepDialog().showAndWait()
+        new SweepDialog(viewModel.getLastDataPoint()).showAndWait()
                 .ifPresent(sweepValues -> {
                     viewModel.performFrequencySweep(sweepValues);
                 });
@@ -1281,5 +1289,17 @@ public class SmithController {
             viewModel.setCircleDisplayOptions(options);
             redrawSmithCanvas();
         });
+    }
+
+    public void toggleSweepInDataPoints(ActionEvent actionEvent) {
+        viewModel.setShowSweepDataPoints(toggleSweepInDataPointsButton.isSelected());
+    }
+
+    public void toggleS1PInDataPoints(ActionEvent actionEvent) {
+        viewModel.setShowS1PDataPoints(toggleS1PInDataPointsButton.isSelected());
+    }
+
+    public void onClearSweep(ActionEvent actionEvent) {
+        viewModel.clearSweepPoints();
     }
 }
