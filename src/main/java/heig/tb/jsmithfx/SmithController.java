@@ -122,6 +122,7 @@ public class SmithController {
     @FXML private Button exportSweepButton;
     @FXML private Button sweepEndFreqPlusButton;
     @FXML private TitledPane sweepManagementTitledPane;
+    @FXML private Slider s1pPointSizeSlider;
 
 
     //Viewmodel
@@ -244,6 +245,11 @@ public class SmithController {
 
             maxFreqTextField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
             viewModel.updateMiddleRangePoint();
+            redrawSmithCanvas();
+        });
+
+        s1pPointSizeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setS1PPointSize(newVal.doubleValue());
             redrawSmithCanvas();
         });
 

@@ -79,6 +79,11 @@ public class SmithChartViewModel {
     private boolean useS1PAsLoad = false;
     // Circle display options
     private final ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+
+    private final ReadOnlyDoubleWrapper s1pPointSize = new ReadOnlyDoubleWrapper(4.0);
+    public ReadOnlyDoubleProperty s1pPointSizeProperty() {return s1pPointSize.getReadOnlyProperty();}
+
+
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> {
@@ -447,7 +452,7 @@ public class SmithChartViewModel {
     }
 
     void addS1PDatapoints(List<DataPoint> dp) {
-        s1pDataPoints.addAll(dp);
+        s1pDataPoints.setAll(dp);
     }
 
     public void clearS1PDatapoints() {
@@ -750,6 +755,10 @@ public class SmithChartViewModel {
             }
         }
         return currentImpedance;
+    }
+
+    public void setS1PPointSize(double v) {
+        s1pPointSize.set(v);
     }
 
     // Undo Redo logic

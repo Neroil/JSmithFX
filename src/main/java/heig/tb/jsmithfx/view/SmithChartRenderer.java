@@ -324,7 +324,7 @@ public class SmithChartRenderer {
         List<DataPoint> dataPoints = viewModel.transformedS1PPointsProperty().get();
 
         if (dataPoints != null && !dataPoints.isEmpty()) {
-            double pointSize = 1; // logical size
+            double pointSize = viewModel.s1pPointSizeProperty().get(); // logical size
 
             int index = 0;
             for (DataPoint dataPoint : dataPoints) {
