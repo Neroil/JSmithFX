@@ -9,10 +9,8 @@ import heig.tb.jsmithfx.utilities.Complex;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Scanner;
+import java.io.IOException;
+import java.util.*;
 
 /* Example of a file
 !Agilent Technologies,E5071B,MY42403616,A.09.10
@@ -144,6 +142,54 @@ public class TouchstoneS1P {
         }
 
         return resList;
+    }
+
+    /**
+     * Export data points to a Touchstone S1P file. The data points are exported in S MA R format.
+     * @param toExport the list of data points to export
+     * @param z0 the reference impedance
+     * @param freqUnit the frequency unit to use in the export
+     * @param destination the destination file
+     */
+    public static void export(List<DataPoint> toExport, double z0, FrequencyUnit freqUnit, File destination) throws IOException {
+
+        if (toExport == null || toExport.isEmpty()) {
+            System.err.println("No data points to export.");
+            return;
+        }
+
+        // Reorder data points by frequency
+        toExport.sort(Comparator.comparingDouble(DataPoint::getFrequency));
+
+        // Build the export string
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("# ").append(freqUnit.name()).append(" S MA R ").append(z0).append("\n");
+
+        sb.append("! Exported data from JSmithFX\n");
+        sb.append("! Freq \t MagS11 \t AngS11\n");
+
+        for (DataPoint dataPoint : toExport) {
+            double freqInUnit = dataPoint.getFrequency() / freqUnit.getFactor();
+
+            Complex gamma = dataPoint.getGamma();
+
+            double magnitude = gamma.magnitude();
+            double angleDeg = Math.toDegrees(gamma.angle());
+
+            sb.append(String.format("%.6e", freqInUnit)).append("\t")
+                    .append(String.format("%.6e", magnitude)).append("\t")
+                    .append(String.format("%.6e", angleDeg)).append("\n");
+        }
+
+        // Write in file
+        try (java.io.FileWriter writer = new java.io.FileWriter(destination)) {
+            writer.write(sb.toString());
+        } catch (java.io.IOException e) {
+            System.err.println("Error while exporting to S1P file ! : " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     private static Complex calculateComplexValue(double v1, double v2, Format format) {

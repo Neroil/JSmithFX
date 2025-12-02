@@ -25,10 +25,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.scene.robot.Robot;
 import javafx.stage.FileChooser;
 import javafx.util.Pair;
@@ -37,10 +34,11 @@ import org.controlsfx.control.RangeSlider;
 import java.io.File;
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class SmithController {
-
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
@@ -59,115 +57,71 @@ public class SmithController {
     private boolean isProgrammaticallyMovingCursor = false;
 
     // --- FXML Fields ---
-    @FXML
-    public Button addMouseButton;
-    @FXML
-    private Label returnLossLabel;
-    @FXML
-    private Label vswrLabel;
-    @FXML
-    private Label qLabel;
-    @FXML
-    private Label gammaLabel;
-    @FXML
-    private Label yLabel;
-    @FXML
-    private Label zLabel;
-    @FXML
-    private Label zoLabel;
-    @FXML
-    private Label freqLabel;
-    @FXML
-    private MenuItem setCharacteristicImpedanceButton;
-    @FXML
-    private Button changeLoadButton;
-    @FXML
-    private Label loadImpedanceLabel;
-    @FXML
-    private Button changeFreqButton;
-    @FXML
-    private Button zoomInButton;
-    @FXML
-    private Button zoomOutButton;
-    @FXML
-    private Button resetButton;
-    @FXML
-    private HBox buttonSmithHBox;
-    @FXML
-    private CheckMenuItem toggleNavButton;
-    @FXML
-    private Pane smithChartPane;
-    @FXML
-    private Canvas smithCanvas;
-    @FXML
-    private Canvas cursorCanvas;
-    @FXML
-    private Canvas circuitCanvas;
-    @FXML
-    private TableView<DataPoint> dataPointsTable;
-    @FXML
-    private ComboBox<CircuitElement.ElementType> typeComboBox; // Use ElementType enum later
-    @FXML
-    private ComboBox<CircuitElement.ElementPosition> positionComboBox; // Use ElementPosition enum later
-    @FXML
-    private ComboBox<Enum<?>> unitComboBox;
-    @FXML
-    private TextField valueTextField;
-    @FXML
-    private Button addButton;
-    @FXML
-    private TableColumn<DataPoint, String> labelColumn;
-    @FXML
-    private TableColumn<DataPoint, Void> deleteColumn;
-    @FXML
-    private TableColumn<DataPoint, Complex> impedanceColumn;
-    @FXML
-    private TableColumn<DataPoint, Number> vswrColumn;
-    @FXML
-    private TableColumn<DataPoint, Number> returnLossColumn;
-    @FXML
-    private Label z0Label;
-    @FXML
-    private AnchorPane circuitPane;
-    @FXML
-    private Label zoInputLabel;
-    @FXML
-    private TextField zoInputField;
-    @FXML
-    private Label permittivityLabel;
-    @FXML
-    private TextField permittivityField;
-    @FXML
-    private ComboBox<Line.StubType> stubComboBox;
-    @FXML
-    private TableColumn<DataPoint, String> frequencyColumn;
-    @FXML
-    private MenuItem importS1PButton;
-    @FXML
-    private MenuItem exportS1PButton;
-    @FXML
-    private TitledPane s1pTitledPane;
-    @FXML
-    private VBox s1pLoadedView;
-    @FXML
-    private TextField maxFreqTextField;
-    @FXML
-    private RangeSlider frequencyRangeSlider;
-    @FXML
-    private TextField minFreqTextField;
-    @FXML
-    private TextField s1pFileNameField;
-    @FXML
-    private CheckBox useS1PAsLoadCheckBox;
-    @FXML
-    private MenuItem setDisplayCirclesOptionsButton;
-    @FXML
-    private Button sweepButton;
-    @FXML
-    private Button tuneButton;
+    @FXML public Button addMouseButton;
+    @FXML private Label returnLossLabel;
+    @FXML private Label vswrLabel;
+    @FXML private Label qLabel;
+    @FXML private Label gammaLabel;
+    @FXML private Label yLabel;
+    @FXML private Label zLabel;
+    @FXML private Label zoLabel;
+    @FXML private Label freqLabel;
+    @FXML private MenuItem setCharacteristicImpedanceButton;
+    @FXML private Button changeLoadButton;
+    @FXML private Label loadImpedanceLabel;
+    @FXML private Button changeFreqButton;
+    @FXML private Button zoomInButton;
+    @FXML private Button zoomOutButton;
+    @FXML private Button resetButton;
+    @FXML private HBox buttonSmithHBox;
+    @FXML private CheckMenuItem toggleNavButton;
+    @FXML private Pane smithChartPane;
+    @FXML private Canvas smithCanvas;
+    @FXML private Canvas cursorCanvas;
+    @FXML private Canvas circuitCanvas;
+    @FXML private TableView<DataPoint> dataPointsTable;
+    @FXML private ComboBox<CircuitElement.ElementType> typeComboBox; // Use ElementType enum later
+    @FXML private ComboBox<CircuitElement.ElementPosition> positionComboBox; // Use ElementPosition enum later
+    @FXML private ComboBox<Enum<?>> unitComboBox;
+    @FXML private TextField valueTextField;
+    @FXML private Button addButton;
+    @FXML private TableColumn<DataPoint, String> labelColumn;
+    @FXML private TableColumn<DataPoint, Void> deleteColumn;
+    @FXML private TableColumn<DataPoint, Complex> impedanceColumn;
+    @FXML private TableColumn<DataPoint, Number> vswrColumn;
+    @FXML private TableColumn<DataPoint, Number> returnLossColumn;
+    @FXML private Label z0Label;
+    @FXML private AnchorPane circuitPane;
+    @FXML private Label zoInputLabel;
+    @FXML private TextField zoInputField;
+    @FXML private Label permittivityLabel;
+    @FXML private TextField permittivityField;
+    @FXML private ComboBox<Line.StubType> stubComboBox;
+    @FXML private TableColumn<DataPoint, String> frequencyColumn;
+    @FXML private MenuItem importS1PButton;
+    @FXML private MenuItem exportS1PButton;
+    @FXML private TitledPane s1pTitledPane;
+    @FXML private VBox s1pLoadedView;
+    @FXML private TextField maxFreqTextField;
+    @FXML private RangeSlider frequencyRangeSlider;
+    @FXML private TextField minFreqTextField;
+    @FXML private TextField s1pFileNameField;
+    @FXML private CheckBox useS1PAsLoadCheckBox;
+    @FXML private MenuItem setDisplayCirclesOptionsButton;
+    @FXML private Button sweepButton;
+    @FXML private Button tuneButton;
     @FXML private CheckMenuItem toggleSweepInDataPointsButton;
     @FXML private CheckMenuItem toggleS1PInDataPointsButton;
     @FXML private Button clearSweepButton;
+    @FXML private TextField sweepPointsCountText;
+    @FXML private TextField sweepStartFreqField;
+    @FXML private Button sweepStartFreqMinusButton;
+    @FXML private Button sweepStartFreqPlusButton;
+    @FXML private TextField sweepEndFreqField;
+    @FXML private Button sweepEndFreqMinusButton;
+    @FXML private Button exportSweepButton;
+    @FXML private Button sweepEndFreqPlusButton;
+    @FXML private TitledPane sweepManagementTitledPane;
 
 
     //Viewmodel
@@ -1277,6 +1231,9 @@ public class SmithController {
         new SweepDialog(viewModel.getLastDataPoint()).showAndWait()
                 .ifPresent(sweepValues -> {
                     viewModel.performFrequencySweep(sweepValues);
+                    sweepManagementTitledPane.setVisible(true);
+                    sweepManagementTitledPane.setExpanded(true);
+                    sweepManagementTitledPane.setManaged(true);
                 });
     }
 
@@ -1299,7 +1256,37 @@ public class SmithController {
         viewModel.setShowS1PDataPoints(toggleS1PInDataPointsButton.isSelected());
     }
 
-    public void onClearSweep(ActionEvent actionEvent) {
+    public void onClearSweep() {
         viewModel.clearSweepPoints();
+        sweepManagementTitledPane.setVisible(false);
+        sweepManagementTitledPane.setExpanded(false);
+        sweepManagementTitledPane.setManaged(false);
+    }
+
+    public void onExportSweepToS1P() {
+        if (viewModel.sweepDataPointsProperty().isEmpty()) {
+            showError("No sweep data points to export.");
+            return;
+        }
+
+        new FileExportDialog().showAndWait().ifPresent(file -> {
+            try {
+                viewModel.exportSweepToS1P(file);
+            } catch (Exception e) {
+                Logger.getLogger("Error").log(Level.SEVERE, "Failed to export S1P: " + e.getMessage());
+            }
+        });
+    }
+
+    public void onSweepStartFreqMinus(ActionEvent actionEvent) {
+    }
+
+    public void onSweepStartFreqPlus(ActionEvent actionEvent) {
+    }
+
+    public void onSweepEndFreqMinus(ActionEvent actionEvent) {
+    }
+
+    public void onSweepEndFreqPlus(ActionEvent actionEvent) {
     }
 }

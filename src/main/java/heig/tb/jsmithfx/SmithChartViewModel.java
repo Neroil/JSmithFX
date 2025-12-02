@@ -6,11 +6,15 @@ import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
 import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
+import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
+import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
+import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
@@ -47,27 +51,10 @@ public class SmithChartViewModel {
     // Sweep points
     private final ReadOnlyListWrapper<DataPoint> sweepDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     private final SimpleListProperty<Double> pointToSweep = new SimpleListProperty<>(FXCollections.observableArrayList());
-    public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() {
-        return sweepDataPoints.getReadOnlyProperty();
-    }
-
     // Combined data points for display
     private final ReadOnlyListWrapper<DataPoint> combinedDataPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
-    public ReadOnlyListProperty<DataPoint> dataPointsProperty() {
-        return combinedDataPoints.getReadOnlyProperty();
-    }
-
-    // Display options
-    private boolean showSweepInDataPoints = false;
-    private boolean showS1PInDataPoints = false;
-
-
-
     // A read-only list of the calculated gammas for drawing on the canvas.
     private final ReadOnlyListWrapper<Complex> measuresGamma = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
-
-
-
     // Ui bindings
     private final ReadOnlyStringWrapper mouseReturnLossText = new ReadOnlyStringWrapper("- dB");
     private final ReadOnlyStringWrapper mouseVSWRText = new ReadOnlyStringWrapper("-");
@@ -78,21 +65,20 @@ public class SmithChartViewModel {
     private final ReadOnlyListWrapper<DataPoint> previewTransformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     private final Stack<UndoRedoEntry> undoStack = new Stack<>();
     private final Stack<UndoRedoEntry> redoStack = new Stack<>();
+    private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
+    // Display options
+    private boolean showSweepInDataPoints = false;
+    private boolean showS1PInDataPoints = false;
     // Memory property for the characteristic impedance
     private double savedFrequency = 1e9; // 1 GHz
     private Complex savedLoadImpedance = new Complex(100.0, 50.0); // 100 + j50 Ohm
-    private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
-    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() { return previewElement; }
     // RangeSlider private properties
     private double freqRangeMin;
     private double freqRangeMax;
     // S1P Load option
     private boolean useS1PAsLoad = false;
     // Circle display options
-    private ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
-    public ReadOnlyListProperty<Double> vswrCirclesProperty() {return vswrCircles.getReadOnlyProperty();}
-
-
+    private final ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> {
@@ -143,7 +129,7 @@ public class SmithChartViewModel {
         s1pDataPoints.addListener((ListChangeListener<DataPoint>) _ -> recalculateS1PChain());
 
         previewElement.addListener((_, _, _) -> {
-            if(previewElement.get() == null){
+            if (previewElement.get() == null) {
                 previewTransformedS1PPoints.clear();
                 cachedS1PPoints.clear();
                 return;
@@ -161,6 +147,22 @@ public class SmithChartViewModel {
 
         // Ensure combined points are initialized
         updateCombinedDataPoints();
+    }
+
+    public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() {
+        return sweepDataPoints.getReadOnlyProperty();
+    }
+
+    public ReadOnlyListProperty<DataPoint> dataPointsProperty() {
+        return combinedDataPoints.getReadOnlyProperty();
+    }
+
+    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() {
+        return previewElement;
+    }
+
+    public ReadOnlyListProperty<Double> vswrCirclesProperty() {
+        return vswrCircles.getReadOnlyProperty();
     }
 
     public final ReadOnlyDoubleProperty frequencyProperty() {
@@ -602,7 +604,6 @@ public class SmithChartViewModel {
     }
 
 
-
     private void updateCombinedDataPoints() {
         var combined = FXCollections.observableArrayList(dataPoints);
         if (showS1PInDataPoints) combined.addAll(s1pDataPoints);
@@ -680,11 +681,26 @@ public class SmithChartViewModel {
         }
     }
 
-    // Undo Redo logic
-    private enum Operation {ADD, REMOVE}
+    public void exportSweepToS1P(File file) {
+        if (sweepDataPoints.isEmpty()) return;
 
-    private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
+        File outputFile = file;
+        if (outputFile.isDirectory()) {
+            outputFile = new File(outputFile, "sweep_export.s1p");
+        }
+
+        int indexToTake = sweepDataPoints.getSize() / 2;
+        FrequencyUnit frequencyUnit = (FrequencyUnit) SmithUtilities.getBestUnitAndFormattedValue(
+                sweepDataPoints.get(indexToTake).getFrequency(), FrequencyUnit.values()
+        ).getKey();
+
+        try {
+            TouchstoneS1P.export(sweepDataPoints, zo.get(), frequencyUnit, outputFile);
+        } catch (Exception e) {
+            Logger.getLogger("Error").log(Level.SEVERE, "Error exporting sweep to S1P: " + e.getMessage());
+        }
     }
+
 
     public void setCircleDisplayOptions(List<Double> options) {
         vswrCircles.setAll(options);
@@ -734,5 +750,11 @@ public class SmithChartViewModel {
             }
         }
         return currentImpedance;
+    }
+
+    // Undo Redo logic
+    private enum Operation {ADD, REMOVE}
+
+    private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
     }
 }

@@ -4,7 +4,7 @@ import heig.tb.jsmithfx.model.TouchstoneS1P;
 
 public enum FrequencyUnit implements ElectronicUnit {
     HZ("Hz", 1),
-    KHZ("kHz", 1E3),
+    KHZ("KHz", 1E3),
     MHZ("MHz", 1E6),
     GHZ("GHz", 1E9);
 
