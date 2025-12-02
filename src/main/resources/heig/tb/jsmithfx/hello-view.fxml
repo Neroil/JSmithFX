@@ -97,6 +97,41 @@
                                     <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
                                 </padding>
                                 <!-- Section 2: Controls for adding a new component -->
+                                <TitledPane animated="false" text="Sweep Management" fx:id="sweepManagementTitledPane" visible="false" managed="false">
+                                    <content>
+                                        <VBox spacing="10.0">
+                                            <padding>
+                                                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                                            </padding>
+                                            <children>
+                                                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                                    <Label text="Sweep Points:" />
+                                                    <TextField fx:id="sweepPointsCountText" text="0" />
+                                                </HBox>
+                                                <GridPane hgap="10" vgap="5">
+                                                    <columnConstraints>
+                                                        <ColumnConstraints halignment="RIGHT" />
+                                                        <ColumnConstraints hgrow="ALWAYS" />
+                                                        <ColumnConstraints />
+                                                        <ColumnConstraints />
+                                                    </columnConstraints>
+                                                    <Label text="Start Freq:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                                                    <TextField fx:id="sweepStartFreqField" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                                                    <Button fx:id="sweepStartFreqMinusButton" onAction="#onSweepStartFreqMinus" text="-" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                                                    <Button fx:id="sweepStartFreqPlusButton" onAction="#onSweepStartFreqPlus" text="+" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                                                    <Label text="End Freq:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                                                    <TextField fx:id="sweepEndFreqField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                                    <Button fx:id="sweepEndFreqMinusButton" onAction="#onSweepEndFreqMinus" text="-" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                                                    <Button fx:id="sweepEndFreqPlusButton" onAction="#onSweepEndFreqPlus" text="+" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+                                                </GridPane>
+                                                <HBox spacing="10.0">
+                                                    <Button fx:id="exportSweepButton" onAction="#onExportSweepToS1P" text="Export Sweep to S1P" HBox.hgrow="ALWAYS" />
+                                                </HBox>
+                                            </children>
+                                        </VBox>
+                                    </content>
+                                </TitledPane>
                                 <TitledPane fx:id="s1pTitledPane" animated="false" managed="false" text="Manage S1P Data" visible="false">
                                     <VBox fx:id="s1pLoadedView" spacing="10.0">
                                         <padding>
@@ -164,41 +199,6 @@
                                             <RowConstraints />
                                         </rowConstraints>
                                     </GridPane>
-                                </TitledPane>
-                                <TitledPane animated="false" text="Sweep Management" fx:id="sweepManagementTitledPane" visible="false" managed="false">
-                                    <content>
-                                        <VBox spacing="10.0">
-                                            <padding>
-                                                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-                                            </padding>
-                                            <children>
-                                                <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                                    <Label text="Sweep Points:" />
-                                                    <TextField fx:id="sweepPointsCountText" text="0" />
-                                                </HBox>
-                                                <GridPane hgap="10" vgap="5">
-                                                    <columnConstraints>
-                                                        <ColumnConstraints halignment="RIGHT" />
-                                                        <ColumnConstraints hgrow="ALWAYS" />
-                                                        <ColumnConstraints />
-                                                        <ColumnConstraints />
-                                                    </columnConstraints>
-                                                    <Label text="Start Freq:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                                                    <TextField fx:id="sweepStartFreqField" GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                                                    <Button fx:id="sweepStartFreqMinusButton" onAction="#onSweepStartFreqMinus" text="-" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-                                                    <Button fx:id="sweepStartFreqPlusButton" onAction="#onSweepStartFreqPlus" text="+" GridPane.columnIndex="3" GridPane.rowIndex="0" />
-
-                                                    <Label text="End Freq:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                                                    <TextField fx:id="sweepEndFreqField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                                                    <Button fx:id="sweepEndFreqMinusButton" onAction="#onSweepEndFreqMinus" text="-" GridPane.columnIndex="2" GridPane.rowIndex="1" />
-                                                    <Button fx:id="sweepEndFreqPlusButton" onAction="#onSweepEndFreqPlus" text="+" GridPane.columnIndex="3" GridPane.rowIndex="1" />
-                                                </GridPane>
-                                                <HBox spacing="10.0">
-                                                    <Button fx:id="exportSweepButton" onAction="#onExportSweepToS1P" text="Export Sweep to S1P" HBox.hgrow="ALWAYS" />
-                                                </HBox>
-                                            </children>
-                                        </VBox>
-                                    </content>
                                 </TitledPane>
                                 <TitledPane animated="false" collapsible="false" text="Cursor Values">
                                     <GridPane hgap="10.0" vgap="10.0">

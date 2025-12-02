@@ -25,7 +25,10 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.*;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.scene.robot.Robot;
 import javafx.stage.FileChooser;
 import javafx.util.Pair;
@@ -39,6 +42,9 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class SmithController {
+    // --- FXML Fields ---
+    @FXML
+    public Button addMouseButton;
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
@@ -53,76 +59,137 @@ public class SmithController {
     private Double totalAngleTraveled;
     private double lastScreenXForAdd;
     private double lastScreenYForAdd;
-
     private boolean isProgrammaticallyMovingCursor = false;
-
-    // --- FXML Fields ---
-    @FXML public Button addMouseButton;
-    @FXML private Label returnLossLabel;
-    @FXML private Label vswrLabel;
-    @FXML private Label qLabel;
-    @FXML private Label gammaLabel;
-    @FXML private Label yLabel;
-    @FXML private Label zLabel;
-    @FXML private Label zoLabel;
-    @FXML private Label freqLabel;
-    @FXML private MenuItem setCharacteristicImpedanceButton;
-    @FXML private Button changeLoadButton;
-    @FXML private Label loadImpedanceLabel;
-    @FXML private Button changeFreqButton;
-    @FXML private Button zoomInButton;
-    @FXML private Button zoomOutButton;
-    @FXML private Button resetButton;
-    @FXML private HBox buttonSmithHBox;
-    @FXML private CheckMenuItem toggleNavButton;
-    @FXML private Pane smithChartPane;
-    @FXML private Canvas smithCanvas;
-    @FXML private Canvas cursorCanvas;
-    @FXML private Canvas circuitCanvas;
-    @FXML private TableView<DataPoint> dataPointsTable;
-    @FXML private ComboBox<CircuitElement.ElementType> typeComboBox; // Use ElementType enum later
-    @FXML private ComboBox<CircuitElement.ElementPosition> positionComboBox; // Use ElementPosition enum later
-    @FXML private ComboBox<Enum<?>> unitComboBox;
-    @FXML private TextField valueTextField;
-    @FXML private Button addButton;
-    @FXML private TableColumn<DataPoint, String> labelColumn;
-    @FXML private TableColumn<DataPoint, Void> deleteColumn;
-    @FXML private TableColumn<DataPoint, Complex> impedanceColumn;
-    @FXML private TableColumn<DataPoint, Number> vswrColumn;
-    @FXML private TableColumn<DataPoint, Number> returnLossColumn;
-    @FXML private Label z0Label;
-    @FXML private AnchorPane circuitPane;
-    @FXML private Label zoInputLabel;
-    @FXML private TextField zoInputField;
-    @FXML private Label permittivityLabel;
-    @FXML private TextField permittivityField;
-    @FXML private ComboBox<Line.StubType> stubComboBox;
-    @FXML private TableColumn<DataPoint, String> frequencyColumn;
-    @FXML private MenuItem importS1PButton;
-    @FXML private MenuItem exportS1PButton;
-    @FXML private TitledPane s1pTitledPane;
-    @FXML private VBox s1pLoadedView;
-    @FXML private TextField maxFreqTextField;
-    @FXML private RangeSlider frequencyRangeSlider;
-    @FXML private TextField minFreqTextField;
-    @FXML private TextField s1pFileNameField;
-    @FXML private CheckBox useS1PAsLoadCheckBox;
-    @FXML private MenuItem setDisplayCirclesOptionsButton;
-    @FXML private Button sweepButton;
-    @FXML private Button tuneButton;
-    @FXML private CheckMenuItem toggleSweepInDataPointsButton;
-    @FXML private CheckMenuItem toggleS1PInDataPointsButton;
-    @FXML private Button clearSweepButton;
-    @FXML private TextField sweepPointsCountText;
-    @FXML private TextField sweepStartFreqField;
-    @FXML private Button sweepStartFreqMinusButton;
-    @FXML private Button sweepStartFreqPlusButton;
-    @FXML private TextField sweepEndFreqField;
-    @FXML private Button sweepEndFreqMinusButton;
-    @FXML private Button exportSweepButton;
-    @FXML private Button sweepEndFreqPlusButton;
-    @FXML private TitledPane sweepManagementTitledPane;
-    @FXML private Slider s1pPointSizeSlider;
+    @FXML
+    private Label returnLossLabel;
+    @FXML
+    private Label vswrLabel;
+    @FXML
+    private Label qLabel;
+    @FXML
+    private Label gammaLabel;
+    @FXML
+    private Label yLabel;
+    @FXML
+    private Label zLabel;
+    @FXML
+    private Label zoLabel;
+    @FXML
+    private Label freqLabel;
+    @FXML
+    private MenuItem setCharacteristicImpedanceButton;
+    @FXML
+    private Button changeLoadButton;
+    @FXML
+    private Label loadImpedanceLabel;
+    @FXML
+    private Button changeFreqButton;
+    @FXML
+    private Button zoomInButton;
+    @FXML
+    private Button zoomOutButton;
+    @FXML
+    private Button resetButton;
+    @FXML
+    private HBox buttonSmithHBox;
+    @FXML
+    private CheckMenuItem toggleNavButton;
+    @FXML
+    private Pane smithChartPane;
+    @FXML
+    private Canvas smithCanvas;
+    @FXML
+    private Canvas cursorCanvas;
+    @FXML
+    private Canvas circuitCanvas;
+    @FXML
+    private TableView<DataPoint> dataPointsTable;
+    @FXML
+    private ComboBox<CircuitElement.ElementType> typeComboBox; // Use ElementType enum later
+    @FXML
+    private ComboBox<CircuitElement.ElementPosition> positionComboBox; // Use ElementPosition enum later
+    @FXML
+    private ComboBox<Enum<?>> unitComboBox;
+    @FXML
+    private TextField valueTextField;
+    @FXML
+    private Button addButton;
+    @FXML
+    private TableColumn<DataPoint, String> labelColumn;
+    @FXML
+    private TableColumn<DataPoint, Void> deleteColumn;
+    @FXML
+    private TableColumn<DataPoint, Complex> impedanceColumn;
+    @FXML
+    private TableColumn<DataPoint, Number> vswrColumn;
+    @FXML
+    private TableColumn<DataPoint, Number> returnLossColumn;
+    @FXML
+    private Label z0Label;
+    @FXML
+    private AnchorPane circuitPane;
+    @FXML
+    private Label zoInputLabel;
+    @FXML
+    private TextField zoInputField;
+    @FXML
+    private Label permittivityLabel;
+    @FXML
+    private TextField permittivityField;
+    @FXML
+    private ComboBox<Line.StubType> stubComboBox;
+    @FXML
+    private TableColumn<DataPoint, String> frequencyColumn;
+    @FXML
+    private MenuItem importS1PButton;
+    @FXML
+    private MenuItem exportS1PButton;
+    @FXML
+    private TitledPane s1pTitledPane;
+    @FXML
+    private VBox s1pLoadedView;
+    @FXML
+    private TextField maxFreqTextField;
+    @FXML
+    private RangeSlider frequencyRangeSlider;
+    @FXML
+    private TextField minFreqTextField;
+    @FXML
+    private TextField s1pFileNameField;
+    @FXML
+    private CheckBox useS1PAsLoadCheckBox;
+    @FXML
+    private MenuItem setDisplayCirclesOptionsButton;
+    @FXML
+    private Button sweepButton;
+    @FXML
+    private Button tuneButton;
+    @FXML
+    private CheckMenuItem toggleSweepInDataPointsButton;
+    @FXML
+    private CheckMenuItem toggleS1PInDataPointsButton;
+    @FXML
+    private Button clearSweepButton;
+    @FXML
+    private TextField sweepPointsCountText;
+    @FXML
+    private TextField sweepStartFreqField;
+    @FXML
+    private Button sweepStartFreqMinusButton;
+    @FXML
+    private Button sweepStartFreqPlusButton;
+    @FXML
+    private TextField sweepEndFreqField;
+    @FXML
+    private Button sweepEndFreqMinusButton;
+    @FXML
+    private Button exportSweepButton;
+    @FXML
+    private Button sweepEndFreqPlusButton;
+    @FXML
+    private TitledPane sweepManagementTitledPane;
+    @FXML
+    private Slider s1pPointSizeSlider;
 
 
     //Viewmodel
@@ -158,7 +225,9 @@ public class SmithController {
         viewModel.circuitElements.addListener((ListChangeListener<CircuitElement>) _ -> circuitRenderer.render(viewModel));
         // Whenever the preview element changes, re-render the chart
         viewModel.previewElementProperty().addListener(_ -> smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0));
-        viewModel.sweepDataPointsProperty().addListener((ListChangeListener<DataPoint>) _ -> {smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0);});
+        viewModel.sweepDataPointsProperty().addListener((ListChangeListener<DataPoint>) _ -> {
+            smithChartRenderer.render(viewModel, currentScale, offsetX, offsetY, 0);
+        });
 
         // Initial render
         circuitRenderer.render(viewModel);
@@ -263,15 +332,66 @@ public class SmithController {
             }
         });
 
-        maxFreqTextField.setOnAction(event -> {
-            String text = maxFreqTextField.getText();
-            try {
-                double freqInHz = SmithUtilities.parseValueWithUnit(text, FrequencyUnit.values());
-                frequencyRangeSlider.setHighValue(freqInHz);
-            } catch (IllegalArgumentException e) {
-                showError("Invalid frequency input: " + e.getMessage());
-            }
+        /*
+            @FXML
+            private TextField sweepPointsCountText;
+            @FXML
+            private TextField sweepStartFreqField;
+            @FXML
+            private Button sweepStartFreqMinusButton;
+            @FXML
+            private Button sweepStartFreqPlusButton;
+            @FXML
+            private TextField sweepEndFreqField;
+            @FXML
+            private Button sweepEndFreqMinusButton;
+            @FXML
+            private Button exportSweepButton;
+            @FXML
+            private Button sweepEndFreqPlusButton;
+         */
+        viewModel.sweepDataPointsProperty().addListener((obs, oldVal, newVal) -> {
+            var sdp = viewModel.sweepDataPointsProperty().get();
+            Pair<Double, Double> freqRange = SmithUtilities.getFrequencyRangeFromDataPoints(sdp);
+            sweepStartFreqField.setText(SmithUtilities.displayBestUnitAndFormattedValue(freqRange.getKey(), FrequencyUnit.values()));
+            sweepEndFreqField.setText(SmithUtilities.displayBestUnitAndFormattedValue(freqRange.getValue(), FrequencyUnit.values()));
+            sweepPointsCountText.setText(String.valueOf(sdp.size()));
+            redrawSmithCanvas();
         });
+
+        sweepStartFreqMinusButton.setOnAction(_ -> viewModel.decrementSweepStartFrequency());
+        sweepStartFreqPlusButton.setOnAction(_ -> viewModel.incrementSweepStartFrequency());
+        sweepEndFreqMinusButton.setOnAction(_ -> viewModel.decrementSweepEndFrequency());
+        sweepEndFreqPlusButton.setOnAction(_ -> viewModel.incrementSweepEndFrequency());
+
+        // 2. Logic for LIVE updates on text fields
+
+        // Helper to get current values safely
+        Runnable updateSweepFromTextFields = () -> {
+            try {
+                // Parse Frequency Fields (handles "1 GHz", "500 MHz" etc.)
+                double minFreq = SmithUtilities.parseValueWithUnit(sweepStartFreqField.getText(), FrequencyUnit.values());
+                double maxFreq = SmithUtilities.parseValueWithUnit(sweepEndFreqField.getText(), FrequencyUnit.values());
+
+                // Parse Count Field
+                int count = Integer.parseInt(sweepPointsCountText.getText());
+
+                // Send to ViewModel
+                viewModel.updateSweepConfiguration(minFreq, maxFreq, count);
+            } catch (Exception e) {
+                // Ignore parsing errors while typing (e.g., user deleted the number)
+            }
+        };
+
+        // Add listeners to trigger update when ENTER is pressed
+        sweepStartFreqField.setOnAction(_ -> updateSweepFromTextFields.run());
+        sweepEndFreqField.setOnAction(_ -> updateSweepFromTextFields.run());
+        sweepPointsCountText.setOnAction(_ -> updateSweepFromTextFields.run());
+
+        // Add listeners to trigger update when FOCUS is lost (clicking away)
+        sweepStartFreqField.focusedProperty().addListener((obs, oldVal, newVal) -> { if(!newVal) updateSweepFromTextFields.run(); });
+        sweepEndFreqField.focusedProperty().addListener((obs, oldVal, newVal) -> { if(!newVal) updateSweepFromTextFields.run(); });
+        sweepPointsCountText.focusedProperty().addListener((obs, oldVal, newVal) -> { if(!newVal) updateSweepFromTextFields.run(); });
 
         // Tells the renderer to use the S1P data as load
         useS1PAsLoadCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
@@ -357,7 +477,7 @@ public class SmithController {
 
         // Stuff that happens when we click on the chart
         smithCanvas.setOnMouseClicked(event -> {
-            if (isAddingMouseComponent && event.getButton() == MouseButton.PRIMARY ) { //If we're adding a component and click, adds the component
+            if (isAddingMouseComponent && event.getButton() == MouseButton.PRIMARY) { //If we're adding a component and click, adds the component
                 finalizeMouseAddComponent();
                 event.consume(); //Consumes it so it's not used for other stuff
                 return;
@@ -512,14 +632,15 @@ public class SmithController {
 
         //TODO MAKE THE COMPONENTS UPDATE LIVE
 
-        if(useS1PAsLoadCheckBox.isSelected()){
+        if (useS1PAsLoadCheckBox.isSelected()) {
             if (liveValue != null) {
                 if (typeComboBox.getValue() == CircuitElement.ElementType.LINE) {
                     double z0_line = Double.parseDouble(zoInputField.getText());
                     double permittivity = Double.parseDouble(permittivityField.getText());
-                    viewModel.addLiveComponentPreview(liveValue,z0_line,permittivity,stubComboBox.getValue());
+                    viewModel.addLiveComponentPreview(liveValue, z0_line, permittivity, stubComboBox.getValue());
 
-                } else viewModel.addLiveComponentPreview(typeComboBox.getValue(), liveValue, positionComboBox.getValue());
+                } else
+                    viewModel.addLiveComponentPreview(typeComboBox.getValue(), liveValue, positionComboBox.getValue());
             }
         }
     }
@@ -560,7 +681,7 @@ public class SmithController {
 
         double componentValue = 0;
 
-        if (type == CircuitElement.ElementType.LINE){
+        if (type == CircuitElement.ElementType.LINE) {
             //Get the current values of εr and z_L
             double z0_line;
             double permittivity;
@@ -580,34 +701,34 @@ public class SmithController {
 
             if (beta < EPS) return null; // Avoid division by zero
 
-            if (stubType == Line.StubType.NONE){
-                    // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j2βL)
-                    // Multiplying by e^(-j2βL) rotates Γ by an angle -2βL on the complex plane.
-                    // So the physical length L can be recovered from the change in angle of Γ.
+            if (stubType == Line.StubType.NONE) {
+                // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j2βL)
+                // Multiplying by e^(-j2βL) rotates Γ by an angle -2βL on the complex plane.
+                // So the physical length L can be recovered from the change in angle of Γ.
 
-                    // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j2βL))
-                    // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
-                    Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line,0)).dividedBy(startImpedance.add(new Complex(z0_line,0)));
-                    Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line,0)).dividedBy(finalImpedance.add(new Complex(z0_line,0)));
+                // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j2βL))
+                // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
+                Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line, 0)).dividedBy(startImpedance.add(new Complex(z0_line, 0)));
+                Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line, 0)).dividedBy(finalImpedance.add(new Complex(z0_line, 0)));
 
-                    // Calculate the change in angle. (Δθ)
-                    double startAngle = gamma_start_line.angle();
-                    double finalAngle = gamma_final_line.angle();
-                    double angleChange = finalAngle - startAngle;
+                // Calculate the change in angle. (Δθ)
+                double startAngle = gamma_start_line.angle();
+                double finalAngle = gamma_final_line.angle();
+                double angleChange = finalAngle - startAngle;
 
-                    // The rotation for adding a line is always clockwise.
-                    if (angleChange > 0) {
-                        angleChange -= 2.0 * Math.PI;
-                    }
-                    // L = ∣Δθ∣ / 2β
-                    double electricalRotation = Math.abs(angleChange);
+                // The rotation for adding a line is always clockwise.
+                if (angleChange > 0) {
+                    angleChange -= 2.0 * Math.PI;
+                }
+                // L = ∣Δθ∣ / 2β
+                double electricalRotation = Math.abs(angleChange);
 
-                    // Avoid division by zero if beta is somehow zero
-                    if (Math.abs(beta) < EPS) return null;
+                // Avoid division by zero if beta is somehow zero
+                if (Math.abs(beta) < EPS) return null;
 
-                    // Calculate the final physical length.
-                    componentValue  = electricalRotation / (2.0 * beta);
-                } else {
+                // Calculate the final physical length.
+                componentValue = electricalRotation / (2.0 * beta);
+            } else {
                 // Here we use the basic formula of Z_in = Z_0 * (Z_L + jZ_0tan(βL)) / (Z_0 + jZ_Ltan(βL))
                 // If it's a short circuit, Z_L becomes 0 so Z_in = jZ_0tan(βL)
                 // If it's an open circuit, Z_L becomes infinity, so we simplify the equation to get Z_in = Z_0 / jtan(βL)
@@ -621,7 +742,7 @@ public class SmithController {
                 double y0 = 1.0 / z0_line;
                 double L;
 
-                if (stubType == Line.StubType.SHORT){
+                if (stubType == Line.StubType.SHORT) {
                     // For a short-circuited stub:
                     // Y_in = 1 / (j Z_0 tan(βL)) = -j Y_0 / tan(βL)
                     // So, tan(βL) = -Y_0 / (j Y_in) => for susceptance B, tan(βL) = -Y_0 / B
@@ -705,8 +826,8 @@ public class SmithController {
             if (type == CircuitElement.ElementType.LINE) {
                 double z0_line = Double.parseDouble(zoInputField.getText());
                 double permittivity = Double.parseDouble(permittivityField.getText());
-                viewModel.addComponent(type,componentValue,z0_line,permittivity,null,stubType);
-            }else viewModel.addComponent(type, componentValue, position);
+                viewModel.addComponent(type, componentValue, z0_line, permittivity, null, stubType);
+            } else viewModel.addComponent(type, componentValue, position);
         }
 
         resetMouseAddComponentState();
@@ -876,7 +997,7 @@ public class SmithController {
             CircuitElement.ElementType type = typeComboBox.getValue();
             double value = Double.parseDouble(valueTextField.getText());
 
-            if (type != CircuitElement.ElementType.LINE){
+            if (type != CircuitElement.ElementType.LINE) {
                 CircuitElement.ElementPosition position = positionComboBox.getValue();
                 viewModel.addComponent(type, value * getSelectedUnitFactor(), position);
             } else { //It's a line, we need to get the line's characterstic impedance
@@ -1027,14 +1148,14 @@ public class SmithController {
             case INDUCTOR -> new Inductor(0, position, type);
             case CAPACITOR -> new Capacitor(0, position, type);
             case RESISTOR -> new Resistor(0, position, type);
-            case LINE ->  {
+            case LINE -> {
                 double impValue = Double.parseDouble(zoInputField.getText());
                 double permittivityValue = Double.parseDouble(permittivityField.getText());
                 Line.StubType stubType = stubComboBox.getValue();
                 if (stubType == null || stubType == Line.StubType.NONE) {
-                    yield new Line(0, impValue,permittivityValue);
+                    yield new Line(0, impValue, permittivityValue);
                 }
-                yield new Line(0, impValue,permittivityValue,stubType);
+                yield new Line(0, impValue, permittivityValue, stubType);
             }
         };
 
@@ -1250,7 +1371,6 @@ public class SmithController {
     public void setDisplayCirclesOptions() {
         CircleDialog.getInstance().showAndWait().ifPresent(options -> {
             viewModel.setCircleDisplayOptions(options);
-            redrawSmithCanvas();
         });
     }
 
@@ -1275,9 +1395,9 @@ public class SmithController {
             return;
         }
 
-        new FileExportDialog().showAndWait().ifPresent(file -> {
+        new FileExportDialog().showAndWait().ifPresent(namefilepair -> {
             try {
-                viewModel.exportSweepToS1P(file);
+                viewModel.exportSweepToS1P(namefilepair.getValue(), namefilepair.getKey());
             } catch (Exception e) {
                 Logger.getLogger("Error").log(Level.SEVERE, "Failed to export S1P: " + e.getMessage());
             }

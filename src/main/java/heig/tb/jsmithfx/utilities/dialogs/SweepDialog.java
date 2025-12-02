@@ -87,10 +87,21 @@ public class SweepDialog extends Dialog<List<Double>> {
             double maxFreq = Double.parseDouble(tfMaxFq.getText()) * FrequencyUnit.valueOf(cbMaxFq.getValue().toUpperCase()).getFactor();
             double stepCount = Double.parseDouble(tfStep.getText());
 
-            double step = (maxFreq - minFreq) / stepCount; // Calculate step size based on number of steps
+            if (stepCount <= 1) {
+                DialogUtils.showErrorAlert("Invalid Input", "Number of steps must be >= 2");
+                return values;
+            }
 
-            for (double f = minFreq; f <= maxFreq; f += step) {
-                values.add(f);
+            if (minFreq >= maxFreq) {
+                DialogUtils.showErrorAlert("Invalid Input", "Min frequency must be less than max frequency.");
+                return values;
+            }
+
+            double step = (maxFreq - minFreq) / (stepCount - 1); // Calculate step size based on number of steps
+
+
+            for (int i = 0; i < stepCount; i++) {
+                values.add(minFreq + i * step);
             }
 
         } catch (NumberFormatException e) {

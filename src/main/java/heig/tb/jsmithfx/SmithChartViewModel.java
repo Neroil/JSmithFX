@@ -66,6 +66,9 @@ public class SmithChartViewModel {
     private final Stack<UndoRedoEntry> undoStack = new Stack<>();
     private final Stack<UndoRedoEntry> redoStack = new Stack<>();
     private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
+    // Circle display options
+    private final ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    private final ReadOnlyDoubleWrapper s1pPointSize = new ReadOnlyDoubleWrapper(4.0);
     // Display options
     private boolean showSweepInDataPoints = false;
     private boolean showS1PInDataPoints = false;
@@ -77,11 +80,11 @@ public class SmithChartViewModel {
     private double freqRangeMax;
     // S1P Load option
     private boolean useS1PAsLoad = false;
-    // Circle display options
-    private final ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
+    // Sweep stuff
+    private double currentSweepMin = 1e6;
+    private double currentSweepMax = 100e6;
+    private int currentSweepCount = 10;
 
-    private final ReadOnlyDoubleWrapper s1pPointSize = new ReadOnlyDoubleWrapper(4.0);
-    public ReadOnlyDoubleProperty s1pPointSizeProperty() {return s1pPointSize.getReadOnlyProperty();}
 
 
     public SmithChartViewModel() {
@@ -152,6 +155,10 @@ public class SmithChartViewModel {
 
         // Ensure combined points are initialized
         updateCombinedDataPoints();
+    }
+
+    public ReadOnlyDoubleProperty s1pPointSizeProperty() {
+        return s1pPointSize.getReadOnlyProperty();
     }
 
     public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() {
@@ -502,14 +509,7 @@ public class SmithChartViewModel {
 
             Complex currentImpedance = originalPoint.getImpedance();
 
-            for (CircuitElement element : elementsToApply) {
-                if (element.getType() == CircuitElement.ElementType.LINE) {
-                    currentImpedance = ((Line) element).calculateImpedance(currentImpedance, freq);
-                } else {
-                    Complex elementImpedance = element.getImpedance(freq);
-                    currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, element.getElementPosition());
-                }
-            }
+            currentImpedance = propagateThroughElements(currentImpedance, freq, elementsToApply);
 
             Complex newGamma = calculateGamma(currentImpedance);
             newTransformedPoints.add(new DataPoint(freq, originalPoint.getLabel(), currentImpedance, newGamma, calculateVswr(newGamma), calculateReturnLoss(newGamma)));
@@ -686,12 +686,12 @@ public class SmithChartViewModel {
         }
     }
 
-    public void exportSweepToS1P(File file) {
+    public void exportSweepToS1P(File file, String fileName) {
         if (sweepDataPoints.isEmpty()) return;
 
         File outputFile = file;
         if (outputFile.isDirectory()) {
-            outputFile = new File(outputFile, "sweep_export.s1p");
+            outputFile = new File(outputFile, fileName + ".s1p");
         }
 
         int indexToTake = sweepDataPoints.getSize() / 2;
@@ -717,32 +717,68 @@ public class SmithChartViewModel {
     }
 
     public void performFrequencySweep(List<Double> frequencies) {
-        if (frequencies.isEmpty()) {
-            System.out.println("oh noo, empty freq");
-            return;
-        }
+        if (frequencies.isEmpty()) return;
 
-        var lovelyFrequencies = List.copyOf(frequencies); // Create an immutable copy, otherwise it explodes the list
-
-        pointToSweep.setAll(lovelyFrequencies); // Save in case the circuit changes
+        // Capture state for the buttons/text fields
+        frequencies.sort(Double::compareTo); // Ensure sorted
+        this.currentSweepMin = frequencies.getFirst();
+        this.currentSweepMax = frequencies.getLast();
+        this.currentSweepCount = frequencies.size();
+        this.pointToSweep.setAll(frequencies); // Save for re-sweeps on circuit change
 
         List<DataPoint> sweepPoints = new ArrayList<>();
-
         Complex startingLoad = loadImpedance.get();
 
-        for (Double freq : lovelyFrequencies) {
-
+        for (Double freq : frequencies) {
             Complex finalImpedance = propagateThroughElements(startingLoad, freq, circuitElements.get());
-
             Complex gamma = calculateGamma(finalImpedance);
             double vswr = calculateVswr(gamma);
             double retLoss = calculateReturnLoss(gamma);
 
             sweepPoints.add(new DataPoint(freq, "SWEEP", finalImpedance, gamma, vswr, retLoss));
         }
-
         sweepDataPoints.setAll(sweepPoints);
     }
+
+    public void updateSweepConfiguration(double minFreq, double maxFreq, int count) {
+        if (minFreq >= maxFreq || count < 2) return; // Validation
+
+        this.currentSweepMin = minFreq;
+        this.currentSweepMax = maxFreq;
+        this.currentSweepCount = count;
+
+        List<Double> frequencies = new ArrayList<>();
+        double step = (maxFreq - minFreq) / (count - 1);
+
+        for (int i = 0; i < count; i++) {
+            frequencies.add(minFreq + (i * step));
+        }
+
+        performFrequencySweep(frequencies);
+    }
+
+    public void incrementSweepStartFrequency() {
+        double newMin = currentSweepMin * 1.05;
+        if (newMin < currentSweepMax) {
+            updateSweepConfiguration(newMin, currentSweepMax, currentSweepCount);
+        }
+    }
+
+    public void decrementSweepStartFrequency() {
+        updateSweepConfiguration(currentSweepMin * 0.95, currentSweepMax, currentSweepCount);
+    }
+
+    public void incrementSweepEndFrequency() {
+        updateSweepConfiguration(currentSweepMin, currentSweepMax * 1.05, currentSweepCount);
+    }
+
+    public void decrementSweepEndFrequency() {
+        double newMax = currentSweepMax * 0.95;
+        if (newMax > currentSweepMin) {
+            updateSweepConfiguration(currentSweepMin, newMax, currentSweepCount);
+        }
+    }
+
 
     private Complex propagateThroughElements(Complex startImpedance, double freq, List<CircuitElement> elements) {
         Complex currentImpedance = startImpedance;
