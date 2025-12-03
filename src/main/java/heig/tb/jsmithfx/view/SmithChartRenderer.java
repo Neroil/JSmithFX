@@ -77,8 +77,8 @@ public class SmithChartRenderer {
         gc.setFill(Color.MAGENTA);
 
         // Make line width and point size invariant to the zoom level
-        double lineWidth = 1.5;
-        double pointSize = 4; // logical size
+        double lineWidth = 1.0;
+        double pointSize = 2.5; // logical size
 
         gc.setLineWidth(lineWidth);
 

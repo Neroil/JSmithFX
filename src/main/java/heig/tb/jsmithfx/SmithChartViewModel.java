@@ -96,12 +96,7 @@ public class SmithChartViewModel {
         frequency.addListener((_, _, _) -> {
             //Update the display for frequency
             double freq = frequency.get();
-            String newFreqText = switch ((int) Math.log10(freq)) {
-                case 0, 1, 2 -> String.format("%.2f Hz", freq);
-                case 3, 4, 5 -> String.format("%.2f kHz", freq / 1_000);
-                case 6, 7, 8 -> String.format("%.2f MHz", freq / 1_000_000);
-                default -> String.format("%.2f GHz", freq / 1_000_000_000);
-            };
+            String newFreqText = SmithUtilities.displayBestUnitAndFormattedValue(freq, FrequencyUnit.values());
             frequencyText.set(newFreqText);
             recalculateImpedanceChain();
         });
@@ -712,8 +707,8 @@ public class SmithChartViewModel {
     }
 
     private void performFrequencySweep() {
-        System.out.println("Performing frequency sweep");
-        performFrequencySweep(pointToSweep);
+        // Create a copy to avoid an issue with the setAll in the main function
+        performFrequencySweep(new ArrayList<>(pointToSweep));
     }
 
     public void performFrequencySweep(List<Double> frequencies) {
