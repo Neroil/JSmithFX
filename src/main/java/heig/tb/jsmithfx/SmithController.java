@@ -42,9 +42,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class SmithController {
-    // --- FXML Fields ---
-    @FXML
-    public Button addMouseButton;
+
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
@@ -60,6 +58,7 @@ public class SmithController {
     private double lastScreenXForAdd;
     private double lastScreenYForAdd;
     private boolean isProgrammaticallyMovingCursor = false;
+    // FXML Bindings
     @FXML
     private Label returnLossLabel;
     @FXML
@@ -163,8 +162,6 @@ public class SmithController {
     @FXML
     private Button sweepButton;
     @FXML
-    private Button tuneButton;
-    @FXML
     private CheckMenuItem toggleSweepInDataPointsButton;
     @FXML
     private CheckMenuItem toggleS1PInDataPointsButton;
@@ -190,6 +187,20 @@ public class SmithController {
     private TitledPane sweepManagementTitledPane;
     @FXML
     private Slider s1pPointSizeSlider;
+    @FXML
+    private Button addMouseButton;
+    @FXML
+    private HBox tuningPane;
+    @FXML
+    private Slider tuningSlider;
+    @FXML
+    private TextField tuningValueField;
+    @FXML
+    private Label tuningUnitLabel;
+    @FXML
+    private Button applyTuningButton;
+    @FXML
+    private Button cancelTuningButton;
 
 
     //Viewmodel
@@ -258,12 +269,35 @@ public class SmithController {
 
         // Circuit Diagram Editing
         circuitCanvas.setOnMouseClicked(event -> {
-            if (event.getClickCount() == 2) {
-                CircuitElement clickedElement = circuitRenderer.getElementAt(event.getX(), event.getY());
-                if (clickedElement != null) {
+            CircuitElement clickedElement = circuitRenderer.getElementAt(event.getX(), event.getY());
+            if (clickedElement != null) {
+                if (event.getClickCount() == 2) {
                     promptEditForComponent(clickedElement);
+                    event.consume();
+                } else if (event.getClickCount() == 1) {
+                    viewModel.selectElement(clickedElement);
                 }
             }
+        });
+
+        viewModel.selectedElementProperty().addListener((_, _, newValue) -> {
+            if (newValue != null) {
+                tuningPane.setVisible(true);
+                tuningPane.setManaged(true);
+                setupTuningPaneForElement(newValue);
+            } else {
+                tuningPane.setVisible(false);
+                tuningPane.setManaged(false);
+            }
+            circuitRenderer.render(viewModel);
+
+        });
+
+        tuningSlider.valueProperty().addListener((_1, _2, newValue) -> {
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue((Double) newValue, (ElectronicUnit[]) viewModel.selectedElementProperty().get().getType().getUnitClass().getEnumConstants());
+            tuningValueField.setText(toDisplay.getValue());
+            tuningUnitLabel.setText(toDisplay.getKey().toString());
+            viewModel.updateTunedElementValue(newValue.doubleValue());
         });
 
         //Add the delete button in the factory
@@ -332,24 +366,6 @@ public class SmithController {
             }
         });
 
-        /*
-            @FXML
-            private TextField sweepPointsCountText;
-            @FXML
-            private TextField sweepStartFreqField;
-            @FXML
-            private Button sweepStartFreqMinusButton;
-            @FXML
-            private Button sweepStartFreqPlusButton;
-            @FXML
-            private TextField sweepEndFreqField;
-            @FXML
-            private Button sweepEndFreqMinusButton;
-            @FXML
-            private Button exportSweepButton;
-            @FXML
-            private Button sweepEndFreqPlusButton;
-         */
         viewModel.sweepDataPointsProperty().addListener((obs, oldVal, newVal) -> {
             var sdp = viewModel.sweepDataPointsProperty().get();
             Pair<Double, Double> freqRange = SmithUtilities.getFrequencyRangeFromDataPoints(sdp);
@@ -389,9 +405,15 @@ public class SmithController {
         sweepPointsCountText.setOnAction(_ -> updateSweepFromTextFields.run());
 
         // Add listeners to trigger update when FOCUS is lost (clicking away)
-        sweepStartFreqField.focusedProperty().addListener((obs, oldVal, newVal) -> { if(!newVal) updateSweepFromTextFields.run(); });
-        sweepEndFreqField.focusedProperty().addListener((obs, oldVal, newVal) -> { if(!newVal) updateSweepFromTextFields.run(); });
-        sweepPointsCountText.focusedProperty().addListener((obs, oldVal, newVal) -> { if(!newVal) updateSweepFromTextFields.run(); });
+        sweepStartFreqField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) updateSweepFromTextFields.run();
+        });
+        sweepEndFreqField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) updateSweepFromTextFields.run();
+        });
+        sweepPointsCountText.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) updateSweepFromTextFields.run();
+        });
 
         // Tells the renderer to use the S1P data as load
         useS1PAsLoadCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
@@ -415,6 +437,17 @@ public class SmithController {
                 }
             });
         });
+    }
+
+    private void setupTuningPaneForElement(CircuitElement el) {
+        var value = el.getRealWorldValue();
+        var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(value, (ElectronicUnit[]) el.getType().getUnitClass().getEnumConstants());
+        tuningValueField.setText(toDisplay.getValue());
+        tuningUnitLabel.setText(toDisplay.getKey().toString());
+        // Set a range to +-20%
+        tuningSlider.setMin(value * 0.8);
+        tuningSlider.setMax(value * 1.2);
+        tuningSlider.setValue(value);
     }
 
     private void setupResizableCanvas() {
@@ -1364,10 +1397,6 @@ public class SmithController {
                 });
     }
 
-    public void onTune() {
-
-    }
-
     public void setDisplayCirclesOptions() {
         CircleDialog.getInstance().showAndWait().ifPresent(options -> {
             viewModel.setCircleDisplayOptions(options);
@@ -1414,5 +1443,13 @@ public class SmithController {
     }
 
     public void onSweepEndFreqPlus(ActionEvent actionEvent) {
+    }
+
+    public void onApplyTuning(ActionEvent actionEvent) {
+        viewModel.applyTuningAdjustments();
+    }
+
+    public void onCancelTuning(ActionEvent actionEvent) {
+        viewModel.cancelTuningAdjustments();
     }
 }

@@ -84,8 +84,29 @@ public class SmithChartViewModel {
     private double currentSweepMin = 1e6;
     private double currentSweepMax = 100e6;
     private int currentSweepCount = 10;
+    // Selected element for tuning
+    private final ObjectProperty<CircuitElement> selectedElement = new SimpleObjectProperty<>();
+    // Storing the original value in case the client cancel or does something else
+    private double originalTuningValue;
 
+    public ReadOnlyObjectProperty<CircuitElement> selectedElementProperty() {
+        return selectedElement;
+    }
 
+    public void selectElement(CircuitElement element) {
+        // Cancel if the user switch from one to another element without applying
+        if(selectedElement.get() != null){
+            cancelTuningAdjustments();
+        }
+
+        if (element != null && circuitElements.contains(element)) {
+            selectedElement.set(element);
+            // Save the state BEFORE tuning starts
+            originalTuningValue = element.getRealWorldValue();
+        } else {
+            selectedElement.set(null);
+        }
+    }
 
     public SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
@@ -790,6 +811,37 @@ public class SmithChartViewModel {
 
     public void setS1PPointSize(double v) {
         s1pPointSize.set(v);
+    }
+
+    /**
+     * Called by the Slider in the View to update the value live.
+     * @param newValue The new value from the slider
+     */
+    public void updateTunedElementValue(double newValue) {
+        CircuitElement current = selectedElement.get();
+        if (current != null) {
+            current.setRealWorldValue(newValue);
+        }
+    }
+
+    /**
+     * User clicked "Apply". We commit the change.
+     * Optionally, you can add an Undo entry here for the modification.
+     */
+    public void applyTuningAdjustments() {
+        if (selectedElement.get() == null) return;
+        selectedElement.set(null);
+    }
+
+    /**
+     * User clicked "Cancel". We revert the value.
+     */
+    public void cancelTuningAdjustments() {
+        CircuitElement current = selectedElement.get();
+        if (current != null) {
+            current.setRealWorldValue(originalTuningValue);
+        }
+        selectedElement.set(null);
     }
 
     // Undo Redo logic

@@ -27,6 +27,8 @@ public class CircuitRenderer {
     private static final Color COMPONENT_COLOR = Color.rgb(180, 180, 255);
     private static final Color LABEL_COLOR = Color.rgb(220, 220, 220);
     private static final Color JUNCTION_COLOR = Color.rgb(255, 180, 100);
+    private static final Color SELECTION_COLOR = Color.YELLOW;
+
 
     private final Canvas circuitCanvas;
     private final Font labelFont;
@@ -170,6 +172,22 @@ public class CircuitRenderer {
             if (element.getPosition() == CircuitElement.ElementPosition.PARALLEL) gc.restore();
 
         }
+
+        // Draw highlight for selected element
+        CircuitElement selectedElement = viewModel.selectedElementProperty().get();
+        if (selectedElement != null) {
+            Rectangle2D hitBox = hitBoxes.get(selectedElement);
+            if (hitBox != null) {
+                gc.setFill(new Color(SELECTION_COLOR.getRed(), SELECTION_COLOR.getGreen(), SELECTION_COLOR.getBlue(), 0.4));
+                double padding = 10;
+                gc.fillRect(
+                        hitBox.getMinX() - padding / 2,
+                        hitBox.getMinY() - padding / 2,
+                        hitBox.getWidth() + padding,
+                        hitBox.getHeight() + padding
+                );
+            }
+        }
     }
 
     private void registerHitBox(CircuitElement element, double centerX, double centerY, boolean isRotated) {
@@ -311,7 +329,4 @@ public class CircuitRenderer {
         gc.strokeLine(left + width, y, left + width + nubLength, y);
 
     }
-
-
-
 }

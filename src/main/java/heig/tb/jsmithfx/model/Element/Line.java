@@ -85,4 +85,13 @@ public class Line extends CircuitElement {
     public String toString() {
         return "line";
     }
+
+    @Override
+    public CircuitElement copy() {
+        if (this.stubType == StubType.NONE) {
+            return new Line(this.getRealWorldValue(), this.getCharacteristicImpedance(), this.getPermittivity());
+        } else {
+            return new Line(this.getRealWorldValue(), this.getCharacteristicImpedance(), this.getPermittivity(), this.getStubType());
+        }
+    }
 }
