@@ -8,6 +8,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Stage;
 import javafx.util.Pair;
 
 import java.io.File;
@@ -53,19 +54,22 @@ public class FileExportDialog extends Dialog<Pair<String, File>> {
 
         // Convert the result to a File object when OK is clicked
         setResultConverter(button -> {
+            Stage stage = (Stage) getDialogPane().getScene().getWindow();
             if (button == ButtonType.OK) {
                 String path = folderPathField.getText();
                 String name = fileNameField.getText();
+
                 if (path != null && !path.trim().isEmpty() && name != null && !name.trim().isEmpty()) {
                     String cleanedName = name.replaceAll("[\\\\/:*?\"<>|]", "");
                     cleanedName = cleanedName.replaceAll("\\s+", "_");
                     if (cleanedName.trim().isEmpty()) {
-                        DialogUtils.showErrorAlert("Error", "The file name is invalid after sanitization.");
+
+                        DialogUtils.showErrorAlert("Error", "The file name is invalid after sanitization.",stage);
                         return null;
                     }
                     return new Pair<>(cleanedName, new File(path));
                 }
-                else DialogUtils.showErrorAlert("Error", "Folder path and/or file name cannot be empty.");
+                else DialogUtils.showErrorAlert("Error", "Folder path and/or file name cannot be empty.", stage);
             }
             return null;
         });

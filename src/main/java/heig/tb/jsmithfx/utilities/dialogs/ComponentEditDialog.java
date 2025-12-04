@@ -8,6 +8,7 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
 import javafx.util.Pair;
 
 public class ComponentEditDialog extends Dialog<Double> {
@@ -69,7 +70,8 @@ public class ComponentEditDialog extends Dialog<Double> {
                     }
                     return val * factor;
                 } catch (NumberFormatException e) {
-                    DialogUtils.showErrorAlert("Invalid Input", "Please enter a valid numeric value.");
+                    Stage stage = (Stage) getDialogPane().getScene().getWindow();
+                    DialogUtils.showErrorAlert("Invalid Input", "Please enter a valid numeric value.",stage);
                 }
             }
             return null;

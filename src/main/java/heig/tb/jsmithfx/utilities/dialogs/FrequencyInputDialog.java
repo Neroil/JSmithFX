@@ -7,6 +7,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.stage.Stage;
 
 import java.util.Locale;
 
@@ -58,7 +59,8 @@ public class FrequencyInputDialog extends Dialog<Double> {
                     FrequencyUnit selectedUnitInDialog = (FrequencyUnit) unitGroup.getSelectedToggle().getUserData();
                     return val * selectedUnitInDialog.getFactor();
                 } catch (Exception e) {
-                    DialogUtils.showErrorAlert("Invalid Input", "Please enter a valid numeric value.");
+                    Stage stage = (Stage) getDialogPane().getScene().getWindow();
+                    DialogUtils.showErrorAlert("Invalid Input", "Please enter a valid numeric value.", stage);
                 }
             }
             return null;

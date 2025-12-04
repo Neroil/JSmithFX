@@ -43,6 +43,8 @@ import java.util.stream.Collectors;
 
 public class SmithController {
 
+    @FXML
+    private VBox appBox;
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
@@ -126,7 +128,7 @@ public class SmithController {
     @FXML
     private Label z0Label;
     @FXML
-    private AnchorPane circuitPane;
+    private Pane circuitPane;
     @FXML
     private Label zoInputLabel;
     @FXML
@@ -451,9 +453,15 @@ public class SmithController {
     }
 
     private void setupResizableCanvas() {
+        smithChartPane.setMinSize(0, 0);
+        circuitPane.setMinSize(0, 0);
+
         // --- SMITH CHART ---
+        // Bind dimensions: Pane controls Canvas
         smithCanvas.widthProperty().bind(smithChartPane.widthProperty());
         smithCanvas.heightProperty().bind(smithChartPane.heightProperty());
+
+        // Redraw when size changes
         smithCanvas.widthProperty().addListener((_, _, _) -> redrawSmithCanvas());
         smithCanvas.heightProperty().addListener((_, _, _) -> redrawSmithCanvas());
 
@@ -464,6 +472,7 @@ public class SmithController {
         // --- CIRCUIT RENDERING ---
         circuitCanvas.widthProperty().bind(circuitPane.widthProperty());
         circuitCanvas.heightProperty().bind(circuitPane.heightProperty());
+
         circuitCanvas.widthProperty().addListener(_ -> circuitRenderer.render(viewModel));
         circuitCanvas.heightProperty().addListener(_ -> circuitRenderer.render(viewModel));
 
@@ -1083,26 +1092,31 @@ public class SmithController {
      * Set what will be the center point of the chart
      */
     public void setCharacteristicImpedance() {
-        DialogUtils.showDoubleInputDialog("Characteristic Impedance", "Enter Zo (Ohms):", viewModel.zo.get())
+        var stage = smithCanvas.getScene().getWindow();
+        DialogUtils.showDoubleInputDialog("Characteristic Impedance", "Enter Zo (Ohms):", viewModel.zo.get(), stage)
                 .ifPresent(zo -> {
                     if (zo > 0) {
                         viewModel.zo.setValue(zo);
                         redrawSmithCanvas();
                     } else {
-                        DialogUtils.showErrorAlert("Invalid Input", "Zo must be positive.");
+                        DialogUtils.showErrorAlert("Invalid Input", "Zo must be positive.", stage);
                     }
                 });
     }
 
-
     private void showError(String message) {
+        var stage = smithCanvas.getScene().getWindow();
         Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
         alert.setHeaderText("Input Error");
+        alert.initOwner(stage);
         alert.showAndWait();
     }
 
     public void onChangeLoad() {
-        new ComplexInputDialog("Change Load", viewModel.loadImpedance.get()).showAndWait()
+        var stage = smithCanvas.getScene().getWindow();
+        ComplexInputDialog dialog = new ComplexInputDialog("Change Load", viewModel.loadImpedance.get());
+        dialog.initOwner(stage);
+        dialog.showAndWait()
                 .ifPresent(newLoad -> {
                     viewModel.loadImpedance.setValue(newLoad);
                     redrawSmithCanvas();
@@ -1110,12 +1124,15 @@ public class SmithController {
     }
 
     public void onChangeFreq() {
-        new FrequencyInputDialog("Change Frequency", viewModel.frequencyProperty().get()).showAndWait()
+        var stage = smithCanvas.getScene().getWindow();
+        FrequencyInputDialog dialog = new FrequencyInputDialog("Change Frequency", viewModel.frequencyProperty().get());
+        dialog.initOwner(stage);
+        dialog.showAndWait()
                 .ifPresent(newFreq -> {
                     if (newFreq > 0) {
                         viewModel.setFrequency(newFreq);
                     } else {
-                        DialogUtils.showErrorAlert("Invalid Input", "Frequency must be a positive value.");
+                        DialogUtils.showErrorAlert("Invalid Input", "Frequency must be a positive value.", stage);
                     }
                 });
     }
@@ -1163,7 +1180,8 @@ public class SmithController {
 
         Complex lastGamma = viewModel.getLastGamma();
         if (lastGamma == null) {
-            DialogUtils.showErrorAlert("Operation Failed", "Cannot add a component without a starting point.");
+            var stage = smithCanvas.getScene().getWindow();
+            DialogUtils.showErrorAlert("Operation Failed", "Cannot add a component without a starting point.", stage);
             return;
         }
 
@@ -1381,14 +1399,20 @@ public class SmithController {
     }
 
     private void promptEditForComponent(CircuitElement component) {
-        new ComponentEditDialog(component).showAndWait().ifPresent(newValue -> {
+        var stage = smithCanvas.getScene().getWindow();
+        ComponentEditDialog dialog = new ComponentEditDialog(component);
+        dialog.initOwner(stage);
+        dialog.showAndWait().ifPresent(newValue -> {
             component.setRealWorldValue(newValue);
             redrawSmithCanvas();
         });
     }
 
     public void onSweep() {
-        new SweepDialog(viewModel.getLastDataPoint()).showAndWait()
+        var stage = smithCanvas.getScene().getWindow();
+        SweepDialog dialog = new SweepDialog(viewModel.getLastDataPoint());
+        dialog.initOwner(stage);
+        dialog.showAndWait()
                 .ifPresent(sweepValues -> {
                     viewModel.performFrequencySweep(sweepValues);
                     sweepManagementTitledPane.setVisible(true);
@@ -1398,7 +1422,10 @@ public class SmithController {
     }
 
     public void setDisplayCirclesOptions() {
-        CircleDialog.getInstance().showAndWait().ifPresent(options -> {
+        var stage = smithCanvas.getScene().getWindow();
+        CircleDialog dialog = CircleDialog.getInstance();
+        dialog.initOwner(stage);
+        dialog.showAndWait().ifPresent(options -> {
             viewModel.setCircleDisplayOptions(options);
         });
     }
@@ -1423,8 +1450,10 @@ public class SmithController {
             showError("No sweep data points to export.");
             return;
         }
-
-        new FileExportDialog().showAndWait().ifPresent(namefilepair -> {
+        var stage = smithCanvas.getScene().getWindow();
+        FileExportDialog dialog = new FileExportDialog();
+        dialog.initOwner(stage);
+        dialog.showAndWait().ifPresent(namefilepair -> {
             try {
                 viewModel.exportSweepToS1P(namefilepair.getValue(), namefilepair.getKey());
             } catch (Exception e) {
@@ -1453,3 +1482,4 @@ public class SmithController {
         viewModel.cancelTuningAdjustments();
     }
 }
+

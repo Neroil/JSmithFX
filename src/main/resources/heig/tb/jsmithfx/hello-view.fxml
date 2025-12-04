@@ -6,7 +6,7 @@
 <?import javafx.scene.layout.*?>
 <?import org.controlsfx.control.*?>
 
-<VBox xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="heig.tb.jsmithfx.SmithController">
+<VBox fx:id="appBox" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="heig.tb.jsmithfx.SmithController">
     <HBox spacing="20.0" styleClass="menu-bar-container">
         <MenuBar>
             <Menu text="File">

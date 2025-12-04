@@ -9,6 +9,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -82,18 +83,19 @@ public class SweepDialog extends Dialog<List<Double>> {
 
     private List<Double> getValues() {
         List<Double> values = new ArrayList<>();
+        Stage stage = (Stage) getDialogPane().getScene().getWindow();
         try {
             double minFreq = Double.parseDouble(tfMinFq.getText()) * FrequencyUnit.valueOf(cbMinFq.getValue().toUpperCase()).getFactor();
             double maxFreq = Double.parseDouble(tfMaxFq.getText()) * FrequencyUnit.valueOf(cbMaxFq.getValue().toUpperCase()).getFactor();
             double stepCount = Double.parseDouble(tfStep.getText());
 
             if (stepCount <= 1) {
-                DialogUtils.showErrorAlert("Invalid Input", "Number of steps must be >= 2");
+                DialogUtils.showErrorAlert("Invalid Input", "Number of steps must be >= 2", stage);
                 return values;
             }
 
             if (minFreq >= maxFreq) {
-                DialogUtils.showErrorAlert("Invalid Input", "Min frequency must be less than max frequency.");
+                DialogUtils.showErrorAlert("Invalid Input", "Min frequency must be less than max frequency.", stage);
                 return values;
             }
 
@@ -105,7 +107,7 @@ public class SweepDialog extends Dialog<List<Double>> {
             }
 
         } catch (NumberFormatException e) {
-            DialogUtils.showErrorAlert("Invalid Input", "Please enter valid numeric values for frequencies and step.");
+            DialogUtils.showErrorAlert("Invalid Input", "Please enter valid numeric values for frequencies and step.", stage);
         }
         return values;
     }
