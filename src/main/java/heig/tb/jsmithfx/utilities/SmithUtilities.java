@@ -188,8 +188,8 @@ public class SmithUtilities {
         return expectedDirection;
     }
 
-    public static double parseValueWithUnit(String text, FrequencyUnit[] values) {
-        for (FrequencyUnit unit : values) {
+    public static double parseValueWithUnit(String text, ElectronicUnit[] values) {
+        for (ElectronicUnit unit : values) {
             String[] splitText = text.split(" "); // SplitText[1] should be the unit
             if (splitText.length == 2 && splitText[1].equalsIgnoreCase(unit.toString())) {
                 String numberPart = splitText[0];

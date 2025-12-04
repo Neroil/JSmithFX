@@ -274,6 +274,7 @@ public class SmithController {
             CircuitElement clickedElement = circuitRenderer.getElementAt(event.getX(), event.getY());
             if (clickedElement != null) {
                 if (event.getClickCount() == 2) {
+                    viewModel.cancelTuningAdjustments();
                     promptEditForComponent(clickedElement);
                     event.consume();
                 } else if (event.getClickCount() == 1) {
@@ -300,6 +301,25 @@ public class SmithController {
             tuningValueField.setText(toDisplay.getValue());
             tuningUnitLabel.setText(toDisplay.getKey().toString());
             viewModel.updateTunedElementValue(newValue.doubleValue());
+        });
+
+        Runnable updateTuningValue = () -> {
+            var unitClassValues = (ElectronicUnit[]) viewModel.selectedElementProperty().get().getType().getUnitClass().getEnumConstants();
+            String valueString = tuningValueField.getText() + " " + tuningUnitLabel.getText();
+            System.out.println(valueString);
+            double newValue = SmithUtilities.parseValueWithUnit(valueString, unitClassValues);
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(newValue, unitClassValues);
+            tuningValueField.setText(toDisplay.getValue());
+            tuningUnitLabel.setText(toDisplay.getKey().toString());
+            viewModel.updateTunedElementValue(newValue);
+        };
+
+        // Trigger on ENTER
+        tuningValueField.setOnAction(event -> updateTuningValue.run());
+
+        // Trigger when focus is lost (clicking away)
+        tuningValueField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) updateTuningValue.run();
         });
 
         //Add the delete button in the factory
@@ -1405,6 +1425,7 @@ public class SmithController {
         dialog.showAndWait().ifPresent(newValue -> {
             component.setRealWorldValue(newValue);
             redrawSmithCanvas();
+            circuitRenderer.render(viewModel);
         });
     }
 

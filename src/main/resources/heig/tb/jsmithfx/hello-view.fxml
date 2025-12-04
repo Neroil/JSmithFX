@@ -91,7 +91,7 @@
                                 <Slider fx:id="tuningSlider" HBox.hgrow="ALWAYS"/>
 
                                 <HBox alignment="CENTER_LEFT" spacing="5.0">
-                                    <TextField fx:id="tuningValueField" prefWidth="80.0" editable="false"/>
+                                    <TextField fx:id="tuningValueField" prefWidth="80.0"/>
                                     <Label fx:id="tuningUnitLabel"/>
                                 </HBox>
 
