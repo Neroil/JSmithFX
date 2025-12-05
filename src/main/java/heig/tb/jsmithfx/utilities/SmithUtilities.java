@@ -6,11 +6,13 @@ import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
 import javafx.collections.ObservableList;
+import javafx.stage.Window;
 import javafx.util.Pair;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SmithUtilities {
@@ -100,5 +102,20 @@ public class SmithUtilities {
                                 maxOpt.map(DataPoint::getFrequency).orElse(0.0)
                         )
                 ));
+    }
+
+    public static Window getActiveStage() {
+        return javafx.stage.Stage.getWindows().stream()
+                .filter(Window::isFocused)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static Optional<Double> parseOptionalDouble(String text) {
+        try {
+            return Optional.of(Double.parseDouble(text));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 }

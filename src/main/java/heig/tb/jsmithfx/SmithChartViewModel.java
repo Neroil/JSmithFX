@@ -24,6 +24,15 @@ import java.util.stream.Collectors;
 
 public final class SmithChartViewModel {
 
+    private final IntegerProperty dpTableSelIndex = new SimpleIntegerProperty(-1);
+    public ReadOnlyIntegerProperty getDpTableSelIndex() {
+        return dpTableSelIndex;
+    }
+
+    public void setDpTableSelIndex(int dpTableSelIndex) {
+        this.dpTableSelIndex.set(dpTableSelIndex);
+    }
+
     private static class Holder {
         private static final SmithChartViewModel INSTANCE = new SmithChartViewModel();
     }
@@ -89,7 +98,10 @@ public final class SmithChartViewModel {
     private double freqRangeMin;
     private double freqRangeMax;
     // S1P Load option
-    private boolean useS1PAsLoad = false;
+    private BooleanProperty useS1PAsLoad = new SimpleBooleanProperty(false);
+    public boolean isShowS1PAsLoad() {
+        return useS1PAsLoad.get();
+    }
     // Sweep stuff
     private double currentSweepMin = 1e6;
     private double currentSweepMax = 100e6;
@@ -135,7 +147,7 @@ public final class SmithChartViewModel {
 
         // When the list of derived impedances changes, automatically update the gamma values.
         dataPoints.addListener((ListChangeListener<DataPoint>) _ -> {
-            if (useS1PAsLoad) recalculateS1PChain();
+            if (useS1PAsLoad.get()) recalculateS1PChain();
             recalculateAllGammas();
         });
 
@@ -275,10 +287,10 @@ public final class SmithChartViewModel {
     }
 
     public void setUseS1PAsLoad(Boolean newVal) {
-        if (this.useS1PAsLoad == newVal) return; //No change
+        if (this.useS1PAsLoad.get() == newVal) return; //No change
 
-        this.useS1PAsLoad = newVal;
-        if (useS1PAsLoad) {
+        this.useS1PAsLoad.set(newVal);
+        if (this.useS1PAsLoad.get()) {
             // Save current state
             savedFrequency = frequency.get();
             savedLoadImpedance = loadImpedance.get();
@@ -293,7 +305,7 @@ public final class SmithChartViewModel {
     }
 
     public void updateMiddleRangePoint() {
-        if (!useS1PAsLoad) return; //Only update if we are using S1P as load
+        if (!this.useS1PAsLoad.get()) return; //Only update if we are using S1P as load
 
         if (s1pDataPoints.isEmpty()) return; //No S1P data to use
         int s1pIndexMin = getS1PIndexAtRange(freqRangeMin);
@@ -478,7 +490,7 @@ public final class SmithChartViewModel {
         return (zNorm.addReal(-1)).dividedBy(zNorm.addReal(1));
     }
 
-    void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position) {
+    public void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position) {
         addComponent(type, value, 0.0, 0.0, position, null);
     }
 
@@ -496,9 +508,9 @@ public final class SmithChartViewModel {
     }
 
     private void recalculateS1PChain() {
-        if (!useS1PAsLoad || s1pDataPoints.isEmpty()) {
+        if (!this.useS1PAsLoad.get() || s1pDataPoints.isEmpty()) {
             transformedS1PPoints.clear();
-            if (!useS1PAsLoad) transformedS1PPoints.setAll(s1pDataPoints);
+            if (!this.useS1PAsLoad.get()) transformedS1PPoints.setAll(s1pDataPoints);
             cachedS1PPoints.clear(); // Just in case
             return;
         }
@@ -551,7 +563,7 @@ public final class SmithChartViewModel {
     /**
      * Adds a new component to the circuit and triggers a full recalculation.
      */
-    void addComponent(CircuitElement.ElementType type, double value, double characteristicImpedance, double permittivity, CircuitElement.ElementPosition position, Line.StubType stubType) {
+    public void addComponent(CircuitElement.ElementType type, double value, double characteristicImpedance, double permittivity, CircuitElement.ElementPosition position, Line.StubType stubType) {
         CircuitElement newElem = switch (type) {
             case INDUCTOR -> new Inductor(value, position, type);
             case CAPACITOR -> new Capacitor(value, position, type);

@@ -3,7 +3,11 @@ package heig.tb.jsmithfx.logic;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.utilities.Complex;
+import heig.tb.jsmithfx.utilities.DialogUtils;
+import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.util.Pair;
+
+import java.util.Optional;
 
 public class SmithCalculator {
 
@@ -133,5 +137,159 @@ public class SmithCalculator {
         // Correct the direction if the last gamma's imag was negative for the resistor
         if(type == CircuitElement.ElementType.RESISTOR) expectedDirection *= (previousGamma.imag() < 0) ? -1 : 1;
         return expectedDirection;
+    }
+
+    /**
+     * Calculates the value of the component we're plotting on the chart
+     *
+     * @param gamma          position of the component on the chart
+     * @param startImpedance where the last component was
+     * @param type           of the component (resistor, capacitor, etc.)
+     * @param position       if the component is in series or parallel
+     * @param z0             the base impedance
+     * @param frequency      of the circuit
+     * @return the calculated value of the component
+     */
+    public static Double calculateComponentValue(Complex gamma,
+                                                 Complex startImpedance,
+                                                 CircuitElement.ElementType type,
+                                                 CircuitElement.ElementPosition position,
+                                                 Line.StubType stubType,
+                                                 double z0,
+                                                 double frequency,
+                                                 Optional<Double> z0_line,
+                                                 Optional<Double> permittivity) {
+        final double EPS = 1e-12;
+
+        if (gamma == null || startImpedance == null) return null;
+        if (!(Double.isFinite(z0) && z0 > 0)) return null;
+        if (!(Double.isFinite(frequency) && frequency > 0)) return null;
+
+        double omega = 2.0 * Math.PI * frequency;
+        Complex one = new Complex(1, 0);
+
+        // Protect against division by (1 - gamma) ~= 0
+        Complex denom = one.subtract(gamma);
+        if (Math.hypot(denom.real(), denom.imag()) < EPS) return null;
+
+        Complex zNormFinal = one.add(gamma).dividedBy(denom);
+        Complex finalImpedance = zNormFinal.multiply(z0);
+
+        double componentValue = 0;
+
+        if (type == CircuitElement.ElementType.LINE) {
+            //Get the current values of εr and z_L
+            try {
+                if (z0_line.isEmpty() || permittivity.isEmpty() || z0_line.get() <= 0 || permittivity.get() < 1.0 ) return null; // Basic validation
+            } catch (NumberFormatException e) {
+                DialogUtils.showErrorAlert( "Invalid Input", "Please make sure the z0 and εr field are filled", SmithUtilities.getActiveStage());
+                return null; // A value hasn't been entered yet
+            }
+
+            final double C = 299792458.0; // Speed of light in m/s
+            // β = 2πf/pv, will be used for the calculations in the two branches
+            double phase_velocity = C / Math.sqrt(permittivity.get());
+            double beta = (2.0 * Math.PI * frequency) / phase_velocity;
+
+            if (beta < EPS) return null; // Avoid division by zero
+
+            if (stubType == Line.StubType.NONE) {
+                // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j2βL)
+                // Multiplying by e^(-j2βL) rotates Γ by an angle -2βL on the complex plane.
+                // So the physical length L can be recovered from the change in angle of Γ.
+
+                // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j2βL))
+                // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
+                Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line.get(), 0)).dividedBy(startImpedance.add(new Complex(z0_line.get(), 0)));
+                Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line.get(), 0)).dividedBy(finalImpedance.add(new Complex(z0_line.get(), 0)));
+
+                // Calculate the change in angle. (Δθ)
+                double startAngle = gamma_start_line.angle();
+                double finalAngle = gamma_final_line.angle();
+                double angleChange = finalAngle - startAngle;
+
+                // The rotation for adding a line is always clockwise.
+                if (angleChange > 0) {
+                    angleChange -= 2.0 * Math.PI;
+                }
+                // L = ∣Δθ∣ / 2β
+                double electricalRotation = Math.abs(angleChange);
+
+                // Avoid division by zero if beta is somehow zero
+                if (Math.abs(beta) < EPS) return null;
+
+                // Calculate the final physical length.
+                componentValue = electricalRotation / (2.0 * beta);
+            } else {
+                // Here we use the basic formula of Z_in = Z_0 * (Z_L + jZ_0tan(βL)) / (Z_0 + jZ_Ltan(βL))
+                // If it's a short circuit, Z_L becomes 0 so Z_in = jZ_0tan(βL)
+                // If it's an open circuit, Z_L becomes infinity, so we simplify the equation to get Z_in = Z_0 / jtan(βL)
+
+                // Since a stub is in parallel, we have to use admittance
+                Complex yStart = startImpedance.inverse();
+                Complex yFinal = finalImpedance.inverse();
+
+                Complex yDiff = yFinal.subtract(yStart);
+                double targetSusceptance = yDiff.imag();
+                double y0 = 1.0 / z0_line.get();
+                double L;
+
+                if (stubType == Line.StubType.SHORT) {
+                    // For a short-circuited stub:
+                    // Y_in = 1 / (j Z_0 tan(βL)) = -j Y_0 / tan(βL)
+                    // So, tan(βL) = -Y_0 / (j Y_in) => for susceptance B, tan(βL) = -Y_0 / B
+                    // L = arctan(-Y_0 / targetSusceptance) / β
+                    L = Math.atan(-y0 / targetSusceptance) / beta;
+                } else {
+                    // For an open-circuited stub:
+                    // Y_in = j Y_0 tan(βL)
+                    // So, tan(βL) = B / Y_0
+                    // L = arctan(targetSusceptance / y0) / β
+                    L = Math.atan(targetSusceptance / y0) / beta;
+                }
+                // Get a positive value
+                while (L < 0) {
+                    L += Math.PI / beta;
+                }
+                componentValue = L;
+            }
+        }
+
+        //Logic for "normal" elements (RLC)
+        if (position == CircuitElement.ElementPosition.SERIES) {
+            Complex addedImpedance = finalImpedance.subtract(startImpedance);
+            double imagZ = addedImpedance.imag();
+
+            if (type == CircuitElement.ElementType.INDUCTOR) {
+                componentValue = imagZ / omega; // L = Im(Z) / ω
+            } else if (type == CircuitElement.ElementType.CAPACITOR) {
+                if (Math.abs(imagZ) < EPS) return null;
+                componentValue = -1.0 / (imagZ * omega); // C = -1/(Im(Z)*ω)
+            } else if (type == CircuitElement.ElementType.RESISTOR) {
+                componentValue = addedImpedance.real(); // R = Re(Z)
+            }
+        } else { // PARALLEL
+            if (Math.hypot(startImpedance.real(), startImpedance.imag()) < EPS ||
+                    Math.hypot(finalImpedance.real(), finalImpedance.imag()) < EPS) {
+                return null;
+            }
+
+            Complex startY = one.dividedBy(startImpedance);
+            Complex finalY = one.dividedBy(finalImpedance);
+            Complex addedY = finalY.subtract(startY);
+            double imagY = addedY.imag();
+
+            if (type == CircuitElement.ElementType.INDUCTOR) {
+                if (Math.abs(imagY) < EPS) return null;
+                componentValue = -1.0 / (imagY * omega); // L = -1/(Im(Y)*ω)
+            } else if (type == CircuitElement.ElementType.CAPACITOR) {
+                componentValue = imagY / omega; // C = Im(Y)/ω
+            } else if (type == CircuitElement.ElementType.RESISTOR) {
+                componentValue = 1.0 / addedY.real(); // R = 1/Re(ΔY)
+            }
+        }
+
+        if (!Double.isFinite(componentValue) || componentValue <= 0.0) return null;
+        return componentValue;
     }
 }
