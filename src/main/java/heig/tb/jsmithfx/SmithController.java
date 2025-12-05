@@ -1,5 +1,6 @@
 package heig.tb.jsmithfx;
 
+import heig.tb.jsmithfx.logic.SmithCalculator;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Capacitor;
@@ -225,7 +226,7 @@ public class SmithController {
      */
     @FXML
     public void initialize() {
-        this.viewModel = new SmithChartViewModel();
+        this.viewModel = SmithChartViewModel.getInstance();
         this.smithChartRenderer = new SmithChartRenderer(smithCanvas, cursorCanvas);
         circuitRenderer = new CircuitRenderer(circuitCanvas);
 
@@ -1231,9 +1232,9 @@ public class SmithController {
         };
 
         // Get direction (counter-clockwise or clockwise)
-        int localDirectionMultiplier = SmithUtilities.getExpectedDirection(tempElement, startGamma);
+        int localDirectionMultiplier = SmithCalculator.getExpectedDirection(tempElement, startGamma);
 
-        Pair<Complex, Double> arcParams = SmithUtilities.getArcParameters(startImpedance, tempElement, z0);
+        Pair<Complex, Double> arcParams = SmithCalculator.getArcParameters(startImpedance, tempElement, z0);
         Complex localCircleCenter = arcParams.getKey();
         double localCircleRadius = arcParams.getValue();
 

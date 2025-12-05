@@ -1,6 +1,7 @@
 package heig.tb.jsmithfx.view;
 
 import heig.tb.jsmithfx.SmithChartViewModel;
+import heig.tb.jsmithfx.logic.SmithCalculator;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.utilities.Complex;
@@ -442,8 +443,8 @@ public class SmithChartRenderer {
 
             // For each transition, determine the arc's circle center
             CircuitElement element = viewModel.circuitElements.get(i - 1);
-            Complex startImpedance = SmithUtilities.gammaToImpedance(previousGamma, viewModel.zo.get());
-            Pair<Complex, Double> arcParams = SmithUtilities.getArcParameters(startImpedance, element, viewModel.zo.get());
+            Complex startImpedance = SmithCalculator.gammaToImpedance(previousGamma, viewModel.zo.get());
+            Pair<Complex, Double> arcParams = SmithCalculator.getArcParameters(startImpedance, element, viewModel.zo.get());
 
             Complex arcCenter = arcParams.getKey();
             double arcRadius = arcParams.getValue() * mainRadius;
@@ -464,7 +465,7 @@ public class SmithChartRenderer {
             ));
 
             // Check which direction the arc should be drawn in
-            int expectedDirection = SmithUtilities.getExpectedDirection(element, previousGamma);
+            int expectedDirection = SmithCalculator.getExpectedDirection(element, previousGamma);
 
             // Calculate the raw angle difference
             double arcExtent = endAngle - startAngle;

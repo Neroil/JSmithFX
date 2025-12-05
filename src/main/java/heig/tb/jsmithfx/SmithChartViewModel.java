@@ -22,7 +22,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class SmithChartViewModel {
+public final class SmithChartViewModel {
+
+    private static class Holder {
+        private static final SmithChartViewModel INSTANCE = new SmithChartViewModel();
+    }
+
+    public static SmithChartViewModel getInstance() {
+        return Holder.INSTANCE;
+    }
 
     public final DoubleProperty zo = new SimpleDoubleProperty();
     public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>();
@@ -69,6 +77,8 @@ public class SmithChartViewModel {
     // Circle display options
     private final ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     private final ReadOnlyDoubleWrapper s1pPointSize = new ReadOnlyDoubleWrapper(4.0);
+    // Selected element for tuning
+    private final ObjectProperty<CircuitElement> selectedElement = new SimpleObjectProperty<>();
     // Display options
     private boolean showSweepInDataPoints = false;
     private boolean showS1PInDataPoints = false;
@@ -84,31 +94,10 @@ public class SmithChartViewModel {
     private double currentSweepMin = 1e6;
     private double currentSweepMax = 100e6;
     private int currentSweepCount = 10;
-    // Selected element for tuning
-    private final ObjectProperty<CircuitElement> selectedElement = new SimpleObjectProperty<>();
     // Storing the original value in case the client cancel or does something else
     private double originalTuningValue;
 
-    public ReadOnlyObjectProperty<CircuitElement> selectedElementProperty() {
-        return selectedElement;
-    }
-
-    public void selectElement(CircuitElement element) {
-        // Cancel if the user switch from one to another element without applying
-        if(selectedElement.get() != null){
-            cancelTuningAdjustments();
-        }
-
-        if (element != null && circuitElements.contains(element)) {
-            selectedElement.set(element);
-            // Save the state BEFORE tuning starts
-            originalTuningValue = element.getRealWorldValue();
-        } else {
-            selectedElement.set(null);
-        }
-    }
-
-    public SmithChartViewModel() {
+    private SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> {
             zoText.set(zo.get() + " Ω");
@@ -171,6 +160,25 @@ public class SmithChartViewModel {
 
         // Ensure combined points are initialized
         updateCombinedDataPoints();
+    }
+
+    public ReadOnlyObjectProperty<CircuitElement> selectedElementProperty() {
+        return selectedElement;
+    }
+
+    public void selectElement(CircuitElement element) {
+        // Cancel if the user switch from one to another element without applying
+        if (selectedElement.get() != null) {
+            cancelTuningAdjustments();
+        }
+
+        if (element != null && circuitElements.contains(element)) {
+            selectedElement.set(element);
+            // Save the state BEFORE tuning starts
+            originalTuningValue = element.getRealWorldValue();
+        } else {
+            selectedElement.set(null);
+        }
     }
 
     public ReadOnlyDoubleProperty s1pPointSizeProperty() {
@@ -815,6 +823,7 @@ public class SmithChartViewModel {
 
     /**
      * Called by the Slider in the View to update the value live.
+     *
      * @param newValue The new value from the slider
      */
     public void updateTunedElementValue(double newValue) {
