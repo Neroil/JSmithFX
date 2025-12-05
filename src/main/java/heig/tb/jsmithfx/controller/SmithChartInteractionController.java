@@ -15,13 +15,9 @@ import heig.tb.jsmithfx.utilities.SmithUtilities;
 import heig.tb.jsmithfx.view.SmithChartRenderer;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
-import javafx.fxml.FXML;
 import javafx.geometry.Point2D;
 import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
@@ -36,13 +32,27 @@ import java.util.function.Supplier;
 import static heig.tb.jsmithfx.logic.SmithCalculator.calculateComponentValue;
 
 public class SmithChartInteractionController {
+    // Renderer and viewModel
+    private final Pane smithChartPane;
+    private final Canvas smithCanvas;
+    private final Canvas cursorCanvas;
+    // Dépendances Logiciel
+    private final SmithChartViewModel viewModel;
+    private final SmithChartRenderer renderer;
+    // Dépendances UI (Inputs nécessaires pour le calcul et l'affichage live)
+    private final Supplier<CircuitElement.ElementType> typeSupplier;
+    private final Supplier<CircuitElement.ElementPosition> positionSupplier;
+    private final Supplier<Line.StubType> stubTypeSupplier;
+    private final Supplier<Optional<Double>> zoLineSupplier;
+    private final Supplier<Optional<Double>> permittivitySupplier;
+    private final BiConsumer<String, Enum<?>> valueUpdater; // (value, unit)
+    private final Consumer<String> buttonTextUpdater;
     //View State for zooming and panning
     private double currentScale = 1.0;
     private double offsetX = 0.0;
     private double offsetY = 0.0;
     private double lastMouseX = 0.0;
     private double lastMouseY = 0.0;
-
     //Mouse Add related vars
     private Complex startGammaForMouseAdd;
     private Complex startImpedanceForMouseAdd;
@@ -58,24 +68,6 @@ public class SmithChartInteractionController {
     private double lastScreenXForAdd;
     private double lastScreenYForAdd;
     private boolean isProgrammaticallyMovingCursor = false;
-
-    // Renderer and viewModel
-    private final Pane smithChartPane;
-    private final Canvas smithCanvas;
-    private final Canvas cursorCanvas;
-
-    // Dépendances Logiciel
-    private final SmithChartViewModel viewModel;
-    private final SmithChartRenderer renderer;
-
-    // Dépendances UI (Inputs nécessaires pour le calcul et l'affichage live)
-    private final Supplier<CircuitElement.ElementType> typeSupplier;
-    private final Supplier<CircuitElement.ElementPosition> positionSupplier;
-    private final Supplier<Line.StubType> stubTypeSupplier;
-    private final Supplier<Optional<Double>> zoLineSupplier;
-    private final Supplier<Optional<Double>> permittivitySupplier;
-    private final BiConsumer<String, Enum<?>> valueUpdater; // (value, unit)
-    private final Consumer<String> buttonTextUpdater;
 
     public SmithChartInteractionController(
             Pane smithChartPane,
@@ -114,10 +106,12 @@ public class SmithChartInteractionController {
 
     private void setupListeners() {
         // Whenever the preview element changes, re-render the chart
+        viewModel.previewElementS1PProperty().addListener(_ -> renderer.render(viewModel, currentScale, offsetX, offsetY, 0));
         viewModel.previewElementProperty().addListener(_ -> renderer.render(viewModel, currentScale, offsetX, offsetY, 0));
         viewModel.sweepDataPointsProperty().addListener((ListChangeListener<DataPoint>) _ -> {
             renderer.render(viewModel, currentScale, offsetX, offsetY, 0);
         });
+
 
         smithCanvas.setOnScroll(event -> {
             double mouseX = event.getX();
@@ -269,6 +263,7 @@ public class SmithChartInteractionController {
         allowedAngleTravel = null;
         totalAngleTraveled = null;
         viewModel.setDpTableSelIndex(-1);
+        viewModel.clearLiveComponentPreview();
     }
 
     /**
@@ -455,17 +450,13 @@ public class SmithChartInteractionController {
         renderer.renderCursor(viewModel, currentScale, offsetX, offsetY);
         moveCursorToGamma(snappedGammaForMouseAdd);
 
-        //TODO MAKE THE COMPONENTS UPDATE LIVE
-
-        if (viewModel.isShowS1PAsLoad()) { // Ask the ViewModel to update the live preview
-            if (liveValue != null) {
-                if (typeSupplier.get() == CircuitElement.ElementType.LINE) {
-                    if (z0_lineOpt.isPresent() && permittivityOpt.isPresent()) {
-                        viewModel.addLiveComponentPreview(liveValue, z0_lineOpt.get(), permittivityOpt.get(), stubTypeSupplier.get());
-                    }
-                } else
-                    viewModel.addLiveComponentPreview(typeSupplier.get(), liveValue, positionSupplier.get());
-            }
+        if (liveValue != null) {
+            if (typeSupplier.get() == CircuitElement.ElementType.LINE) {
+                if (z0_lineOpt.isPresent() && permittivityOpt.isPresent()) {
+                    viewModel.addLiveComponentPreview(liveValue, z0_lineOpt.get(), permittivityOpt.get(), stubTypeSupplier.get());
+                }
+            } else
+                viewModel.addLiveComponentPreview(typeSupplier.get(), liveValue, positionSupplier.get());
         }
     }
 
@@ -478,7 +469,6 @@ public class SmithChartInteractionController {
     }
 
     public void onAddComponentMouse() {
-
         // If we click on it again, exit the mode.
         if (isAddingMouseComponent) {
             cancelMouseAddComponent();
@@ -510,7 +500,7 @@ public class SmithChartInteractionController {
                 Optional<Double> permittivityOpt = permittivitySupplier.get();
                 Optional<Double> z0_lineOpt = zoLineSupplier.get();
                 Line.StubType stubType = stubTypeSupplier.get();
-                if (z0_lineOpt.isPresent() && permittivityOpt.isPresent()){
+                if (z0_lineOpt.isPresent() && permittivityOpt.isPresent()) {
                     if (stubType == null || stubType == Line.StubType.NONE) {
                         yield new Line(0, z0_lineOpt.get(), permittivityOpt.get());
                     }

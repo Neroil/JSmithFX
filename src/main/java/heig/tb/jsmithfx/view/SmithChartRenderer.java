@@ -413,8 +413,11 @@ public class SmithChartRenderer {
      */
     private void drawImpedancePath(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
 
-        List<Complex> gammas = viewModel.measuresGammaProperty().get();
-        if (gammas == null || gammas.size() < 2) return;
+        List<Complex> gammas = List.copyOf(viewModel.measuresGammaProperty().get());
+        Complex previewGamma = viewModel.getPreviewElementGamma();
+        CircuitElement previewElement = viewModel.previewElementProperty().get();
+
+        if (gammas.size() < 2 && previewGamma == null) return;
 
         double centerX = layout.getCenterX();
         double centerY = layout.getCenterY();
@@ -432,70 +435,83 @@ public class SmithChartRenderer {
 
         Complex previousGamma = gammas.getFirst();
 
+        // Draw existing circuit elements
         for (int i = 1; i < gammas.size(); i++) {
-
             if (i - 1 >= viewModel.circuitElements.size()) {
-                System.out.println("an oopsie has happened apparently");
-                break; // Exit loop if circuitElements is smaller than expected
+                break;
             }
 
             Complex currGamma = gammas.get(i);
-
-            // For each transition, determine the arc's circle center
             CircuitElement element = viewModel.circuitElements.get(i - 1);
-            Complex startImpedance = SmithCalculator.gammaToImpedance(previousGamma, viewModel.zo.get());
-            Pair<Complex, Double> arcParams = SmithCalculator.getArcParameters(startImpedance, element, viewModel.zo.get());
 
-            Complex arcCenter = arcParams.getKey();
-            double arcRadius = arcParams.getValue() * mainRadius;
-
-            // Convert arc center to canvas coordinates
-            double arcCenterX = layout.toScreenX(arcCenter);
-            double arcCenterY = layout.toScreenY(arcCenter);
-
-            // Calculate start and end angles
-            double startAngle = Math.toDegrees(Math.atan2(
-                    previousGamma.imag() - arcCenter.imag(),
-                    previousGamma.real() - arcCenter.real()
-            ));
-
-            double endAngle = Math.toDegrees(Math.atan2(
-                    currGamma.imag() - arcCenter.imag(),
-                    currGamma.real() - arcCenter.real()
-            ));
-
-            // Check which direction the arc should be drawn in
-            int expectedDirection = SmithCalculator.getExpectedDirection(element, previousGamma);
-
-            // Calculate the raw angle difference
-            double arcExtent = endAngle - startAngle;
-
-            // Normalize to the shortest path first (-180 to 180)
-            while (arcExtent <= -180) arcExtent += 360;
-            while (arcExtent > 180) arcExtent -= 360;
-
-            // Correct which path to take
-            if (arcExtent != 0 && Math.signum(arcExtent) != expectedDirection) {
-                // If the shortest path was positive (CCW) but we expected negative (CW), subtract 360.
-                // If the shortest path was negative (CW) but we expected positive (CCW), add 360.
-                arcExtent = (arcExtent > 0) ? arcExtent - 360 : arcExtent + 360;
-            }
-
-            // Draw the arc
-            gc.strokeArc(
-                    arcCenterX - arcRadius,
-                    arcCenterY - arcRadius,
-                    arcRadius * 2,
-                    arcRadius * 2,
-                    startAngle,
-                    arcExtent,
-                    ArcType.OPEN
-            );
-
+            drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, currGamma, element);
             previousGamma = currGamma;
         }
 
+        // Draw preview arc for the component being added
+        if (previewGamma != null && previewElement != null) {
+            gc.setStroke(Color.ORANGE);
+            gc.setLineDashes(5, 5);
+
+            Complex lastGamma = gammas.isEmpty() ? new Complex(0, 0) : gammas.getLast();
+            drawArcSegment(gc, viewModel, layout, mainRadius, lastGamma, previewGamma, previewElement);
+
+            gc.setLineDashes(null);
+        }
+
         gc.restore();
+    }
+
+    private void drawArcSegment(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout,
+                                double mainRadius, Complex startGamma, Complex endGamma, CircuitElement element) {
+        Complex startImpedance = SmithCalculator.gammaToImpedance(startGamma, viewModel.zo.get());
+        Pair<Complex, Double> arcParams = SmithCalculator.getArcParameters(startImpedance, element, viewModel.zo.get());
+
+        Complex arcCenter = arcParams.getKey();
+        double arcRadius = arcParams.getValue() * mainRadius;
+
+        // Convert arc center to canvas coordinates
+        double arcCenterX = layout.toScreenX(arcCenter);
+        double arcCenterY = layout.toScreenY(arcCenter);
+
+        // Calculate start and end angles
+        double startAngle = Math.toDegrees(Math.atan2(
+                startGamma.imag() - arcCenter.imag(),
+                startGamma.real() - arcCenter.real()
+        ));
+
+        double endAngle = Math.toDegrees(Math.atan2(
+                endGamma.imag() - arcCenter.imag(),
+                endGamma.real() - arcCenter.real()
+        ));
+
+        // Check which direction the arc should be drawn in
+        int expectedDirection = SmithCalculator.getExpectedDirection(element, startGamma);
+
+        // Calculate the raw angle difference
+        double arcExtent = endAngle - startAngle;
+
+        // Normalize to the shortest path first (-180 to 180)
+        while (arcExtent <= -180) arcExtent += 360;
+        while (arcExtent > 180) arcExtent -= 360;
+
+        // Correct which path to take
+        if (arcExtent != 0 && Math.signum(arcExtent) != expectedDirection) {
+            // If the shortest path was positive (CCW) but we expected negative (CW), subtract 360.
+            // If the shortest path was negative (CW) but we expected positive (CCW), add 360.
+            arcExtent = (arcExtent > 0) ? arcExtent - 360 : arcExtent + 360;
+        }
+
+        // Draw the arc
+        gc.strokeArc(
+                arcCenterX - arcRadius,
+                arcCenterY - arcRadius,
+                arcRadius * 2,
+                arcRadius * 2,
+                startAngle,
+                arcExtent,
+                ArcType.OPEN
+        );
     }
 
     /**

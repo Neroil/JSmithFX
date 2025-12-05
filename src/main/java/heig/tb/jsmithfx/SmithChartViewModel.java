@@ -82,7 +82,7 @@ public final class SmithChartViewModel {
     private final ReadOnlyListWrapper<DataPoint> previewTransformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     private final Stack<UndoRedoEntry> undoStack = new Stack<>();
     private final Stack<UndoRedoEntry> redoStack = new Stack<>();
-    private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
+    private final ObjectProperty<CircuitElement> previewElementS1P = new SimpleObjectProperty<>();
     // Circle display options
     private final ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
     private final ReadOnlyDoubleWrapper s1pPointSize = new ReadOnlyDoubleWrapper(4.0);
@@ -108,6 +108,33 @@ public final class SmithChartViewModel {
     private int currentSweepCount = 10;
     // Storing the original value in case the client cancel or does something else
     private double originalTuningValue;
+    // Preview while adding new component
+    private ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
+    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() {
+        return previewElement;
+    }
+
+    public Complex getPreviewElementGamma() {
+        CircuitElement preview = previewElement.get();
+        if (preview == null) return null;
+
+        // Get the last impedance in the chain (already calculated)
+        Complex currentImpedance = getLastImpedance();
+        if (currentImpedance == null) return null;
+
+        double freq = frequency.get();
+        Complex finalImpedance;
+
+        // Apply only the preview element
+        if (preview.getType() == CircuitElement.ElementType.LINE) {
+            finalImpedance = ((Line) preview).calculateImpedance(currentImpedance, freq);
+        } else {
+            Complex elementImpedance = preview.getImpedance(freq);
+            finalImpedance = calculateNextImpedance(currentImpedance, elementImpedance, preview.getElementPosition());
+        }
+
+        return calculateGamma(finalImpedance);
+    }
 
     private SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
@@ -153,8 +180,8 @@ public final class SmithChartViewModel {
 
         s1pDataPoints.addListener((ListChangeListener<DataPoint>) _ -> recalculateS1PChain());
 
-        previewElement.addListener((_, _, _) -> {
-            if (previewElement.get() == null) {
+        previewElementS1P.addListener((_, _, _) -> {
+            if (previewElementS1P.get() == null) {
                 previewTransformedS1PPoints.clear();
                 cachedS1PPoints.clear();
                 return;
@@ -205,8 +232,8 @@ public final class SmithChartViewModel {
         return combinedDataPoints.getReadOnlyProperty();
     }
 
-    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() {
-        return previewElement;
+    public ReadOnlyObjectProperty<CircuitElement> previewElementS1PProperty() {
+        return previewElementS1P;
     }
 
     public ReadOnlyListProperty<Double> vswrCirclesProperty() {
@@ -264,8 +291,10 @@ public final class SmithChartViewModel {
 
     public void addLiveComponentPreview(Double liveValue, double z0Line, double permittivity, Line.StubType stubType) {
         if (stubType == null || stubType == Line.StubType.NONE) {
+            if (isShowS1PAsLoad()) previewElementS1P.set(new Line(liveValue, z0Line, permittivity));
             previewElement.set(new Line(liveValue, z0Line, permittivity));
         } else {
+            if (isShowS1PAsLoad()) previewElementS1P.set(new Line(liveValue, z0Line, permittivity, stubType));
             previewElement.set(new Line(liveValue, z0Line, permittivity, stubType));
         }
     }
@@ -277,10 +306,12 @@ public final class SmithChartViewModel {
             case RESISTOR -> new Resistor(liveValue, position, type);
             default -> null;
         };
+        if (isShowS1PAsLoad()) previewElementS1P.set(element);
         previewElement.set(element);
     }
 
     public void clearLiveComponentPreview() {
+        previewElementS1P.set(null);
         previewElement.set(null);
         cachedS1PPoints.clear();
         recalculateS1PChain();
@@ -516,7 +547,7 @@ public final class SmithChartViewModel {
         }
 
         List<DataPoint> newTransformedPoints = new ArrayList<>();
-        boolean isPreviewing = previewElement.get() != null;
+        boolean isPreviewing = previewElementS1P.get() != null;
 
         List<DataPoint> sourcePoints;
 
@@ -535,7 +566,7 @@ public final class SmithChartViewModel {
 
         if (isPreviewing) {
             elementsToApply = new ArrayList<>();
-            elementsToApply.add(previewElement.get()); // Only the preview element
+            elementsToApply.add(previewElementS1P.get()); // Only the preview element
         } else {
             elementsToApply = circuitElements.get();
         }

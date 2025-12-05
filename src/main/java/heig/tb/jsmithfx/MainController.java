@@ -1,12 +1,9 @@
 package heig.tb.jsmithfx;
 
-import heig.tb.jsmithfx.logic.SmithCalculator;
+import heig.tb.jsmithfx.controller.SmithChartInteractionController;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
-import heig.tb.jsmithfx.model.Element.Capacitor;
-import heig.tb.jsmithfx.model.Element.Inductor;
 import heig.tb.jsmithfx.model.Element.Line;
-import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.*;
 import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
@@ -14,23 +11,16 @@ import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import heig.tb.jsmithfx.utilities.dialogs.*;
 import heig.tb.jsmithfx.view.CircuitRenderer;
-import heig.tb.jsmithfx.view.SmithChartRenderer;
-import heig.tb.jsmithfx.controller.SmithChartInteractionController;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
-import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
-import javafx.scene.robot.Robot;
 import javafx.stage.FileChooser;
 import javafx.util.Pair;
 import org.controlsfx.control.RangeSlider;
@@ -382,7 +372,7 @@ public class MainController {
                 double freqInHz = SmithUtilities.parseValueWithUnit(text, FrequencyUnit.values());
                 frequencyRangeSlider.setLowValue(freqInHz);
             } catch (IllegalArgumentException e) {
-                DialogUtils.showErrorAlert("Error in input","Invalid frequency input: " + e.getMessage(), minFreqTextField.getScene().getWindow());
+                DialogUtils.showErrorAlert("Error in input", "Invalid frequency input: " + e.getMessage(), minFreqTextField.getScene().getWindow());
             }
         });
 
@@ -473,20 +463,12 @@ public class MainController {
     private void setupResizableCanvas() {
         circuitPane.setMinSize(0, 0);
 
-        // --- CIRCUIT RENDERING ---
         circuitCanvas.widthProperty().bind(circuitPane.widthProperty());
         circuitCanvas.heightProperty().bind(circuitPane.heightProperty());
 
         circuitCanvas.widthProperty().addListener(_ -> circuitRenderer.render(viewModel));
         circuitCanvas.heightProperty().addListener(_ -> circuitRenderer.render(viewModel));
-
-
     }
-
-
-
-
-
 
     /**
      * Populates ComboBoxes and sets default values.
@@ -782,7 +764,7 @@ public class MainController {
 
                 smithInteractionController.redrawSmithCanvas();
             } catch (IllegalArgumentException e) {
-                DialogUtils.showErrorAlert("Can't open file","Invalid S1P file: " + e.getMessage(), smithCanvas.getScene().getWindow());
+                DialogUtils.showErrorAlert("Can't open file", "Invalid S1P file: " + e.getMessage(), smithCanvas.getScene().getWindow());
             }
         }
     }
@@ -825,7 +807,7 @@ public class MainController {
         if (lastDataPoint == null) {
             DialogUtils.showErrorAlert("Sweep error",
                     "No data point available to base the sweep on. Please add a data point first."
-            , stage);
+                    , stage);
             return;
         }
 
@@ -866,7 +848,7 @@ public class MainController {
 
     public void onExportSweepToS1P() {
         if (viewModel.sweepDataPointsProperty().isEmpty()) {
-            DialogUtils.showErrorAlert("Export error","No sweep data points to export.", smithCanvas.getScene().getWindow());
+            DialogUtils.showErrorAlert("Export error", "No sweep data points to export.", smithCanvas.getScene().getWindow());
             return;
         }
         var stage = smithCanvas.getScene().getWindow();
