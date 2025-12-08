@@ -13,6 +13,7 @@ public class DataPoint {
     private final SimpleObjectProperty<Complex> gamma;
     private final SimpleDoubleProperty vswr;
     private final SimpleDoubleProperty returnLoss;
+    private final SimpleDoubleProperty qualityFactor;
 
     public DataPoint(double frequency, String label, Complex impedance, Complex gamma, double vswr, double returnLoss) {
         this.frequency = new SimpleDoubleProperty(frequency);
@@ -21,6 +22,10 @@ public class DataPoint {
         this.gamma = new SimpleObjectProperty<>(gamma);
         this.vswr = new SimpleDoubleProperty(vswr);
         this.returnLoss = new SimpleDoubleProperty(returnLoss);
+        // Quality Factor Calculation
+        double realPart = impedance.real();
+        double quality = (realPart == 0) ? 0 : Math.abs(impedance.imag()) / realPart;
+        this.qualityFactor = new SimpleDoubleProperty(quality);
     }
 
     // JavaFX Property Accessors
@@ -30,6 +35,7 @@ public class DataPoint {
     public SimpleObjectProperty<Complex> gammaProperty() { return gamma; }
     public SimpleDoubleProperty vswrProperty() { return vswr; }
     public SimpleDoubleProperty returnLossProperty() { return returnLoss; }
+    public SimpleDoubleProperty qualityFactorProperty() { return qualityFactor; }
 
     // Standard Getters
     public double getFrequency() { return frequency.get(); }
@@ -38,6 +44,7 @@ public class DataPoint {
     public Complex getGamma() { return gamma.get(); }
     public double getVswr() { return vswr.get(); }
     public double getReturnLoss() { return returnLoss.get(); }
+    public double getQualityFactor() { return qualityFactor.get(); }
 
     @Override
     public String toString() {

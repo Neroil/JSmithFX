@@ -271,6 +271,7 @@
                                                 <TableColumn fx:id="vswrColumn" prefWidth="75.0" text="VSWR" />
                                                 <TableColumn fx:id="returnLossColumn" prefWidth="150.0" text="Return Loss (dB)" />
                                                 <TableColumn fx:id="frequencyColumn" prefWidth="90.0" text="Frequency" />
+                                                <TableColumn fx:id="qualityFactorColumn" prefWidth="90.0" text="Q" />
                                                 <TableColumn fx:id="deleteColumn" prefWidth="50.0" text="Delete" />
                                             </columns>
                                         </TableView>

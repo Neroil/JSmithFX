@@ -179,6 +179,8 @@ public class MainController {
     private Button applyTuningButton;
     @FXML
     private Button cancelTuningButton;
+    @FXML
+    private TableColumn<DataPoint, Number> qualityFactorColumn;
 
     //Viewmodel
     private SmithChartViewModel viewModel;
@@ -550,6 +552,19 @@ public class MainController {
             );
             String display = toDisplay.getValue() + " " + toDisplay.getKey().toString();
             return new javafx.beans.property.SimpleStringProperty(display);
+        });
+        qualityFactorColumn.setCellValueFactory(cellData -> cellData.getValue().qualityFactorProperty());
+
+        qualityFactorColumn.setCellFactory(_ -> new TableCell<>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", item.doubleValue()));
+                }
+            }
         });
 
         impedanceColumn.setCellFactory(column -> new TableCell<>() {
