@@ -36,6 +36,8 @@ public class MainController {
 
     // FXML Bindings
     @FXML
+    private TitledPane addComponentText;
+    @FXML
     private VBox appBox;
     @FXML
     private Label returnLossLabel;
@@ -273,14 +275,16 @@ public class MainController {
             }
         });
 
-        viewModel.selectedElementProperty().addListener((_, _, newValue) -> {
-            if (newValue != null) {
+        viewModel.selectedElementProperty().addListener((_, _, selectedElement) -> {
+            if (selectedElement != null) {
                 tuningPane.setVisible(true);
                 tuningPane.setManaged(true);
-                setupTuningPaneForElement(newValue);
+                setupTuningPaneForElement(selectedElement);
+                setupModifyElement(selectedElement);
             } else {
                 tuningPane.setVisible(false);
                 tuningPane.setManaged(false);
+                setupAddElement();
             }
             circuitRenderer.render(viewModel);
 
@@ -451,14 +455,44 @@ public class MainController {
         });
     }
 
+    private void setupModifyElement(CircuitElement el) {
+        viewModel.isModifyingComponent.set(true);
+        addComponentText.setText("Modify Component");
+        addButton.setText("Apply");
+        addMouseButton.setText("Mouse edit");
+        var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(el.getRealWorldValue(), (ElectronicUnit[]) el.getType().getUnitClass().getEnumConstants());
+        valueTextField.setText(toDisplay.getValue());
+        typeComboBox.setValue(el.getType());
+        if (el.getType() != CircuitElement.ElementType.LINE) {
+            positionComboBox.setValue(el.getPosition());
+        } else {
+            Line line = (Line) el;
+            stubComboBox.setValue(line.getStubType());
+            zoInputField.setText(String.valueOf(line.getCharacteristicImpedance()));
+            permittivityField.setText(String.valueOf(line.getPermittivity()));
+        }
+
+        unitComboBox.getSelectionModel().select((Enum<?>) toDisplay.getKey());
+    }
+
+    private void setupAddElement() {
+        viewModel.isModifyingComponent.set(false);
+        addComponentText.setText("Add Component");
+        addButton.setText("Add");
+        addMouseButton.setText("Mouse add");
+        valueTextField.clear();
+        typeComboBox.getSelectionModel().selectFirst();
+        unitComboBox.getSelectionModel().selectFirst();
+    }
+
     private void setupTuningPaneForElement(CircuitElement el) {
         var value = el.getRealWorldValue();
         var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(value, (ElectronicUnit[]) el.getType().getUnitClass().getEnumConstants());
         tuningValueField.setText(toDisplay.getValue());
         tuningUnitLabel.setText(toDisplay.getKey().toString());
-        // Set a range to +-20%
-        tuningSlider.setMin(value * 0.8);
-        tuningSlider.setMax(value * 1.2);
+        // Set a range to +-50%
+        tuningSlider.setMin(value * 0.5);
+        tuningSlider.setMax(value * 1.5);
         tuningSlider.setValue(value);
     }
 

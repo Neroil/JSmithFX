@@ -456,7 +456,7 @@ public class SmithChartRenderer {
         }
 
         // Draw preview arc for the component being added
-        if (previewGamma != null && previewElement != null) {
+        if (previewGamma != null && previewElement != null && !viewModel.isModifyingComponent.get()) {
             gc.setStroke(Color.ORANGE);
             gc.setLineDashes(5, 5);
 

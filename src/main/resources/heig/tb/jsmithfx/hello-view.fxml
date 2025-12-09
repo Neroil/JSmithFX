@@ -190,7 +190,7 @@
                                         </HBox>
                                     </VBox>
                                 </TitledPane>
-                                <TitledPane animated="false" text="Add Component">
+                                <TitledPane fx:id="addComponentText" animated="false" text="Add Component">
                                     <GridPane hgap="10.0" vgap="10.0">
                                         <padding>
                                             <Insets top="10.0" />

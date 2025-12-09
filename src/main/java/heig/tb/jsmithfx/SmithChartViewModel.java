@@ -24,23 +24,6 @@ import java.util.stream.Collectors;
 
 public final class SmithChartViewModel {
 
-    private final IntegerProperty dpTableSelIndex = new SimpleIntegerProperty(-1);
-    public ReadOnlyIntegerProperty getDpTableSelIndex() {
-        return dpTableSelIndex;
-    }
-
-    public void setDpTableSelIndex(int dpTableSelIndex) {
-        this.dpTableSelIndex.set(dpTableSelIndex);
-    }
-
-    private static class Holder {
-        private static final SmithChartViewModel INSTANCE = new SmithChartViewModel();
-    }
-
-    public static SmithChartViewModel getInstance() {
-        return Holder.INSTANCE;
-    }
-
     public final DoubleProperty zo = new SimpleDoubleProperty();
     public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>();
     public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
@@ -56,6 +39,7 @@ public final class SmithChartViewModel {
     // Ghost cursor
     public final ObjectProperty<Complex> ghostCursorGamma = new SimpleObjectProperty<>();
     public final BooleanProperty showGhostCursor = new SimpleBooleanProperty(false);
+    private final IntegerProperty dpTableSelIndex = new SimpleIntegerProperty(-1);
     private final DoubleProperty frequency = new SimpleDoubleProperty();
     private final ReadOnlyStringWrapper frequencyText = new ReadOnlyStringWrapper("-");
     private final ReadOnlyStringWrapper zoText = new ReadOnlyStringWrapper("-");
@@ -88,6 +72,8 @@ public final class SmithChartViewModel {
     private final ReadOnlyDoubleWrapper s1pPointSize = new ReadOnlyDoubleWrapper(4.0);
     // Selected element for tuning
     private final ObjectProperty<CircuitElement> selectedElement = new SimpleObjectProperty<>();
+    // Modify component logic vars
+    public BooleanProperty isModifyingComponent = new SimpleBooleanProperty(false);
     // Display options
     private boolean showSweepInDataPoints = false;
     private boolean showS1PInDataPoints = false;
@@ -98,10 +84,7 @@ public final class SmithChartViewModel {
     private double freqRangeMin;
     private double freqRangeMax;
     // S1P Load option
-    private BooleanProperty useS1PAsLoad = new SimpleBooleanProperty(false);
-    public boolean isShowS1PAsLoad() {
-        return useS1PAsLoad.get();
-    }
+    private final BooleanProperty useS1PAsLoad = new SimpleBooleanProperty(false);
     // Sweep stuff
     private double currentSweepMin = 1e6;
     private double currentSweepMax = 100e6;
@@ -109,33 +92,7 @@ public final class SmithChartViewModel {
     // Storing the original value in case the client cancel or does something else
     private double originalTuningValue;
     // Preview while adding new component
-    private ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
-    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() {
-        return previewElement;
-    }
-
-    public Complex getPreviewElementGamma() {
-        CircuitElement preview = previewElement.get();
-        if (preview == null) return null;
-
-        // Get the last impedance in the chain (already calculated)
-        Complex currentImpedance = getLastImpedance();
-        if (currentImpedance == null) return null;
-
-        double freq = frequency.get();
-        Complex finalImpedance;
-
-        // Apply only the preview element
-        if (preview.getType() == CircuitElement.ElementType.LINE) {
-            finalImpedance = ((Line) preview).calculateImpedance(currentImpedance, freq);
-        } else {
-            Complex elementImpedance = preview.getImpedance(freq);
-            finalImpedance = calculateNextImpedance(currentImpedance, elementImpedance, preview.getElementPosition());
-        }
-
-        return calculateGamma(finalImpedance);
-    }
-
+    private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
     private SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> {
@@ -201,6 +158,48 @@ public final class SmithChartViewModel {
         updateCombinedDataPoints();
     }
 
+    public static SmithChartViewModel getInstance() {
+        return Holder.INSTANCE;
+    }
+
+    public ReadOnlyIntegerProperty getDpTableSelIndex() {
+        return dpTableSelIndex;
+    }
+
+    public void setDpTableSelIndex(int dpTableSelIndex) {
+        this.dpTableSelIndex.set(dpTableSelIndex);
+    }
+
+    public boolean isShowS1PAsLoad() {
+        return useS1PAsLoad.get();
+    }
+
+    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() {
+        return previewElement;
+    }
+
+    public Complex getPreviewElementGamma() {
+        CircuitElement preview = previewElement.get();
+        if (preview == null) return null;
+
+        // Get the last impedance in the chain (already calculated)
+        Complex currentImpedance = getLastImpedance();
+        if (currentImpedance == null) return null;
+
+        double freq = frequency.get();
+        Complex finalImpedance;
+
+        // Apply only the preview element
+        if (preview.getType() == CircuitElement.ElementType.LINE) {
+            finalImpedance = ((Line) preview).calculateImpedance(currentImpedance, freq);
+        } else {
+            Complex elementImpedance = preview.getImpedance(freq);
+            finalImpedance = calculateNextImpedance(currentImpedance, elementImpedance, preview.getElementPosition());
+        }
+
+        return calculateGamma(finalImpedance);
+    }
+
     public ReadOnlyObjectProperty<CircuitElement> selectedElementProperty() {
         return selectedElement;
     }
@@ -240,7 +239,7 @@ public final class SmithChartViewModel {
         return vswrCircles.getReadOnlyProperty();
     }
 
-    public final ReadOnlyDoubleProperty frequencyProperty() {
+    public ReadOnlyDoubleProperty frequencyProperty() {
         return frequency;
     }
 
@@ -252,7 +251,7 @@ public final class SmithChartViewModel {
         return zoText.getReadOnlyProperty();
     }
 
-    public final ReadOnlyListProperty<DataPoint> s1pDataPointsProperty() {
+    public ReadOnlyListProperty<DataPoint> s1pDataPointsProperty() {
         return s1pDataPoints.getReadOnlyProperty();
     }
 
@@ -600,6 +599,47 @@ public final class SmithChartViewModel {
         }
     }
 
+    public Complex getCurrentInteractionStartImpedance() {
+        // If we are modifying an existing component
+        if (isModifyingComponent.get() && selectedElement.get() != null) {
+            // Find the index of the element we are modifying
+            int index = circuitElements.indexOf(selectedElement.get());
+
+            // Safety check
+            if (index != -1 && index < dataPoints.size()) {
+                return dataPoints.get(index).impedanceProperty().get();
+            }
+        }
+        // If we add a new component, just return the last gamma in the chain
+        return getLastImpedance();
+    }
+
+    public Complex getCurrentInteractionStartGamma() {
+        // 1. If we are modifying an existing component
+        if (isModifyingComponent.get() && selectedElement.get() != null) {
+            // Find the index of the element we are modifying
+            int index = circuitElements.indexOf(selectedElement.get());
+
+            // Safety check
+            if (index != -1 && index < dataPoints.size()) {
+                /*
+                 * LOGIC EXPLANATION:
+                 * dataPoints[0] = Load (Input to Element 0)
+                 * dataPoints[1] = Output of Element 0 (Input to Element 1)
+                 * dataPoints[2] = Output of Element 1 (Input to Element 2)
+                 *
+                 * So, the input (start point) for circuitElements.get(i)
+                 * is simply dataPoints.get(i).
+                 */
+                return dataPoints.get(index).gammaProperty().get();
+            }
+        }
+
+        // 2. If we are adding a NEW component (default behavior)
+        // The start point is the end of the current chain.
+        return getLastGamma();
+    }
+
     /**
      * Adds a new component to the circuit and triggers a full recalculation.
      */
@@ -617,13 +657,27 @@ public final class SmithChartViewModel {
             }
         };
 
-        int index = circuitElements.size();
-        circuitElements.add(newElem);
+        int index;
 
-        // Record the ADD operation
-        undoStack.push(new UndoRedoEntry(Operation.ADD, index, newElem));
+        if (isModifyingComponent.get() && selectedElement.get() != null) {
+            index = circuitElements.indexOf(selectedElement.get());
+            if (index == -1) {
+                System.out.println("Error: Selected element not found in the circuit elements list.");
+                return;
+            }
+            CircuitElement oldElem = circuitElements.get(index);
+            circuitElements.set(index, newElem);
+            undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem));
+        } else {
+            index = circuitElements.size();
+            circuitElements.add(newElem);
+
+            // Record the ADD operation
+            undoStack.push(new UndoRedoEntry(Operation.ADD, index, newElem));
+        }
+
         redoStack.clear(); // New action clears redo history
-
+        selectedElement.set(null); // Clear selection after adding/modifying
         recalculateImpedanceChain();
     }
 
@@ -684,7 +738,6 @@ public final class SmithChartViewModel {
         return measuresGamma.getReadOnlyProperty();
     }
 
-
     private void updateCombinedDataPoints() {
         var combined = FXCollections.observableArrayList(dataPoints);
         if (showS1PInDataPoints) combined.addAll(s1pDataPoints);
@@ -692,13 +745,13 @@ public final class SmithChartViewModel {
         combinedDataPoints.setAll(combined);
     }
 
-
-    // --- Public Properties for Binding ---
-
     public Complex getLastImpedance() {
         if (dataPoints.isEmpty()) return null;
         return dataPoints.getLast().impedanceProperty().get();
     }
+
+
+    // --- Public Properties for Binding ---
 
     /**
      * Undo logic for the components ONLY
@@ -710,11 +763,19 @@ public final class SmithChartViewModel {
 
         if (entry.operation == Operation.ADD) {
             circuitElements.remove(entry.index);
-        } else { // Operation.REMOVE
+        } else if (entry.operation == Operation.REMOVE){ // Operation.REMOVE
             circuitElements.add(entry.index, entry.element);
+        } else if (entry.operation == Operation.MODIFY) {
+            CircuitElement currentElem = circuitElements.get(entry.index);
+            // Revert to the old element
+            circuitElements.set(entry.index, entry.element);
+            // Push to redo with the element we just replaced
+            redoStack.push(new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem));
         }
 
-        redoStack.push(entry);
+        if (entry.operation != Operation.MODIFY) {
+            redoStack.push(entry);
+        }
         recalculateImpedanceChain();
     }
 
@@ -728,11 +789,19 @@ public final class SmithChartViewModel {
 
         if (entry.operation == Operation.ADD) {
             circuitElements.add(entry.index, entry.element);
-        } else { // Operation.REMOVE
+        } else if (entry.operation == Operation.REMOVE) {
             circuitElements.remove(entry.index);
+        } else if (entry.operation == Operation.MODIFY) {
+            CircuitElement currentElem = circuitElements.get(entry.index);
+            // Apply the "redo" element
+            circuitElements.set(entry.index, entry.element);
+            // Push back to undo with the element we just replaced
+            undoStack.push(new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem));
         }
 
-        undoStack.push(entry);
+        if (entry.operation != Operation.MODIFY) {
+            undoStack.push(entry);
+        }
         recalculateImpedanceChain();
     }
 
@@ -781,7 +850,6 @@ public final class SmithChartViewModel {
             Logger.getLogger("Error").log(Level.SEVERE, "Error exporting sweep to S1P: " + e.getMessage());
         }
     }
-
 
     public void setCircleDisplayOptions(List<Double> options) {
         vswrCircles.setAll(options);
@@ -855,7 +923,6 @@ public final class SmithChartViewModel {
         }
     }
 
-
     private Complex propagateThroughElements(Complex startImpedance, double freq, List<CircuitElement> elements) {
         Complex currentImpedance = startImpedance;
         for (CircuitElement element : elements) {
@@ -906,7 +973,11 @@ public final class SmithChartViewModel {
     }
 
     // Undo Redo logic
-    private enum Operation {ADD, REMOVE}
+    private enum Operation {ADD, REMOVE, MODIFY}
+
+    private static class Holder {
+        private static final SmithChartViewModel INSTANCE = new SmithChartViewModel();
+    }
 
     private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
     }

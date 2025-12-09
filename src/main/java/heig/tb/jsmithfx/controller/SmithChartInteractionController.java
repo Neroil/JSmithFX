@@ -470,6 +470,9 @@ public class SmithChartInteractionController {
                     (ElectronicUnit[]) typeSupplier.get().getUnitClass().getEnumConstants()
             );
             valueUpdater.accept(result.getValue(), (Enum<?>) result.getKey());
+
+            // Reuse tuning logic to update visuals
+            viewModel.updateTunedElementValue(liveValue);
         }
 
         viewModel.ghostCursorGamma.set(snappedGammaForMouseAdd); // Update the ghost cursor position
@@ -501,15 +504,17 @@ public class SmithChartInteractionController {
             return;
         }
 
-        Complex lastGamma = viewModel.getLastGamma();
+        Complex lastGamma = viewModel.getCurrentInteractionStartGamma();
         if (lastGamma == null) {
             var stage = smithCanvas.getScene().getWindow();
             DialogUtils.showErrorAlert("Operation Failed", "Cannot add a component without a starting point.", stage);
             return;
         }
 
-        // Store starting impedance/gamma
-        Complex startImpedance = viewModel.getLastImpedance();
+        // Store starting impedance
+        Complex startImpedance = viewModel.getCurrentInteractionStartImpedance();
+
+        if (startImpedance == null) startImpedance = new Complex(0, 0); // Fallback but should not happen
 
         // Get the element's particularities from the UI
         CircuitElement.ElementType type = typeSupplier.get();
