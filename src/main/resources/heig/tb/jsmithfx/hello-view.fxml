@@ -211,7 +211,7 @@
                                         <Label text="Position:" GridPane.rowIndex="2" />
                                         <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                                         <ComboBox fx:id="stubComboBox" prefWidth="200.0" visible="false" GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                                        <HBox spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
+                                        <HBox fx:id="addComponentButtonHBox" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
                                             <Button fx:id="addButton" onAction="#onAddComponent" text="Add" />
                                             <Button fx:id="addMouseButton" onAction="#onAddComponentMouse" text="Mouse add" />
                                         </HBox>

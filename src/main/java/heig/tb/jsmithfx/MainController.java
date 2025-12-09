@@ -33,8 +33,9 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class MainController {
-
     // FXML Bindings
+    @FXML
+    private HBox addComponentButtonHBox;
     @FXML
     private TitledPane addComponentText;
     @FXML
@@ -472,6 +473,13 @@ public class MainController {
             permittivityField.setText(String.valueOf(line.getPermittivity()));
         }
 
+        var deleteButton = new Button("Delete");
+        deleteButton.setOnAction(_ -> { viewModel.removeComponent(el); });
+        // Add delete button to the hbox
+        addComponentButtonHBox.getChildren().clear();
+        addComponentButtonHBox.getChildren().addAll(addButton, addMouseButton, deleteButton);
+
+
         unitComboBox.getSelectionModel().select((Enum<?>) toDisplay.getKey());
     }
 
@@ -483,6 +491,9 @@ public class MainController {
         valueTextField.clear();
         typeComboBox.getSelectionModel().selectFirst();
         unitComboBox.getSelectionModel().selectFirst();
+        // Remove delete button from the hbox
+        addComponentButtonHBox.getChildren().clear();
+        addComponentButtonHBox.getChildren().addAll(addButton, addMouseButton);
     }
 
     private void setupTuningPaneForElement(CircuitElement el) {

@@ -693,6 +693,13 @@ public final class SmithChartViewModel {
             CircuitElement removed = circuitElements.get(index);
             circuitElements.remove(index);
 
+            if (isModifyingComponent.get() && selectedElement.get() != null) {
+                // If we were modifying this element, clear the selection
+                if (removed == selectedElement.get()) {
+                    selectedElement.set(null);
+                }
+            }
+
             // Record the REMOVE operation
             undoStack.push(new UndoRedoEntry(Operation.REMOVE, index, removed));
             redoStack.clear(); // New action clears redo history
@@ -970,6 +977,13 @@ public final class SmithChartViewModel {
             current.setRealWorldValue(originalTuningValue);
         }
         selectedElement.set(null);
+    }
+
+    public void removeComponent(CircuitElement element) {
+        int index = circuitElements.indexOf(element);
+        if (index != -1) {
+            removeComponentAt(index);
+        }
     }
 
     // Undo Redo logic
