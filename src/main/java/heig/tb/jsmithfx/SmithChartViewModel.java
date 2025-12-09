@@ -665,6 +665,7 @@ public final class SmithChartViewModel {
                 System.out.println("Error: Selected element not found in the circuit elements list.");
                 return;
             }
+
             CircuitElement oldElem = circuitElements.get(index);
             circuitElements.set(index, newElem);
             undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem));
@@ -961,11 +962,17 @@ public final class SmithChartViewModel {
 
     /**
      * User clicked "Apply". We commit the change.
-     * Optionally, you can add an Undo entry here for the modification.
      */
     public void applyTuningAdjustments() {
         if (selectedElement.get() == null) return;
+
+        // Record the MODIFY operation
+        int index = circuitElements.indexOf(selectedElement.get());
+        CircuitElement oldElem = circuitElements.get(index).copy();
+        oldElem.setRealWorldValue(originalTuningValue);
+
         selectedElement.set(null);
+        undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem));
     }
 
     /**
