@@ -745,22 +745,18 @@ public class MainController {
                                 )
                         ));
 
-
                 double minFreq = minMax.getKey();
                 double maxFreq = minMax.getValue();
 
-                var minDisplayValue = SmithUtilities.getBestUnitAndFormattedValue(
+                minFreqTextField.setText(SmithUtilities.displayBestUnitAndFormattedValue(
                         minFreq,
                         FrequencyUnit.values()
-                );
-                var maxDisplayValue = SmithUtilities.getBestUnitAndFormattedValue(
+                ));
+
+                maxFreqTextField.setText(SmithUtilities.displayBestUnitAndFormattedValue(
                         maxFreq,
                         FrequencyUnit.values()
-                );
-
-
-                minFreqTextField.setText(minDisplayValue.getValue() + " " + minDisplayValue.getKey().toString());
-                maxFreqTextField.setText(maxDisplayValue.getValue() + " " + maxDisplayValue.getKey().toString());
+                ));
 
                 // Set the slider's overall range
                 frequencyRangeSlider.setMin(minFreq);

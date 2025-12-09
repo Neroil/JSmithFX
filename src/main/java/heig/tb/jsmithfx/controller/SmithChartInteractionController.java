@@ -12,12 +12,15 @@ import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
+import heig.tb.jsmithfx.view.ChartPoint;
 import heig.tb.jsmithfx.view.SmithChartRenderer;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Point2D;
 import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
@@ -74,7 +77,6 @@ public class SmithChartInteractionController {
             Canvas smithCanvas,
             Canvas cursorCanvas,
             SmithChartViewModel viewModel,
-            // Callbacks instead of UI controls
             Supplier<CircuitElement.ElementType> typeSupplier,
             Supplier<CircuitElement.ElementPosition> positionSupplier,
             Supplier<Line.StubType> stubTypeSupplier,
@@ -111,7 +113,13 @@ public class SmithChartInteractionController {
         viewModel.sweepDataPointsProperty().addListener((ListChangeListener<DataPoint>) _ -> {
             renderer.render(viewModel, currentScale, offsetX, offsetY, 0);
         });
+        viewModel.vswrCirclesProperty().addListener((ListChangeListener<Double>) _ -> {
+            renderer.render(viewModel, currentScale, offsetX, offsetY, 0);
+        });
 
+        ContextMenu contextMenu = new ContextMenu();
+        MenuItem selectAsLoadPoint = new MenuItem("Select as load point");
+        contextMenu.getItems().add(selectAsLoadPoint);
 
         smithCanvas.setOnScroll(event -> {
             double mouseX = event.getX();
@@ -162,7 +170,25 @@ public class SmithChartInteractionController {
                 return;
             }
 
-            if (event.getClickCount() == 2) {
+            if (event.getButton() == MouseButton.SECONDARY || event.getButton() == MouseButton.PRIMARY) {
+                double mouseX = event.getX();
+                double mouseY = event.getY();
+                // Hit detection for data points
+                ChartPoint hit = renderer.getActivePoints().stream().filter(p -> p.isHit(mouseX, mouseY, 6.0)).findFirst().orElse(null);
+
+                if (hit != null && event.getButton() == MouseButton.SECONDARY) {
+                    contextMenu.show(smithCanvas, event.getScreenX(), event.getScreenY());
+                    selectAsLoadPoint.setOnAction(e -> {
+                        viewModel.setS1PLoadValue(hit.frequency());
+                        contextMenu.hide();
+                    });
+                } else {
+                    contextMenu.hide();
+                }
+                event.consume();
+            }
+
+            if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY) {
                 // Reset view on double-click
                 currentScale = 1.0;
                 offsetX = 0.0;

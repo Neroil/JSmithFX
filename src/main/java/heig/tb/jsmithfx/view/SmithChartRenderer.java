@@ -112,7 +112,7 @@ public class SmithChartRenderer {
 
             String label = "SWP" + index++;
 
-            activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, point.getFrequency(), label, pointSize * currentScale));
+            activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, point.getFrequency(), label, pointSize * currentScale, false));
         }
 
         // Draw the connected line
@@ -297,7 +297,7 @@ public class SmithChartRenderer {
                 double pointSize = 5; // logical size
 
                 // Add to active points with a specific label
-                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText, pointSize * scale));
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText, pointSize * scale, false));
 
                 if (selectedItemIndex == index) {
                     gc.setStroke(Color.CORAL);
@@ -326,6 +326,7 @@ public class SmithChartRenderer {
 
         if (dataPoints != null && !dataPoints.isEmpty()) {
             double pointSize = viewModel.s1pPointSizeProperty().get(); // logical size
+            double strokeWidth = viewModel.s1pPointSizeProperty().get() / 4.0;
 
             int index = 0;
             for (DataPoint dataPoint : dataPoints) {
@@ -342,19 +343,25 @@ public class SmithChartRenderer {
 
                 // Create and store the ChartPoint
                 String label = "S1P" + index++;
-                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label, pointSize * scale));
+                activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label, pointSize * scale, true));
 
                 // Drawing logic
                 if(viewModel.isFrequencyInRange(dataPoint.getFrequency())) {
                     gc.setStroke(Color.INDIANRED);
-                    gc.setFill(Color.INDIANRED);
+                    gc.setLineWidth(strokeWidth);
+                    gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
                 } else {
-                    gc.setStroke(Color.DODGERBLUE);
-                    gc.setFill(Color.DODGERBLUE);
+                    gc.setStroke(new Color(
+                            Color.DODGERBLUE.getRed(),
+                            Color.DODGERBLUE.getGreen(),
+                            Color.DODGERBLUE.getBlue(),
+                            0.2
+                    ));
+                    strokeWidth /= 2;
+                    gc.setLineWidth(strokeWidth);
+                    gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+                    strokeWidth *= 2;
                 }
-
-                gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
-                gc.fillOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
             }
         }
     }
@@ -521,6 +528,10 @@ public class SmithChartRenderer {
      */
     public void clearCursor(GraphicsContext gc) {
         gc.clearRect(0, 0, cursorCanvas.getWidth(), cursorCanvas.getHeight());
+    }
+
+    public List<ChartPoint> getActivePoints() {
+        return activePoints;
     }
 
     public void handleTooltip(double mouseX, double mouseY, double scale) {

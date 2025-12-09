@@ -17,27 +17,18 @@ public class CircleDialog extends Dialog<List<Double>> {
     private final CheckBox VSWR1_5 = new CheckBox("1.5");
     private final CheckBox VSWR1_2 = new CheckBox("1.2");
     private final Button ClearAllButton = new Button("Clear All");
-
-
-
-    private static class CircleDialogHolder {
-        private static final CircleDialog INSTANCE = new CircleDialog();
-    }
+    private static final List<Double> previousSelections = new ArrayList<>();
 
     public static CircleDialog getInstance() {
-        return CircleDialogHolder.INSTANCE;
+        // When getting instance, save the current selections (in case of a cancel)
+        return new CircleDialog();
     }
 
     private CircleDialog() {
         setTitle("Add VSWR Circles");
         setHeaderText("Select VSWR circles to display on the Smith chart:");
 
-        VSWR10.setSelected(false);
-        VSWR5.setSelected(false);
-        VSWR3.setSelected(false);
-        VSWR2.setSelected(false);
-        VSWR1_5.setSelected(false);
-        VSWR1_2.setSelected(false);
+        setSelectedVswr(previousSelections);
 
         ClearAllButton.setOnAction(event -> {
             VSWR10.setSelected(false);
@@ -67,7 +58,10 @@ public class CircleDialog extends Dialog<List<Double>> {
 
         setResultConverter(dialogButton -> {
             if (dialogButton == ButtonType.OK) {
-                return getSelectedVswrValues();
+                var toReturn = getSelectedVswrValues();
+                previousSelections.clear();
+                previousSelections.addAll(toReturn);
+                return toReturn;
             }
             return null;
         });

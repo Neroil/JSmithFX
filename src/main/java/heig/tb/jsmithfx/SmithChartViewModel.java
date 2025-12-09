@@ -335,6 +335,15 @@ public final class SmithChartViewModel {
         }
     }
 
+    public void setS1PLoadValue(Double newValue) {
+        if (!this.useS1PAsLoad.get()) return; //Only update if we are using S1P as load
+
+        if (s1pDataPoints.isEmpty()) return; //No S1P data to use
+        DataPoint targetPoint = s1pDataPoints.get(getS1PIndexAtRange(newValue));
+        loadImpedance.set(targetPoint.getImpedance());
+        frequency.set(targetPoint.getFrequency());
+    }
+
     public void updateMiddleRangePoint() {
         if (!this.useS1PAsLoad.get()) return; //Only update if we are using S1P as load
 
