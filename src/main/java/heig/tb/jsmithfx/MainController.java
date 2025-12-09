@@ -13,6 +13,7 @@ import heig.tb.jsmithfx.utilities.dialogs.*;
 import heig.tb.jsmithfx.view.CircuitRenderer;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
@@ -131,13 +132,20 @@ public class MainController {
     @FXML
     private TextField maxFreqTextField;
     @FXML
-    private RangeSlider frequencyRangeSlider;
-    @FXML
     private TextField minFreqTextField;
     @FXML
     private TextField s1pFileNameField;
     @FXML
-    private CheckBox useS1PAsLoadCheckBox;
+    private CheckBox useS1PAsLoadCheckBoxF1;
+    @FXML
+    private CheckBox useS1PAsLoadCheckBoxF2;
+    @FXML
+    private CheckBox useS1PAsLoadCheckBoxF3;
+
+    @FXML private CheckMenuItem toggle1FilterButton, toggle2FilterButton, toggle3FilterButton;
+    @FXML private VBox filter1Box, filter2Box, filter3Box;
+    @FXML private TextField minFreqTextField1, maxFreqTextField1, minFreqTextField2, maxFreqTextField2, minFreqTextField3, maxFreqTextField3;
+    @FXML private RangeSlider frequencyRangeSlider1, frequencyRangeSlider2, frequencyRangeSlider3;
     @FXML
     private MenuItem setDisplayCirclesOptionsButton;
     @FXML
@@ -216,6 +224,28 @@ public class MainController {
                 },
                 text -> addMouseButton.setText(text)
         );
+
+        // filter enabled bindings
+        viewModel.filter1EnabledProperty().bind(
+                toggle1FilterButton.selectedProperty()
+                        .or(toggle2FilterButton.selectedProperty())
+                        .or(toggle3FilterButton.selectedProperty())
+        );
+
+        viewModel.filter2EnabledProperty().bind(
+                toggle2FilterButton.selectedProperty()
+                        .or(toggle3FilterButton.selectedProperty())
+        );
+
+        viewModel.filter3EnabledProperty().bind(
+                toggle3FilterButton.selectedProperty()
+        );
+
+        // Force a redraw when the user switches between filters (Filter 1 -> Filter 2)
+        viewModel.filter1EnabledProperty().addListener((obs, oldVal, newVal) -> smithInteractionController.redrawSmithCanvas());
+        viewModel.filter2EnabledProperty().addListener((obs, oldVal, newVal) -> smithInteractionController.redrawSmithCanvas());
+        viewModel.filter3EnabledProperty().addListener((obs, oldVal, newVal) -> smithInteractionController.redrawSmithCanvas());
+
 
         setupResizableCanvas();
         setupControls();
@@ -345,42 +375,26 @@ public class MainController {
             }
         });
 
-        // Listen for changes in the range slider
-        frequencyRangeSlider.lowValueProperty().addListener((obs, oldVal, newVal) -> {
-            viewModel.setFrequencyRangeMin(newVal.doubleValue());
-            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(
-                    newVal.doubleValue(),
-                    FrequencyUnit.values());
+        setupFilterControl(
+                frequencyRangeSlider1, minFreqTextField1, maxFreqTextField1,
+                viewModel::setFrequencyRangeMinF1, viewModel::setFrequencyRangeMaxF1
+        );
 
-            minFreqTextField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
-            viewModel.updateMiddleRangePoint();
-            smithInteractionController.redrawSmithCanvas();
-        });
+        // Filter 2
+        setupFilterControl(
+                frequencyRangeSlider2, minFreqTextField2, maxFreqTextField2,
+                viewModel::setFrequencyRangeMinF2, viewModel::setFrequencyRangeMaxF2
+        );
 
-        frequencyRangeSlider.highValueProperty().addListener((obs, oldVal, newVal) -> {
-            viewModel.setFrequencyRangeMax(newVal.doubleValue());
-            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(
-                    newVal.doubleValue(),
-                    FrequencyUnit.values());
-
-            maxFreqTextField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
-            viewModel.updateMiddleRangePoint();
-            smithInteractionController.redrawSmithCanvas();
-        });
+        // Filter 3
+        setupFilterControl(
+                frequencyRangeSlider3, minFreqTextField3, maxFreqTextField3,
+                viewModel::setFrequencyRangeMinF3, viewModel::setFrequencyRangeMaxF3
+        );
 
         s1pPointSizeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             viewModel.setS1PPointSize(newVal.doubleValue());
             smithInteractionController.redrawSmithCanvas();
-        });
-
-        minFreqTextField.setOnAction(event -> {
-            String text = minFreqTextField.getText();
-            try {
-                double freqInHz = SmithUtilities.parseValueWithUnit(text, FrequencyUnit.values());
-                frequencyRangeSlider.setLowValue(freqInHz);
-            } catch (IllegalArgumentException e) {
-                DialogUtils.showErrorAlert("Error in input", "Invalid frequency input: " + e.getMessage(), minFreqTextField.getScene().getWindow());
-            }
         });
 
         viewModel.sweepDataPointsProperty().addListener((obs, oldVal, newVal) -> {
@@ -433,10 +447,32 @@ public class MainController {
         });
 
         // Tells the renderer to use the S1P data as load
-        useS1PAsLoadCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            viewModel.setUseS1PAsLoad(newVal);
+        useS1PAsLoadCheckBoxF1.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setUseS1PAsLoadF1(newVal);
             smithInteractionController.redrawSmithCanvas();
         });
+
+        useS1PAsLoadCheckBoxF2.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setUseS1PAsLoadF2(newVal);
+            smithInteractionController.redrawSmithCanvas();
+        });
+
+        useS1PAsLoadCheckBoxF3.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setUseS1PAsLoadF3(newVal);
+            smithInteractionController.redrawSmithCanvas();
+        });
+
+        // Update checkboxes depending on viewmodel changes
+        viewModel.useS1PAsLoadF1Property().addListener((obs, oldVal, newVal) -> {
+            useS1PAsLoadCheckBoxF1.setSelected(newVal);
+        });
+        viewModel.useS1PAsLoadF2Property().addListener((obs, oldVal, newVal) -> {
+            useS1PAsLoadCheckBoxF2.setSelected(newVal);
+        });
+        viewModel.useS1PAsLoadF3Property().addListener((obs, oldVal, newVal) -> {
+            useS1PAsLoadCheckBoxF3.setSelected(newVal);
+        });
+
 
         //Enable CTRL Z (undo) and CTRL Y (redo)
         Platform.runLater(() -> {
@@ -453,6 +489,56 @@ public class MainController {
                     }
                 }
             });
+        });
+    }
+
+    /**
+     * Helper to wire up a Slider, its TextFields, and the ViewModel
+     */
+    private void setupFilterControl(RangeSlider slider, TextField minField, TextField maxField,
+                                    java.util.function.Consumer<Double> minSetter,
+                                    java.util.function.Consumer<Double> maxSetter) {
+
+        // 1. Slider -> ViewModel & Text
+        slider.lowValueProperty().addListener((obs, oldVal, newVal) -> {
+            minSetter.accept(newVal.doubleValue());
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(newVal.doubleValue(), FrequencyUnit.values());
+            minField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
+            viewModel.updateMiddleRangePoint();
+            smithInteractionController.redrawSmithCanvas();
+        });
+
+        slider.highValueProperty().addListener((obs, oldVal, newVal) -> {
+            maxSetter.accept(newVal.doubleValue());
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(newVal.doubleValue(), FrequencyUnit.values());
+            maxField.setText(toDisplay.getValue() + " " + toDisplay.getKey().toString());
+            viewModel.updateMiddleRangePoint();
+            smithInteractionController.redrawSmithCanvas();
+        });
+
+        // 2. Text -> Slider
+        setupFrequencyField(minField, (val) -> slider.setLowValue(val));
+        setupFrequencyField(maxField, (val) -> slider.setHighValue(val));
+    }
+
+    /**
+     * Helper to parse text input and update the slider
+     */
+    private void setupFrequencyField(TextField field, java.util.function.Consumer<Double> sliderUpdater) {
+        Runnable updateAction = () -> {
+            String text = field.getText();
+            try {
+                double freqInHz = SmithUtilities.parseValueWithUnit(text, FrequencyUnit.values());
+                sliderUpdater.accept(freqInHz);
+            } catch (IllegalArgumentException e) {
+                // Optional: Flash field red or show error
+                // DialogUtils.showErrorAlert(...);
+            }
+        };
+
+        field.setOnAction(event -> updateAction.run());
+        field.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) updateAction.run(); // Update on lost focus
         });
     }
 
@@ -793,36 +879,31 @@ public class MainController {
                 double minFreq = minMax.getKey();
                 double maxFreq = minMax.getValue();
 
-                minFreqTextField.setText(SmithUtilities.displayBestUnitAndFormattedValue(
-                        minFreq,
-                        FrequencyUnit.values()
-                ));
-
-                maxFreqTextField.setText(SmithUtilities.displayBestUnitAndFormattedValue(
-                        maxFreq,
-                        FrequencyUnit.values()
-                ));
-
-                // Set the slider's overall range
-                frequencyRangeSlider.setMin(minFreq);
-                frequencyRangeSlider.setMax(maxFreq);
-
-                // Set the thumbs to the full range initially
-                frequencyRangeSlider.setLowValue(minFreq);
-                frequencyRangeSlider.setHighValue(maxFreq);
+                updateSliderBounds(frequencyRangeSlider1, minFreq, maxFreq);
+                updateSliderBounds(frequencyRangeSlider2, minFreq, maxFreq);
+                updateSliderBounds(frequencyRangeSlider3, minFreq, maxFreq);
 
                 //Display the S1P controls
                 s1pTitledPane.setVisible(true);
                 s1pTitledPane.setExpanded(true);
                 s1pTitledPane.setManaged(true);
 
-                viewModel.setUseS1PAsLoad(useS1PAsLoadCheckBox.isSelected());
+                viewModel.setUseS1PAsLoadF1(useS1PAsLoadCheckBoxF1.isSelected());
+                viewModel.setUseS1PAsLoadF2(useS1PAsLoadCheckBoxF2.isSelected());
+                viewModel.setUseS1PAsLoadF3(useS1PAsLoadCheckBoxF3.isSelected());
 
                 smithInteractionController.redrawSmithCanvas();
             } catch (IllegalArgumentException e) {
                 DialogUtils.showErrorAlert("Can't open file", "Invalid S1P file: " + e.getMessage(), smithCanvas.getScene().getWindow());
             }
         }
+    }
+
+    private void updateSliderBounds(RangeSlider slider, double min, double max) {
+        slider.setMin(min);
+        slider.setMax(max);
+        slider.setLowValue(min);
+        slider.setHighValue(max);
     }
 
     public void exportS1P() {
@@ -840,7 +921,7 @@ public class MainController {
         s1pTitledPane.setVisible(false);
         s1pTitledPane.setManaged(false);
 
-        viewModel.setUseS1PAsLoad(false);
+        viewModel.setUseS1PAsLoadF1(false); // Doesn't matter which one we disable, will disable the others too
 
         smithInteractionController.redrawSmithCanvas();
     }
@@ -937,6 +1018,45 @@ public class MainController {
 
     public void onCancelTuning() {
         viewModel.cancelTuningAdjustments();
+    }
+
+    @FXML
+    public void toggle1Filter() {
+        boolean selected = toggle1FilterButton.isSelected();
+        toggle2FilterButton.setSelected(false);
+        toggle3FilterButton.setSelected(false);
+        filter1Box.setVisible(selected);
+        filter1Box.setManaged(selected);
+        filter2Box.setVisible(false);
+        filter2Box.setManaged(false);
+        filter3Box.setVisible(false);
+        filter3Box.setManaged(false);
+    }
+
+    @FXML
+    public void toggle2Filter() {
+        boolean selected = toggle2FilterButton.isSelected();
+        toggle1FilterButton.setSelected(false);
+        toggle3FilterButton.setSelected(false);
+        filter1Box.setVisible(selected);
+        filter1Box.setManaged(selected);
+        filter2Box.setVisible(selected);
+        filter2Box.setManaged(selected);
+        filter3Box.setVisible(false);
+        filter3Box.setManaged(false);
+    }
+
+    @FXML
+    public void toggle3Filter() {
+        boolean selected = toggle3FilterButton.isSelected();
+        toggle1FilterButton.setSelected(false);
+        toggle2FilterButton.setSelected(false);
+        filter1Box.setVisible(selected);
+        filter1Box.setManaged(selected);
+        filter2Box.setVisible(selected);
+        filter2Box.setManaged(selected);
+        filter3Box.setVisible(selected);
+        filter3Box.setManaged(selected);
     }
 }
 

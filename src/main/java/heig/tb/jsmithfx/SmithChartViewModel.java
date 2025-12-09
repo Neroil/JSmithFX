@@ -78,13 +78,33 @@ public final class SmithChartViewModel {
     private boolean showSweepInDataPoints = false;
     private boolean showS1PInDataPoints = false;
     // Memory property for the characteristic impedance
-    private double savedFrequency = 1e9; // 1 GHz
-    private Complex savedLoadImpedance = new Complex(100.0, 50.0); // 100 + j50 Ohm
+    private double savedFrequency = -1; //-1 means no saved state
+    private Complex savedLoadImpedance;
     // RangeSlider private properties
-    private double freqRangeMin;
-    private double freqRangeMax;
-    // S1P Load option
-    private final BooleanProperty useS1PAsLoad = new SimpleBooleanProperty(false);
+    private double freqRangeMinF1;
+    private double freqRangeMaxF1;
+    private double freqRangeMinF2;
+    private double freqRangeMaxF2;
+    private double freqRangeMinF3;
+    private double freqRangeMaxF3;
+    // S1P Load option for each filters
+    private final BooleanProperty useS1PAsLoadF1 = new SimpleBooleanProperty(false);
+    private final BooleanProperty useS1PAsLoadF2 = new SimpleBooleanProperty(false);
+    private final BooleanProperty useS1PAsLoadF3 = new SimpleBooleanProperty(false);
+
+    public BooleanProperty useS1PAsLoadF1Property() { return useS1PAsLoadF1; }
+    public BooleanProperty useS1PAsLoadF2Property() { return useS1PAsLoadF2; }
+    public BooleanProperty useS1PAsLoadF3Property() { return useS1PAsLoadF3; }
+
+    private final BooleanProperty filter1Enabled = new SimpleBooleanProperty(true);
+    private final BooleanProperty filter2Enabled = new SimpleBooleanProperty(false);
+    private final BooleanProperty filter3Enabled = new SimpleBooleanProperty(false);
+
+    public BooleanProperty filter1EnabledProperty() { return filter1Enabled; }
+    public BooleanProperty filter2EnabledProperty() { return filter2Enabled; }
+    public BooleanProperty filter3EnabledProperty() { return filter3Enabled; }
+
+
     // Sweep stuff
     private double currentSweepMin = 1e6;
     private double currentSweepMax = 100e6;
@@ -93,6 +113,11 @@ public final class SmithChartViewModel {
     private double originalTuningValue;
     // Preview while adding new component
     private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
+
+    public boolean isAnyUseS1PAsLoad() {
+        return useS1PAsLoadF1.get() || useS1PAsLoadF2.get() || useS1PAsLoadF3.get();
+    }
+
     private SmithChartViewModel() {
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> {
@@ -131,7 +156,7 @@ public final class SmithChartViewModel {
 
         // When the list of derived impedances changes, automatically update the gamma values.
         dataPoints.addListener((ListChangeListener<DataPoint>) _ -> {
-            if (useS1PAsLoad.get()) recalculateS1PChain();
+            if (isAnyUseS1PAsLoad()) recalculateS1PChain();
             recalculateAllGammas();
         });
 
@@ -171,7 +196,7 @@ public final class SmithChartViewModel {
     }
 
     public boolean isShowS1PAsLoad() {
-        return useS1PAsLoad.get();
+        return isAnyUseS1PAsLoad();
     }
 
     public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() {
@@ -316,26 +341,61 @@ public final class SmithChartViewModel {
         recalculateS1PChain();
     }
 
-    public void setUseS1PAsLoad(Boolean newVal) {
-        if (this.useS1PAsLoad.get() == newVal) return; //No change
+    public void setUseS1PAsLoadF1(Boolean newVal) {
+        if (newVal == null || newVal == useS1PAsLoadF1.get()) return;
+        setUseS1PAsLoad(newVal, 1);
+    }
 
-        this.useS1PAsLoad.set(newVal);
-        if (this.useS1PAsLoad.get()) {
+    public void setUseS1PAsLoadF2(Boolean newVal) {
+        if (newVal == null || newVal == useS1PAsLoadF2.get()) return;
+        setUseS1PAsLoad(newVal, 2);
+    }
+
+    public void setUseS1PAsLoadF3(Boolean newVal) {
+        if (newVal == null || newVal == useS1PAsLoadF3.get()) return;
+        setUseS1PAsLoad(newVal, 3);
+    }
+
+    private void setUseS1PAsLoad(Boolean newVal, int filterNumber) {
+        switch(filterNumber) {
+            case 1:
+                useS1PAsLoadF1.set(newVal);
+                useS1PAsLoadF2.set(false);
+                useS1PAsLoadF3.set(false);
+                break;
+            case 2:
+                useS1PAsLoadF1.set(false);
+                useS1PAsLoadF2.set(newVal);
+                useS1PAsLoadF3.set(false);
+                break;
+            case 3:
+                useS1PAsLoadF1.set(false);
+                useS1PAsLoadF2.set(false);
+                useS1PAsLoadF3.set(newVal);
+                break;
+            default:
+                return; //Invalid filter number
+        }
+
+        if (savedFrequency == -1 && savedLoadImpedance == null) {
             // Save current state
             savedFrequency = frequency.get();
             savedLoadImpedance = loadImpedance.get();
 
-            updateMiddleRangePoint();
-
-        } else {
+        } else if (!isAnyUseS1PAsLoad()){
             // Restore saved state
             loadImpedance.set(savedLoadImpedance);
             frequency.set(savedFrequency);
+            savedFrequency = -1;
+            savedLoadImpedance = null;
+            return; //No need to update middle point
         }
+
+        updateMiddleRangePoint();
     }
 
     public void setS1PLoadValue(Double newValue) {
-        if (!this.useS1PAsLoad.get()) return; //Only update if we are using S1P as load
+        if (!isAnyUseS1PAsLoad()) return; //Only update if we are using S1P as load
 
         if (s1pDataPoints.isEmpty()) return; //No S1P data to use
         DataPoint targetPoint = s1pDataPoints.get(getS1PIndexAtRange(newValue));
@@ -343,16 +403,42 @@ public final class SmithChartViewModel {
         frequency.set(targetPoint.getFrequency());
     }
 
+    private int whichFilterIsUsingS1PAsLoad() {
+        if (useS1PAsLoadF1.get()) return 1;
+        if (useS1PAsLoadF2.get()) return 2;
+        if (useS1PAsLoadF3.get()) return 3;
+        return -1; //None
+    }
+
     public void updateMiddleRangePoint() {
-        if (!this.useS1PAsLoad.get()) return; //Only update if we are using S1P as load
+        if (!isAnyUseS1PAsLoad()) return; //Only update if we are using S1P as load
 
         if (s1pDataPoints.isEmpty()) return; //No S1P data to use
-        int s1pIndexMin = getS1PIndexAtRange(freqRangeMin);
-        int s1pIndexMax = getS1PIndexAtRange(freqRangeMax);
+        int s1pIndexMin;
+        int s1pIndexMax;
+
+        switch (whichFilterIsUsingS1PAsLoad()) {
+            case 1:
+                s1pIndexMin = getS1PIndexAtRange(freqRangeMinF1);
+                s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF1);
+                break;
+            case 2:
+                s1pIndexMin = getS1PIndexAtRange(freqRangeMinF2);
+                s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF2);
+                break;
+            case 3:
+                s1pIndexMin = getS1PIndexAtRange(freqRangeMinF3);
+                s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF3);
+                break;
+            default:
+                return; //Invalid filter number
+        }
+
         if (s1pIndexMin > s1pIndexMax) {
             // Invalid range, skip calculation
             return;
         }
+
         DataPoint middlePoint = s1pDataPoints.get((s1pIndexMin + s1pIndexMax) / 2);
         loadImpedance.set(middlePoint.getImpedance());
         frequency.set(middlePoint.getFrequency());
@@ -547,9 +633,9 @@ public final class SmithChartViewModel {
     }
 
     private void recalculateS1PChain() {
-        if (!this.useS1PAsLoad.get() || s1pDataPoints.isEmpty()) {
+        if (!isAnyUseS1PAsLoad() || s1pDataPoints.isEmpty()) {
             transformedS1PPoints.clear();
-            if (!this.useS1PAsLoad.get()) transformedS1PPoints.setAll(s1pDataPoints);
+            if (!isAnyUseS1PAsLoad()) transformedS1PPoints.setAll(s1pDataPoints);
             cachedS1PPoints.clear(); // Just in case
             return;
         }
@@ -615,28 +701,16 @@ public final class SmithChartViewModel {
     }
 
     public Complex getCurrentInteractionStartGamma() {
-        // 1. If we are modifying an existing component
         if (isModifyingComponent.get() && selectedElement.get() != null) {
             // Find the index of the element we are modifying
             int index = circuitElements.indexOf(selectedElement.get());
 
             // Safety check
             if (index != -1 && index < dataPoints.size()) {
-                /*
-                 * LOGIC EXPLANATION:
-                 * dataPoints[0] = Load (Input to Element 0)
-                 * dataPoints[1] = Output of Element 0 (Input to Element 1)
-                 * dataPoints[2] = Output of Element 1 (Input to Element 2)
-                 *
-                 * So, the input (start point) for circuitElements.get(i)
-                 * is simply dataPoints.get(i).
-                 */
                 return dataPoints.get(index).gammaProperty().get();
             }
         }
 
-        // 2. If we are adding a NEW component (default behavior)
-        // The start point is the end of the current chain.
         return getLastGamma();
     }
 
@@ -813,16 +887,48 @@ public final class SmithChartViewModel {
         recalculateImpedanceChain();
     }
 
-    public void setFrequencyRangeMin(double v) {
-        this.freqRangeMin = v;
+    public void setFrequencyRangeMinF1(double v) {
+        this.freqRangeMinF1 = v;
     }
 
-    public void setFrequencyRangeMax(double v) {
-        this.freqRangeMax = v;
+    public void setFrequencyRangeMaxF1(double v) {
+        this.freqRangeMaxF1 = v;
+    }
+
+    public void setFrequencyRangeMinF2(double v) {
+        this.freqRangeMinF2 = v;
+    }
+
+    public void setFrequencyRangeMaxF2(double v) {
+        this.freqRangeMaxF2 = v;
+    }
+
+    public void setFrequencyRangeMinF3(double v) {
+        this.freqRangeMinF3 = v;
+    }
+
+    public void setFrequencyRangeMaxF3(double v) {
+        this.freqRangeMaxF3 = v;
     }
 
     public boolean isFrequencyInRange(double freq) {
-        return freq >= freqRangeMin && freq <= freqRangeMax;
+        boolean inF1 = filter1Enabled.get() && isFrequencyInRangeF1(freq);
+        boolean inF2 = filter2Enabled.get() && isFrequencyInRangeF2(freq);
+        boolean inF3 = filter3Enabled.get() && isFrequencyInRangeF3(freq);
+
+        return inF1 || inF2 || inF3;
+    }
+
+    public boolean isFrequencyInRangeF1(double freq) {
+        return freq >= freqRangeMinF1 && freq <= freqRangeMaxF1;
+    }
+
+    public boolean isFrequencyInRangeF2(double freq) {
+        return freq >= freqRangeMinF2 && freq <= freqRangeMaxF2;
+    }
+
+    public boolean isFrequencyInRangeF3(double freq) {
+        return freq >= freqRangeMinF3 && freq <= freqRangeMaxF3;
     }
 
     public void setShowSweepDataPoints(boolean selected) {

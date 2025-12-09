@@ -19,6 +19,9 @@
             <Menu text="Set">
                 <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
                 <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options..." />
+                <CheckMenuItem fx:id="toggle1FilterButton" onAction="#toggle1Filter" text="Enable 1 Frequency Filter" selected="true" />
+                <CheckMenuItem fx:id="toggle2FilterButton" onAction="#toggle2Filter" text="Enable 2 Frequency Filters" />
+                <CheckMenuItem fx:id="toggle3FilterButton" onAction="#toggle3Filter" text="Enable 3 Frequency Filters" />
             </Menu>
             <Menu text="Import/Export">
                 <MenuItem fx:id="importS1PButton" onAction="#importS1P" text="Import S1P..." />
@@ -166,18 +169,45 @@
                                         </padding>
 
                                         <HBox alignment="CENTER_LEFT" spacing="10.0">
-
                                             <Label text="Loaded File Name:" />
                                             <TextField fx:id="s1pFileNameField" editable="false" promptText="N/A" HBox.hgrow="ALWAYS"/>
-                                            <Label text="Use S1P as load" />
-                                            <CheckBox fx:id="useS1PAsLoadCheckBox" />
                                         </HBox>
-                                        <Label text="Frequency Range Filter:" />
-                                        <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                            <TextField fx:id="minFreqTextField" prefWidth="100" promptText="Min" />
-                                            <RangeSlider fx:id="frequencyRangeSlider" max="10.0" min="0.0" HBox.hgrow="ALWAYS" />
-                                            <TextField fx:id="maxFreqTextField" prefWidth="100" promptText="Max" />
-                                        </HBox>
+
+                                        <!-- Filter 1 -->
+                                        <VBox fx:id="filter1Box" spacing="5.0">
+                                            <Label text="Frequency Range Filter 1:" />
+                                            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                                <TextField fx:id="minFreqTextField1" prefWidth="100" promptText="Min" />
+                                                <RangeSlider fx:id="frequencyRangeSlider1" max="10.0" min="0.0" HBox.hgrow="ALWAYS" />
+                                                <TextField fx:id="maxFreqTextField1" prefWidth="100" promptText="Max" />
+                                                <Label text="As Load" />
+                                                <CheckBox fx:id="useS1PAsLoadCheckBoxF1" />
+                                            </HBox>
+                                        </VBox>
+
+                                        <!-- Filter 2 -->
+                                        <VBox fx:id="filter2Box" managed="false" spacing="5.0" visible="false">
+                                            <Label text="Frequency Range Filter 2:" />
+                                            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                                <TextField fx:id="minFreqTextField2" prefWidth="100" promptText="Min" />
+                                                <RangeSlider fx:id="frequencyRangeSlider2" max="10.0" min="0.0" HBox.hgrow="ALWAYS" />
+                                                <TextField fx:id="maxFreqTextField2" prefWidth="100" promptText="Max" />
+                                                <Label text="As Load" />
+                                                <CheckBox fx:id="useS1PAsLoadCheckBoxF2" />
+                                            </HBox>
+                                        </VBox>
+
+                                        <!-- Filter 3 -->
+                                        <VBox fx:id="filter3Box" managed="false" spacing="5.0" visible="false">
+                                            <Label text="Frequency Range Filter 3:" />
+                                            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                                <TextField fx:id="minFreqTextField3" prefWidth="100" promptText="Min" />
+                                                <RangeSlider fx:id="frequencyRangeSlider3" max="10.0" min="0.0" HBox.hgrow="ALWAYS" />
+                                                <TextField fx:id="maxFreqTextField3" prefWidth="100" promptText="Max" />
+                                                <Label text="As Load" />
+                                                <CheckBox fx:id="useS1PAsLoadCheckBoxF3" />
+                                            </HBox>
+                                        </VBox>
 
                                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                                             <Label text="Point Size:" />
