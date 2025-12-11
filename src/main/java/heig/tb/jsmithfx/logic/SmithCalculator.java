@@ -11,6 +11,11 @@ import java.util.Optional;
 
 public class SmithCalculator {
 
+    private static double SPEED_OF_LIGHT = 299792458.0; // Speed of light in m/s
+    public static double getSpeedOfLight() {
+        return SPEED_OF_LIGHT;
+    }
+
     /**
      * Converts the reflection coefficient Gamma to its complex impedance
      * @param gamma the reflection coefficient
@@ -186,9 +191,8 @@ public class SmithCalculator {
                 return null; // A value hasn't been entered yet
             }
 
-            final double C = 299792458.0; // Speed of light in m/s
             // β = 2πf/pv, will be used for the calculations in the two branches
-            double phase_velocity = C / Math.sqrt(permittivity.get());
+            double phase_velocity = getSpeedOfLight() / Math.sqrt(permittivity.get());
             double beta = (2.0 * Math.PI * frequency) / phase_velocity;
 
             if (beta < EPS) return null; // Avoid division by zero

@@ -34,7 +34,10 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class MainController {
+
     // FXML Bindings
+    @FXML
+    private CheckMenuItem enableQualityFactorInput;
     @FXML
     private HBox addComponentButtonHBox;
     @FXML
@@ -543,8 +546,8 @@ public class MainController {
                 double freqInHz = SmithUtilities.parseValueWithUnit(text, FrequencyUnit.values());
                 sliderUpdater.accept(freqInHz);
             } catch (IllegalArgumentException e) {
-                // Optional: Flash field red or show error
-                // DialogUtils.showErrorAlert(...);
+                Logger.getLogger(MainController.class.getName()).log(Level.WARNING, "Invalid frequency input: " + text, e);
+                DialogUtils.showErrorAlert("Invalid Input", "Please enter a valid frequency value.", appBox.getScene().getWindow());
             }
         };
 
@@ -776,9 +779,9 @@ public class MainController {
                 }
                 viewModel.addComponent(
                         type,
-                        value * getSelectedUnitFactor(), // Longueur physique
-                        impValue,                        // Z0
-                        permittivityValue,               // εr
+                        value * getSelectedUnitFactor(),
+                        impValue,
+                        permittivityValue,
                         null,
                         stubType
                 );
@@ -795,11 +798,6 @@ public class MainController {
         }
         return 1.0; // Default factor if the enum isn't right (shouldn't happen)
     }
-
-
-    // --- Drawing Logic ---
-    // This logic is called by the initialize() method and the resize listeners.
-
 
     /**
      * Set what will be the center point of the chart
@@ -1069,6 +1067,10 @@ public class MainController {
         filter2Box.setManaged(selected);
         filter3Box.setVisible(selected);
         filter3Box.setManaged(selected);
+    }
+
+    @FXML
+    public void setOnQualityFactorEnable() {
     }
 }
 

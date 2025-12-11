@@ -12,10 +12,18 @@ public class Inductor extends CircuitElement {
     @Override
     public Complex getImpedance(double frequency) {
         if (getRealWorldValue() == 0 || frequency == 0) {
-            return new Complex(0, 0); // Short circuit for zero inductance or frequency
+            return new Complex(0, 0); // Short circuit
         }
-        // X_L = 2 * pi * f * L
-        return new Complex(0, 2 * Math.PI * frequency * getRealWorldValue());
+
+        double reactance = 2 * Math.PI * frequency * getRealWorldValue();
+        double resistiveLoss = 0;
+
+        if (qualityFactor.isPresent() && qualityFactor.get() > 0) {
+            resistiveLoss = reactance / qualityFactor.get();
+        }
+
+        // Z_L = R + jωL
+        return new Complex(resistiveLoss, reactance);
     }
 
     @Override

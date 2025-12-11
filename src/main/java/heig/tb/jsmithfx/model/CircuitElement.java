@@ -12,6 +12,8 @@ import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 
+import java.util.Optional;
+
 public abstract class CircuitElement {
 
     public enum ElementType {
@@ -53,9 +55,18 @@ public abstract class CircuitElement {
 
     }
 
+    protected Optional<Double> qualityFactor = Optional.empty();
     protected DoubleProperty realWorldValue = new SimpleDoubleProperty();
     protected ElementPosition elementPosition;
     protected ElementType elementType;
+
+    public Optional<Double> getQualityFactor() {
+        return qualityFactor;
+    }
+
+    public void setQualityFactor(double qualityFactor) {
+        this.qualityFactor = Optional.of(qualityFactor);
+    }
 
 
     public DoubleProperty realWorldValueProperty() {

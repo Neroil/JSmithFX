@@ -1,5 +1,6 @@
 package heig.tb.jsmithfx.model.Element;
 
+import heig.tb.jsmithfx.logic.SmithCalculator;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.utilities.Complex;
 
@@ -60,9 +61,10 @@ public class Line extends CircuitElement {
     }
 
     public Complex calculateImpedance(Complex currentImpedance, double frequency) {
-        final double SPEED_OF_LIGHT = 299792458.0;
-        double beta = (2 * Math.PI * frequency) / SPEED_OF_LIGHT * Math.sqrt(permittivity);
+
+        double beta = (2 * Math.PI * frequency) / SmithCalculator.getSpeedOfLight() * Math.sqrt(permittivity);
         double electricalLength = beta * getRealWorldValue();
+
         Complex j = new Complex(0, 1);
 
         if (stubType == StubType.NONE) { // Series line
@@ -70,7 +72,7 @@ public class Line extends CircuitElement {
             double tan_bl = Math.tan(electricalLength);
             Complex numerator = currentImpedance.add(j.multiply(z0Complex).multiply(tan_bl));
             Complex denominator = z0Complex.add(j.multiply(currentImpedance).multiply(tan_bl));
-            return denominator.magnitude() > 1e-9 ? z0Complex.multiply(numerator.dividedBy(denominator)) : new Complex(1e12, 0);
+            return denominator.magnitude() > 1e-9 ? z0Complex.multiply(numerator.dividedBy(denominator)) : new Complex(Double.POSITIVE_INFINITY, 0);
         } else { // Stub
             double y0 = 1.0 / characteristicImpedance;
             Complex stubAdmittance = stubType == StubType.SHORT

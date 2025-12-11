@@ -19,6 +19,7 @@
             <Menu text="Set">
                 <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
                 <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options..." />
+                <CheckMenuItem fx:id="enableQualityFactorInput" onAction="#setOnQualityFactorEnable" text="Enable Quality Factor Input"/>
                 <CheckMenuItem fx:id="toggle1FilterButton" onAction="#toggle1Filter" text="Enable 1 Frequency Filter" selected="true" />
                 <CheckMenuItem fx:id="toggle2FilterButton" onAction="#toggle2Filter" text="Enable 2 Frequency Filters" />
                 <CheckMenuItem fx:id="toggle3FilterButton" onAction="#toggle3Filter" text="Enable 3 Frequency Filters" />

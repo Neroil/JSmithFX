@@ -231,19 +231,12 @@ public class CircuitRenderer {
             // Determine visual style
             boolean isSelected = (i == viewModel.getSelectedInsertionIndexProperty().get());
 
-            // If hovered, make it bigger and bright. If not, small and subtle.
+            // Bigger dot if selected
             double r = isSelected ? INSERTION_DOT_RADIUS * 1.5 : INSERTION_DOT_RADIUS;
             Color c = isSelected ? INSERTION_SELECT_COLOR : INSERTION_DOT_COLOR;
 
             gc.setFill(c);
             gc.fillOval(x - r, y - r, 2 * r, 2 * r);
-
-            // Optional: Draw a subtle ring around it if hovered
-            if (isSelected) {
-                gc.setStroke(INSERTION_SELECT_COLOR);
-                gc.setLineWidth(1);
-                gc.strokeOval(x - r - 2, y - r - 2, (2 * r) + 4, (2 * r) + 4);
-            }
         }
     }
 

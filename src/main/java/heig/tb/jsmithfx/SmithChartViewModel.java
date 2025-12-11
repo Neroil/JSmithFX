@@ -1186,7 +1186,7 @@ public final class SmithChartViewModel {
                 current.setPosition(elementPosition);
             }
 
-            // Even if we didn't recreate, ensure properties are set (though constructor handles stubType now if recreated)
+            // Even if we didn't recreate, ensure properties are set
             if (current instanceof Line line) {
                 if (stubType != null) line.setStubType(stubType);
                 permittivity.ifPresent(line::setPermittivity);

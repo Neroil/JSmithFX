@@ -12,10 +12,19 @@ public class Capacitor extends CircuitElement {
     @Override
     public Complex getImpedance(double frequency) {
         if (getRealWorldValue() == 0 || frequency == 0) {
-            return new Complex(Double.POSITIVE_INFINITY, 0); // Open circuit for zero capacitance or frequency
+            return new Complex(Double.POSITIVE_INFINITY, 0); // Open circuit
         }
-        // X_C = -1 / 2 * pi * f * C
-        return new Complex(0, -1 / (2 * Math.PI * frequency * getRealWorldValue()));
+
+        double omega = 2 * Math.PI * frequency;
+        double reactance = -1.0 / (omega * getRealWorldValue());
+        double resistiveLoss = 0;
+
+        if (qualityFactor.isPresent() && qualityFactor.get() > 0) {
+            resistiveLoss = Math.abs(reactance) / qualityFactor.get();
+        }
+
+        // Z_C = ESR - j/(ωC)
+        return new Complex(resistiveLoss, reactance);
     }
 
     @Override
