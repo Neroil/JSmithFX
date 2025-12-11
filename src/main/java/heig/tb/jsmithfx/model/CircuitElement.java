@@ -74,6 +74,14 @@ public abstract class CircuitElement {
         return this.elementType;
     }
 
+    public void setPosition(ElementPosition position) {
+        this.elementPosition = position;
+    }
+
+    public void setType(ElementType type) {
+        this.elementType = type;
+    }
+
     public ElementPosition getPosition() {
         return this.elementPosition;
     }

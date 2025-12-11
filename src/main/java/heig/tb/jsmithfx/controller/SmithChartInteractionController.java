@@ -39,10 +39,10 @@ public class SmithChartInteractionController {
     private final Pane smithChartPane;
     private final Canvas smithCanvas;
     private final Canvas cursorCanvas;
-    // Dépendances Logiciel
+    // View model and Renderer
     private final SmithChartViewModel viewModel;
     private final SmithChartRenderer renderer;
-    // Dépendances UI (Inputs nécessaires pour le calcul et l'affichage live)
+    // UI Callbacks
     private final Supplier<CircuitElement.ElementType> typeSupplier;
     private final Supplier<CircuitElement.ElementPosition> positionSupplier;
     private final Supplier<Line.StubType> stubTypeSupplier;
@@ -472,7 +472,7 @@ public class SmithChartInteractionController {
             valueUpdater.accept(result.getValue(), (Enum<?>) result.getKey());
 
             // Reuse tuning logic to update visuals
-            viewModel.updateTunedElementValue(liveValue);
+            viewModel.updateTunedElementValue(liveValue, typeSupplier.get(), positionSupplier.get(), stubTypeSupplier.get(), permittivitySupplier.get(), zoLineSupplier.get());
         }
 
         viewModel.ghostCursorGamma.set(snappedGammaForMouseAdd); // Update the ghost cursor position

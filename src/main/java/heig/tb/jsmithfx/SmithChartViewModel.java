@@ -17,6 +17,7 @@ import javafx.collections.ListChangeListener;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -104,13 +105,26 @@ public final class SmithChartViewModel {
     public BooleanProperty filter2EnabledProperty() { return filter2Enabled; }
     public BooleanProperty filter3EnabledProperty() { return filter3Enabled; }
 
+    // Component hovering
+    private final ObjectProperty<CircuitElement> hoveredElement = new SimpleObjectProperty<>();
+    public ReadOnlyObjectProperty<CircuitElement> hoveredElementProperty() {
+        return hoveredElement;
+    }
+    private final IntegerProperty selectedInsertionIndex = new SimpleIntegerProperty(0); // 0 will select the only position
+    public ReadOnlyIntegerProperty getSelectedInsertionIndexProperty() {
+        return selectedInsertionIndex;
+    }
+    public void setSelectedInsertionIndex(int index) {
+        this.selectedInsertionIndex.set(index);
+    }
+
 
     // Sweep stuff
     private double currentSweepMin = 1e6;
     private double currentSweepMax = 100e6;
     private int currentSweepCount = 10;
     // Storing the original value in case the client cancel or does something else
-    private double originalTuningValue;
+    private CircuitElement originalElement;
     // Preview while adding new component
     private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
 
@@ -207,8 +221,8 @@ public final class SmithChartViewModel {
         CircuitElement preview = previewElement.get();
         if (preview == null) return null;
 
-        // Get the last impedance in the chain (already calculated)
-        Complex currentImpedance = getLastImpedance();
+        Complex currentImpedance = getCurrentInteractionStartImpedance();
+
         if (currentImpedance == null) return null;
 
         double freq = frequency.get();
@@ -238,7 +252,7 @@ public final class SmithChartViewModel {
         if (element != null && circuitElements.contains(element)) {
             selectedElement.set(element);
             // Save the state BEFORE tuning starts
-            originalTuningValue = element.getRealWorldValue();
+            originalElement = element.copy();
         } else {
             selectedElement.set(null);
         }
@@ -695,6 +709,8 @@ public final class SmithChartViewModel {
             if (index != -1 && index < dataPoints.size()) {
                 return dataPoints.get(index).impedanceProperty().get();
             }
+        } else if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() < dataPoints.size()) {
+            return dataPoints.get(selectedInsertionIndex.get()).impedanceProperty().get();
         }
         // If we add a new component, just return the last gamma in the chain
         return getLastImpedance();
@@ -709,6 +725,8 @@ public final class SmithChartViewModel {
             if (index != -1 && index < dataPoints.size()) {
                 return dataPoints.get(index).gammaProperty().get();
             }
+        } else if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() < dataPoints.size()) {
+            return dataPoints.get(selectedInsertionIndex.get()).gammaProperty().get();
         }
 
         return getLastGamma();
@@ -743,6 +761,12 @@ public final class SmithChartViewModel {
             CircuitElement oldElem = circuitElements.get(index);
             circuitElements.set(index, newElem);
             undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem));
+        } else if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() <= circuitElements.size()) {
+            index = selectedInsertionIndex.get();
+            circuitElements.add(index, newElem);
+
+            // Record the ADD operation
+            undoStack.push(new UndoRedoEntry(Operation.ADD, index, newElem));
         } else {
             index = circuitElements.size();
             circuitElements.add(newElem);
@@ -753,7 +777,53 @@ public final class SmithChartViewModel {
 
         redoStack.clear(); // New action clears redo history
         selectedElement.set(null); // Clear selection after adding/modifying
+
+        // Update the selected insertion index to the end
+        selectedInsertionIndex.set(circuitElements.size());
         recalculateImpedanceChain();
+    }
+
+    public List<Complex> getProjectedGammas() {
+        CircuitElement preview = previewElement.get();
+        if (preview == null) return new ArrayList<>();
+
+        List<Complex> projectedGammas = new ArrayList<>();
+        int insertIndex = selectedInsertionIndex.get();
+        List<CircuitElement> elements = circuitElements.get();
+
+        // Safety check for insertion index
+        if (insertIndex < 0 || insertIndex >= elements.size()) {
+            return projectedGammas;
+        }
+
+        double freq = frequency.get();
+
+        // Determine the starting impedance for the chain
+        Complex currentImpedance = getCurrentInteractionStartImpedance(); // Start Z (before preview)
+
+        // Apply preview element
+        if (preview.getType() == CircuitElement.ElementType.LINE) {
+            currentImpedance = ((Line) preview).calculateImpedance(currentImpedance, freq);
+        } else {
+            Complex elementImpedance = preview.getImpedance(freq);
+            currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, preview.getElementPosition());
+        }
+
+        // Loop from the insertion index to the end of the existing list
+        for (int i = insertIndex; i < elements.size(); i++) {
+            CircuitElement existingElement = elements.get(i);
+
+            if (existingElement.getType() == CircuitElement.ElementType.LINE) {
+                currentImpedance = ((Line) existingElement).calculateImpedance(currentImpedance, freq);
+            } else {
+                Complex elementImpedance = existingElement.getImpedance(freq);
+                currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, existingElement.getElementPosition());
+            }
+
+            projectedGammas.add(calculateGamma(currentImpedance));
+        }
+
+        return projectedGammas;
     }
 
     /**
@@ -1055,13 +1125,74 @@ public final class SmithChartViewModel {
     }
 
     /**
-     * Called by the Slider in the View to update the value live.
+     * Called by the Slider in the View to update the value live or when modifying a component
      *
      * @param newValue The new value from the slider
      */
     public void updateTunedElementValue(double newValue) {
+        updateTunedElementValue(newValue, null, null, null, Optional.empty(), Optional.empty());
+    }
+
+    /**
+     * Called by the View when modifying a component to update type/position/value live
+     * @param newValue The new value from the modif
+     * @param elementType The new type of the element
+     * @param elementPosition The new position of the element
+     */
+    public void updateTunedElementValue(double newValue, CircuitElement.ElementType elementType, CircuitElement.ElementPosition elementPosition, Line.StubType stubType, Optional<Double> permittivity, Optional<Double> z0Line) {
         CircuitElement current = selectedElement.get();
+
         if (current != null) {
+            int index = circuitElements.indexOf(current);
+            if (index == -1) return;
+
+            // Check if Type changed OR if it's a Line and the StubType changed
+            boolean typeChanged = (elementType != null && elementType != current.getType());
+            boolean stubChanged = false;
+
+            if (current instanceof Line line && stubType != null) {
+                // If the current line has a different stub type than the one requested, we must recreate it
+                stubChanged = (line.getStubType() != stubType);
+            }
+
+            // If Type or StubType changed, we MUST recreate the object to ensure correct constructor logic (Series vs Shunt)
+            if (typeChanged || stubChanged) {
+                CircuitElement newElement = switch (elementType) {
+                    case INDUCTOR -> new Inductor(newValue, current.getElementPosition(), elementType);
+                    case CAPACITOR -> new Capacitor(newValue, current.getElementPosition(), elementType);
+                    case RESISTOR -> new Resistor(newValue, current.getElementPosition(), elementType);
+                    case LINE -> {
+                        if (z0Line.isEmpty() || permittivity.isEmpty()) {
+                            yield null;
+                        }
+                        if (stubType == null || stubType == Line.StubType.NONE) {
+                            yield new Line(newValue, z0Line.get(), permittivity.get());
+                        } else {
+                            yield new Line(newValue, z0Line.get(), permittivity.get(), stubType);
+                        }
+                    }
+                };
+
+                if (newElement != null) {
+                    circuitElements.set(index, newElement);
+                    selectedElement.set(newElement);
+                    current = newElement;
+                }
+            }
+
+            if (current == null) return;
+
+            if (elementPosition != null && current.getType() != CircuitElement.ElementType.LINE) {
+                current.setPosition(elementPosition);
+            }
+
+            // Even if we didn't recreate, ensure properties are set (though constructor handles stubType now if recreated)
+            if (current instanceof Line line) {
+                if (stubType != null) line.setStubType(stubType);
+                permittivity.ifPresent(line::setPermittivity);
+                z0Line.ifPresent(line::setCharacteristicImpedance);
+            }
+
             current.setRealWorldValue(newValue);
         }
     }
@@ -1074,11 +1205,9 @@ public final class SmithChartViewModel {
 
         // Record the MODIFY operation
         int index = circuitElements.indexOf(selectedElement.get());
-        CircuitElement oldElem = circuitElements.get(index).copy();
-        oldElem.setRealWorldValue(originalTuningValue);
 
         selectedElement.set(null);
-        undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem));
+        undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, originalElement.copy()));
     }
 
     /**
@@ -1087,7 +1216,9 @@ public final class SmithChartViewModel {
     public void cancelTuningAdjustments() {
         CircuitElement current = selectedElement.get();
         if (current != null) {
-            current.setRealWorldValue(originalTuningValue);
+            int index = circuitElements.indexOf(current);
+            circuitElements.set(index, originalElement);
+            recalculateImpedanceChain();
         }
         selectedElement.set(null);
     }
@@ -1097,6 +1228,10 @@ public final class SmithChartViewModel {
         if (index != -1) {
             removeComponentAt(index);
         }
+    }
+
+    public void setHoveredElement(CircuitElement hoveredElement) {
+        this.hoveredElement.set(hoveredElement);
     }
 
     // Undo Redo logic

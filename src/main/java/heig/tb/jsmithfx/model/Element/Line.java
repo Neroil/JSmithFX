@@ -21,9 +21,9 @@ public class Line extends CircuitElement {
 
     }
 
-    private final double characteristicImpedance;
-    private final StubType stubType;
-    private final double permittivity;
+    private double characteristicImpedance;
+    private StubType stubType;
+    private double permittivity;
 
 
     // Constructor for a standard in-line transmission line
@@ -79,6 +79,18 @@ public class Line extends CircuitElement {
             Complex currentAdmittance = currentImpedance.inverse();
             return currentAdmittance.add(stubAdmittance).inverse();
         }
+    }
+
+    public void setStubType(StubType stubType) {
+        this.stubType = stubType;
+    }
+
+    public void setCharacteristicImpedance(double characteristicImpedance) {
+        this.characteristicImpedance = characteristicImpedance;
+    }
+
+    public void setPermittivity(double permittivity) {
+        this.permittivity = permittivity;
     }
 
     @Override

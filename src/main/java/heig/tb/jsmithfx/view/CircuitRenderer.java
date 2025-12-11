@@ -28,6 +28,7 @@ public class CircuitRenderer {
     private static final Color LABEL_COLOR = Color.rgb(220, 220, 220);
     private static final Color JUNCTION_COLOR = Color.rgb(255, 180, 100);
     private static final Color SELECTION_COLOR = Color.YELLOW;
+    private static final Color HOVER_COLOR = Color.BLUEVIOLET;
 
 
     private final Canvas circuitCanvas;
@@ -35,6 +36,12 @@ public class CircuitRenderer {
 
     // Hitbox map for editing components
     private final Map<CircuitElement, Rectangle2D> hitBoxes = new HashMap<>();
+    private final Map<Integer, Rectangle2D> insertionHitBoxes = new HashMap<>();
+
+    private static final double INSERTION_HITBOX_SIZE = 20;
+    private static final double INSERTION_DOT_RADIUS = 5;
+    private static final Color INSERTION_DOT_COLOR = Color.rgb(150, 150, 150);
+    private static final Color INSERTION_SELECT_COLOR = Color.LIGHTGREEN;
 
     private static final double LINE_Y = 10;
     private static final double SOURCE_RADIUS = 20;
@@ -84,6 +91,21 @@ public class CircuitRenderer {
         return null;
     }
 
+    /**
+     * Checks if a user clicked on an insertion point between elements.
+     * @param x mouse X
+     * @param y mouse Y
+     * @return The insertion index, or -1.
+     */
+    public int getInsertionIndexAt(double x, double y) {
+        for (Map.Entry<Integer, Rectangle2D> entry : insertionHitBoxes.entrySet()) {
+            if (entry.getValue().contains(x, y)) {
+                return entry.getKey();
+            }
+        }
+        return -1;
+    }
+
     public void render(SmithChartViewModel viewModel) {
         GraphicsContext gc = circuitCanvas.getGraphicsContext2D();
         List<CircuitElement> elements = viewModel.circuitElements.get();
@@ -118,6 +140,7 @@ public class CircuitRenderer {
 
         // Calculate component grid
         double slotWidth = (canvasWidth) / (elements.size() + 1) ;
+        renderInsertionPoints(gc, elements.size(), slotWidth, lineY, viewModel);
 
         // Draw elements in between
         for (int i = 0; i < elements.size(); i++) {
@@ -175,10 +198,16 @@ public class CircuitRenderer {
 
         // Draw highlight for selected element
         CircuitElement selectedElement = viewModel.selectedElementProperty().get();
-        if (selectedElement != null) {
+        CircuitElement hoveredElement = viewModel.hoveredElementProperty().get();
+        if (selectedElement != null || hoveredElement != null) {
+            if (selectedElement == null) {
+                selectedElement = hoveredElement;
+                gc.setFill(new Color(HOVER_COLOR.getRed(), HOVER_COLOR.getGreen(), HOVER_COLOR.getBlue(), 0.4));
+            } else {
+                gc.setFill(new Color(SELECTION_COLOR.getRed(), SELECTION_COLOR.getGreen(), SELECTION_COLOR.getBlue(), 0.4));
+            }
             Rectangle2D hitBox = hitBoxes.get(selectedElement);
             if (hitBox != null) {
-                gc.setFill(new Color(SELECTION_COLOR.getRed(), SELECTION_COLOR.getGreen(), SELECTION_COLOR.getBlue(), 0.4));
                 double padding = 10;
                 gc.fillRect(
                         hitBox.getMinX() - padding / 2,
@@ -186,6 +215,34 @@ public class CircuitRenderer {
                         hitBox.getWidth() + padding,
                         hitBox.getHeight() + padding
                 );
+            }
+        }
+    }
+
+    private void renderInsertionPoints(GraphicsContext gc, int numElements, double slotWidth, double y, SmithChartViewModel viewModel) {
+        // There are numElements + 1 insertion slots
+        for (int i = 0; i <= numElements; i++) {
+            double x = (i + 0.5) * slotWidth;
+
+            // Register the hitbox for mouse detection
+            double hitSize = INSERTION_HITBOX_SIZE;
+            insertionHitBoxes.put(i, new Rectangle2D(x - hitSize/2, y - hitSize/2, hitSize, hitSize));
+
+            // Determine visual style
+            boolean isSelected = (i == viewModel.getSelectedInsertionIndexProperty().get());
+
+            // If hovered, make it bigger and bright. If not, small and subtle.
+            double r = isSelected ? INSERTION_DOT_RADIUS * 1.5 : INSERTION_DOT_RADIUS;
+            Color c = isSelected ? INSERTION_SELECT_COLOR : INSERTION_DOT_COLOR;
+
+            gc.setFill(c);
+            gc.fillOval(x - r, y - r, 2 * r, 2 * r);
+
+            // Optional: Draw a subtle ring around it if hovered
+            if (isSelected) {
+                gc.setStroke(INSERTION_SELECT_COLOR);
+                gc.setLineWidth(1);
+                gc.strokeOval(x - r - 2, y - r - 2, (2 * r) + 4, (2 * r) + 4);
             }
         }
     }

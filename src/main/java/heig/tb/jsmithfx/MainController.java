@@ -292,9 +292,19 @@ public class MainController {
             }
         });
 
+        // Hover highlight for circuit elements
+        circuitCanvas.setOnMouseMoved(event -> {
+            CircuitElement hoveredElement = circuitRenderer.getElementAt(event.getX(), event.getY());
+            viewModel.setHoveredElement(hoveredElement);
+            circuitRenderer.render(viewModel);
+        });
+
         // Circuit Diagram Editing
         circuitCanvas.setOnMouseClicked(event -> {
+            int selectedIndex = circuitRenderer.getInsertionIndexAt(event.getX(), event.getY());
             CircuitElement clickedElement = circuitRenderer.getElementAt(event.getX(), event.getY());
+            viewModel.setSelectedInsertionIndex(selectedIndex);
+
             if (clickedElement != null) {
                 if (event.getClickCount() == 2) {
                     viewModel.cancelTuningAdjustments();
@@ -305,6 +315,8 @@ public class MainController {
                 }
             }
         });
+
+        viewModel.getSelectedInsertionIndexProperty().addListener(_ -> circuitRenderer.render(viewModel));
 
         viewModel.selectedElementProperty().addListener((_, _, selectedElement) -> {
             if (selectedElement != null) {

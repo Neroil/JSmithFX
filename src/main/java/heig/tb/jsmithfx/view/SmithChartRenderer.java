@@ -278,14 +278,46 @@ public class SmithChartRenderer {
      */
     private void drawImpedancePoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout,
                                      int selectedItemIndex, double scale, double offX, double offY) {
-        List<Complex> gammas = viewModel.measuresGammaProperty().get();
 
-        if (gammas != null) {
+        List<Complex> pointsToDraw = new ArrayList<>();
+
+        // Determine which points to draw
+        CircuitElement previewElement = viewModel.previewElementProperty().get();
+        boolean isPreviewing = previewElement != null && !viewModel.isModifyingComponent.get();
+
+        if (isPreviewing) {
+            List<Complex> committedGammas = viewModel.measuresGammaProperty().get();
+            int insertionIndex = viewModel.getSelectedInsertionIndexProperty().get();
+
+            if (insertionIndex < 0 || insertionIndex >= committedGammas.size()) {
+                insertionIndex = committedGammas.size() - 1;
+            }
+
+            // Add all the points before the insertion point
+            if (!committedGammas.isEmpty()) {
+                pointsToDraw.addAll(committedGammas.subList(0, insertionIndex + 1));
+            }
+
+            // Add the PREVIEW point
+            Complex previewGamma = viewModel.getPreviewElementGamma();
+            if (previewGamma != null) {
+                pointsToDraw.add(previewGamma);
+            }
+
+            // Add the PROJECTED points
+            List<Complex> projectedGammas = viewModel.getProjectedGammas();
+            pointsToDraw.addAll(projectedGammas);
+
+        } else {
+            pointsToDraw.addAll(viewModel.measuresGammaProperty().get());
+        }
+
+        // Draw the points
+        if (!pointsToDraw.isEmpty()) {
             int index = 0;
 
-            // Draw each impedance point
-            for (Complex gamma : gammas) {
-                String labelText = (index == 0) ? "LP" : "DP" + index;
+            for (Complex gamma : pointsToDraw) {
+                String labelText = (index == 0) ? "LD" : "DP" + index;
 
                 double localX = layout.toScreenX(gamma);
                 double localY = layout.toScreenY(gamma);
@@ -296,19 +328,24 @@ public class SmithChartRenderer {
 
                 double pointSize = 5; // logical size
 
-                // Add to active points with a specific label
                 activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText, pointSize * scale, false));
 
-                if (selectedItemIndex == index) {
+                // Color Logic
+                if (isPreviewing && index == viewModel.getSelectedInsertionIndexProperty().get() + 1) {
+                    gc.setStroke(Color.ORANGE);
+                    gc.setFill(Color.ORANGE);
+                } else if (selectedItemIndex == index) {
+                    // Selected in table
                     gc.setStroke(Color.CORAL);
                     gc.setFill(Color.CORAL);
                 } else {
+                    // Standard point
                     gc.setStroke(Color.YELLOW);
                     gc.setFill(Color.YELLOW);
                 }
 
                 gc.strokeRect(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
-                drawLabel(gc, labelText, localX, localY - LABEL_FONT.getSize(), Color.YELLOW);
+                drawLabel(gc, labelText, localX, localY - LABEL_FONT.getSize(), (Color) gc.getFill());
 
                 ++index;
             }
@@ -419,51 +456,92 @@ public class SmithChartRenderer {
      * @param gc   The GraphicsContext of the canvas.
      */
     private void drawImpedancePath(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
-
-        List<Complex> gammas = List.copyOf(viewModel.measuresGammaProperty().get());
-        Complex previewGamma = viewModel.getPreviewElementGamma();
+        List<Complex> committedGammas = List.copyOf(viewModel.measuresGammaProperty().get());
         CircuitElement previewElement = viewModel.previewElementProperty().get();
+        Complex previewGamma = viewModel.getPreviewElementGamma();
 
-        if (gammas.size() < 2 && previewGamma == null) return;
+        // If empty and no preview, nothing to draw
+        if (committedGammas.isEmpty() && previewElement == null) return;
 
         double centerX = layout.getCenterX();
         double centerY = layout.getCenterY();
         double mainRadius = layout.getRadius();
 
-        // Clip to the Smith circle so lines don't spill outside
+        // Setup Clipping
         gc.save();
         gc.beginPath();
         gc.arc(centerX, centerY, mainRadius, mainRadius, 0, 360);
         gc.closePath();
         gc.clip();
 
-        gc.setStroke(Color.RED);
         gc.setLineWidth(2);
 
-        Complex previousGamma = gammas.getFirst();
+        // Determine where we stop drawing the pre-existing path
+        int insertionIndex = viewModel.getSelectedInsertionIndexProperty().get();
 
-        // Draw existing circuit elements
-        for (int i = 1; i < gammas.size(); i++) {
-            if (i - 1 >= viewModel.circuitElements.size()) {
-                break;
-            }
+        // Safety clamp
+        if (insertionIndex > committedGammas.size() - 1) insertionIndex = committedGammas.size() - 1;
+        if (insertionIndex < 0) insertionIndex = committedGammas.size() - 1;
 
-            Complex currGamma = gammas.get(i);
+        Complex previousGamma = committedGammas.getFirst(); // Start at Load
+
+        // Draw the circuit up to the insertion point
+        gc.setStroke(Color.RED);
+
+        for (int i = 1; i <= insertionIndex; i++) {
+            if (i >= committedGammas.size()) break;
+
+            Complex currGamma = committedGammas.get(i);
+            // The element responsible for this arc is at index i-1
             CircuitElement element = viewModel.circuitElements.get(i - 1);
 
             drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, currGamma, element);
             previousGamma = currGamma;
         }
 
-        // Draw preview arc for the component being added
-        if (previewGamma != null && previewElement != null && !viewModel.isModifyingComponent.get()) {
+        // Draw the preview
+        if (previewElement != null && previewGamma != null && !viewModel.isModifyingComponent.get()) {
+
+            // Draw as dotted orange line
             gc.setStroke(Color.ORANGE);
             gc.setLineDashes(5, 5);
 
-            Complex lastGamma = gammas.isEmpty() ? new Complex(0, 0) : gammas.getLast();
-            drawArcSegment(gc, viewModel, layout, mainRadius, lastGamma, previewGamma, previewElement);
+            // previousGamma is currently at the insertion point
+            drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, previewGamma, previewElement);
 
-            gc.setLineDashes(null);
+            gc.setLineDashes(0,0); // Reset dashes
+
+            // Draw the projected path after the preview
+            List<Complex> projectedGammas = viewModel.getProjectedGammas();
+            List<CircuitElement> allElements = viewModel.circuitElements.get();
+
+            if (!projectedGammas.isEmpty()) {
+                gc.setStroke(Color.RED);
+
+                // Start from the end of the preview
+                Complex tailStartGamma = previewGamma;
+
+                for (int i = 0; i < projectedGammas.size(); i++) {
+                    Complex tailEndGamma = projectedGammas.get(i);
+
+                    int elementIndex = insertionIndex + i;
+
+                    if (elementIndex < allElements.size()) {
+                        CircuitElement element = allElements.get(elementIndex);
+                        drawArcSegment(gc, viewModel, layout, mainRadius, tailStartGamma, tailEndGamma, element);
+                    }
+
+                    tailStartGamma = tailEndGamma;
+                }
+            }
+        } else { // No preview, just draw the rest of the committed path
+            for (int i = insertionIndex + 1; i < committedGammas.size(); i++) {
+                Complex currGamma = committedGammas.get(i);
+                CircuitElement element = viewModel.circuitElements.get(i - 1);
+
+                drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, currGamma, element);
+                previousGamma = currGamma;
+            }
         }
 
         gc.restore();
