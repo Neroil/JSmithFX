@@ -15,10 +15,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Stack;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -65,8 +62,8 @@ public final class SmithChartViewModel {
     private final ReadOnlyStringWrapper mouseAdmittanceYText = new ReadOnlyStringWrapper("Y: -");
     private final ReadOnlyStringWrapper mouseImpedanceZText = new ReadOnlyStringWrapper("Z: -");
     private final ReadOnlyListWrapper<DataPoint> previewTransformedS1PPoints = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
-    private final Stack<UndoRedoEntry> undoStack = new Stack<>();
-    private final Stack<UndoRedoEntry> redoStack = new Stack<>();
+    private final Deque<UndoRedoEntry> undoStack = new ArrayDeque<>();
+    private final Deque<UndoRedoEntry> redoStack = new ArrayDeque<>();
     private final ObjectProperty<CircuitElement> previewElementS1P = new SimpleObjectProperty<>();
     // Circle display options
     private final ReadOnlyListWrapper<Double> vswrCircles = new ReadOnlyListWrapper<>(FXCollections.observableArrayList());
@@ -916,57 +913,58 @@ public final class SmithChartViewModel {
     }
 
 
-    // --- Public Properties for Binding ---
-
     /**
      * Undo logic for the components ONLY
      */
     public void undo() {
-        if (undoStack.isEmpty()) return;
-
-        UndoRedoEntry entry = undoStack.pop();
-
-        if (entry.operation == Operation.ADD) {
-            circuitElements.remove(entry.index);
-        } else if (entry.operation == Operation.REMOVE){ // Operation.REMOVE
-            circuitElements.add(entry.index, entry.element);
-        } else if (entry.operation == Operation.MODIFY) {
-            CircuitElement currentElem = circuitElements.get(entry.index);
-            // Revert to the old element
-            circuitElements.set(entry.index, entry.element);
-            // Push to redo with the element we just replaced
-            redoStack.push(new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem));
-        }
-
-        if (entry.operation != Operation.MODIFY) {
-            redoStack.push(entry);
-        }
-        recalculateImpedanceChain();
+        processHistoryStep(undoStack, redoStack, false);
     }
 
     /**
      * Redo logic for the components ONLY
      */
     public void redo() {
-        if (redoStack.isEmpty()) return;
+        processHistoryStep(redoStack, undoStack, true);
+    }
 
-        UndoRedoEntry entry = redoStack.pop();
+    /**
+     * Core logic to handle both Undo and Redo operations.
+     *
+     * @param sourceStack The stack to take the action FROM.
+     * @param destStack   The stack to push the inverse action TO.
+     * @param isRedo      True if redoing (ADD=ADD), False if undoing (ADD=REMOVE).
+     */
+    private void processHistoryStep(Deque<UndoRedoEntry> sourceStack, Deque<UndoRedoEntry> destStack, boolean isRedo) {
+        cancelTuningAdjustments();
+        if (sourceStack.isEmpty()) return;
 
-        if (entry.operation == Operation.ADD) {
-            circuitElements.add(entry.index, entry.element);
-        } else if (entry.operation == Operation.REMOVE) {
-            circuitElements.remove(entry.index);
-        } else if (entry.operation == Operation.MODIFY) {
+        UndoRedoEntry entry = sourceStack.pop();
+
+        if (entry.operation == Operation.MODIFY) {
             CircuitElement currentElem = circuitElements.get(entry.index);
-            // Apply the "redo" element
             circuitElements.set(entry.index, entry.element);
-            // Push back to undo with the element we just replaced
-            undoStack.push(new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem));
+
+            destStack.push(new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem));
+
+        } else {
+            // For ADD/REMOVE, the action depends on direction
+            boolean shouldAdd;
+
+            if (entry.operation == Operation.ADD) {
+                shouldAdd = isRedo; // If Undo, ADD becomes Remove (false)
+            } else { // Operation.REMOVE
+                shouldAdd = !isRedo; // If Undo, REMOVE becomes Add (true)
+            }
+
+            if (shouldAdd) {
+                circuitElements.add(entry.index, entry.element);
+            } else {
+                circuitElements.remove(entry.index);
+            }
+
+            destStack.push(entry);
         }
 
-        if (entry.operation != Operation.MODIFY) {
-            undoStack.push(entry);
-        }
         recalculateImpedanceChain();
     }
 

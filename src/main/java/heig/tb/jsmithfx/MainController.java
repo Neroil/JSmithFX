@@ -311,6 +311,10 @@ public class MainController {
             CircuitElement clickedElement = circuitRenderer.getElementAt(event.getX(), event.getY());
             viewModel.setSelectedInsertionIndex(selectedIndex);
 
+            if (selectedIndex != -1) {
+                viewModel.cancelTuningAdjustments(); // Cancel any ongoing tuning/modification
+            }
+
             if (clickedElement != null) {
                 if (event.getClickCount() == 2) {
                     viewModel.cancelTuningAdjustments();
