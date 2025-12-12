@@ -305,6 +305,33 @@ public class SmithCalculator {
         return componentValue;
     }
 
+    /**
+     * Safely add two impedance in parallel.
+     *
+     * @param zStart The starting impedance.
+     * @param zComp  The component impedance to add in parallel.
+     * @return The resulting impedance after adding in parallel.
+     */
+    public static Complex addParallelImpedance(Complex zStart, Complex zComp) {
+        if (zStart.magnitude() < 1e-12 || zComp.magnitude() < 1e-12) {
+            return new Complex(0, 0);
+        }
+        // If start is Open Circuit, result is just the component
+        if (zStart.real() > 1e12) return zComp;
+
+        // Z_total = 1 / ( (1/Z_start) + (1/Z_comp) )
+        return zStart.inverse().add(zComp.inverse()).inverse();
+    }
+
+    /**
+     * Generates a list of points representing the path of adding a lossy component on the Smith chart.
+     * @param startGamma    The starting reflection coefficient (Gamma).
+     * @param element       The circuit element being added.
+     * @param z0            The characteristic impedance.
+     * @param frequency     The operating frequency.
+     * @param points        The number of points to generate along the path.
+     * @return A list of Complex numbers representing the path on the Smith chart.
+     */
     public static List<Complex> getLossyComponentPath(Complex startGamma, CircuitElement element, double z0, double frequency, int points) {
         List<Complex> path = new ArrayList<>();
 

@@ -32,6 +32,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static heig.tb.jsmithfx.logic.SmithCalculator.addParallelImpedance;
 import static heig.tb.jsmithfx.logic.SmithCalculator.calculateComponentValue;
 
 public class SmithChartInteractionController {
@@ -448,49 +449,71 @@ public class SmithChartInteractionController {
         previousAngle = currentAngle;
 
         // Calculate position and Value
-        snappedGammaForMouseAdd = circleCenterForMouseAdd.add(
+        Complex idealGamma = circleCenterForMouseAdd.add(
                 new Complex(Math.cos(currentAngle), Math.sin(currentAngle)).multiply(circleRadiusForMouseAdd)
         );
 
-        // Try to parse optional parameters for line calculations
-        Optional<Double> permittivityOpt = permittivitySupplier.get();
-        Optional<Double> z0_lineOpt = zoLineSupplier.get();
-
         Double liveValue = calculateComponentValue(
-                snappedGammaForMouseAdd,
+                idealGamma,
                 startImpedanceForMouseAdd,
                 typeSupplier.get(),
                 positionSupplier.get(),
                 stubTypeSupplier.get(),
                 viewModel.zo.get(),
                 viewModel.frequencyProperty().get(),
-                z0_lineOpt,
-                permittivityOpt
+                zoLineSupplier.get(),
+                permittivitySupplier.get()
         );
 
         if (liveValue != null) {
+            // Update UI Text
             Pair<ElectronicUnit, String> result = SmithUtilities.getBestUnitAndFormattedValue(
                     liveValue,
                     (ElectronicUnit[]) typeSupplier.get().getUnitClass().getEnumConstants()
             );
             valueUpdater.accept(result.getValue(), (Enum<?>) result.getKey());
 
-            // Reuse tuning logic to update visuals
+            // Update the live preview element
+            if (typeSupplier.get() == CircuitElement.ElementType.LINE) {
+                if (zoLineSupplier.get().isPresent() && permittivitySupplier.get().isPresent()) {
+                    viewModel.addLiveComponentPreview(liveValue, zoLineSupplier.get().get(), permittivitySupplier.get().get(), stubTypeSupplier.get(), qualityFactorSupplier.get());
+                }
+            } else {
+                viewModel.addLiveComponentPreview(typeSupplier.get(), liveValue, positionSupplier.get(), qualityFactorSupplier.get());
+            }
+
             viewModel.updateTunedElementValue(liveValue, typeSupplier.get(), positionSupplier.get(), stubTypeSupplier.get(), permittivitySupplier.get(), zoLineSupplier.get(), qualityFactorSupplier.get());
+
+            // Fetch the preview element to get its impedance and calculate the mouse snapped position
+            CircuitElement currentElement = viewModel.previewElementProperty().get();
+
+            if (currentElement != null) {
+                double freq = viewModel.frequencyProperty().get();
+                double z0 = viewModel.zo.get();
+
+                // Get the physical impedance of the component
+                Complex componentZ = currentElement.getImpedance(freq);
+
+                Complex totalZ;
+
+                // Combine with start impedance based on series/parallel
+                if (positionSupplier.get() == CircuitElement.ElementPosition.SERIES) {
+                    totalZ = startImpedanceForMouseAdd.add(componentZ);
+                } else {
+                    totalZ = addParallelImpedance(startImpedanceForMouseAdd, componentZ);
+                }
+
+                // Convert back to Gamma
+                snappedGammaForMouseAdd = SmithCalculator.impedanceToGamma(totalZ, z0);
+            }
+        } else {
+            // Fallback if calculation failed
+            snappedGammaForMouseAdd = idealGamma;
         }
 
         viewModel.ghostCursorGamma.set(snappedGammaForMouseAdd); // Update the ghost cursor position
         renderer.renderCursor(viewModel, currentScale, offsetX, offsetY);
         moveCursorToGamma(snappedGammaForMouseAdd);
-
-        if (liveValue != null) {
-            if (typeSupplier.get() == CircuitElement.ElementType.LINE) {
-                if (z0_lineOpt.isPresent() && permittivityOpt.isPresent()) {
-                    viewModel.addLiveComponentPreview(liveValue, z0_lineOpt.get(), permittivityOpt.get(), stubTypeSupplier.get(), qualityFactorSupplier.get());
-                }
-            } else
-                viewModel.addLiveComponentPreview(typeSupplier.get(), liveValue, positionSupplier.get(), qualityFactorSupplier.get());
-        }
     }
 
     /**

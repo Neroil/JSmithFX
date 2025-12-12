@@ -334,15 +334,17 @@ public final class SmithChartViewModel {
     }
 
     public void addLiveComponentPreview(Double liveValue, double z0Line, double permittivity, Line.StubType stubType, Optional<Double> qualityFactor) {
+        Line newLine;
         if (stubType == null || stubType == Line.StubType.NONE) {
             if (isShowS1PAsLoad()) previewElementS1P.set(new Line(liveValue, z0Line, permittivity));
-            previewElement.set(new Line(liveValue, z0Line, permittivity));
+            newLine = new Line(liveValue, z0Line, permittivity);
+
         } else {
             if (isShowS1PAsLoad()) previewElementS1P.set(new Line(liveValue, z0Line, permittivity, stubType));
-            previewElement.set(new Line(liveValue, z0Line, permittivity, stubType));
+            newLine = new Line(liveValue, z0Line, permittivity, stubType);
         }
-
-        qualityFactor.ifPresent(aDouble -> previewElement.get().setQualityFactor(aDouble));
+        qualityFactor.ifPresent(newLine::setQualityFactor);
+        previewElement.set(newLine);
     }
 
     public void addLiveComponentPreview(CircuitElement.ElementType type, Double liveValue, CircuitElement.ElementPosition position, Optional<Double> qualityFactor) {
@@ -352,10 +354,9 @@ public final class SmithChartViewModel {
             case RESISTOR -> new Resistor(liveValue, position, type);
             default -> null;
         };
+        if (element != null) qualityFactor.ifPresent(element::setQualityFactor);
         if (isShowS1PAsLoad()) previewElementS1P.set(element);
         previewElement.set(element);
-
-        qualityFactor.ifPresent(aDouble -> previewElement.get().setQualityFactor(aDouble));
     }
 
     public void clearLiveComponentPreview() {
