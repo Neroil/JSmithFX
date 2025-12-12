@@ -50,6 +50,8 @@ public class SmithChartInteractionController {
     private final Supplier<Optional<Double>> permittivitySupplier;
     private final BiConsumer<String, Enum<?>> valueUpdater; // (value, unit)
     private final Consumer<String> buttonTextUpdater;
+    private final Supplier<Optional<Double>> qualityFactorSupplier;
+
     //View State for zooming and panning
     private double currentScale = 1.0;
     private double offsetX = 0.0;
@@ -83,7 +85,8 @@ public class SmithChartInteractionController {
             Supplier<Optional<Double>> zoLineSupplier,
             Supplier<Optional<Double>> permittivitySupplier,
             BiConsumer<String, Enum<?>> valueUpdater,
-            Consumer<String> buttonTextUpdater
+            Consumer<String> buttonTextUpdater,
+            Supplier<Optional<Double>> qualityFactorSupplier
     ) {
         this.smithChartPane = smithChartPane;
         this.smithCanvas = smithCanvas;
@@ -98,6 +101,7 @@ public class SmithChartInteractionController {
         this.permittivitySupplier = permittivitySupplier;
         this.valueUpdater = valueUpdater;
         this.buttonTextUpdater = buttonTextUpdater;
+        this.qualityFactorSupplier = qualityFactorSupplier;
 
 
         this.renderer = new SmithChartRenderer(smithCanvas, cursorCanvas);
@@ -321,8 +325,8 @@ public class SmithChartInteractionController {
 
         if (componentValue != null) {
             if (type == CircuitElement.ElementType.LINE && z0_lineOpt.isPresent() && permittivityOpt.isPresent()) {
-                viewModel.addComponent(type, componentValue, z0_lineOpt.get(), permittivityOpt.get(), null, stubType);
-            } else viewModel.addComponent(type, componentValue, position);
+                viewModel.addComponent(type, componentValue, z0_lineOpt.get(), permittivityOpt.get(), null, qualityFactorSupplier.get(), stubType);
+            } else viewModel.addComponent(type, componentValue, position, qualityFactorSupplier.get());
         }
 
         resetMouseAddComponentState();
@@ -472,7 +476,7 @@ public class SmithChartInteractionController {
             valueUpdater.accept(result.getValue(), (Enum<?>) result.getKey());
 
             // Reuse tuning logic to update visuals
-            viewModel.updateTunedElementValue(liveValue, typeSupplier.get(), positionSupplier.get(), stubTypeSupplier.get(), permittivitySupplier.get(), zoLineSupplier.get());
+            viewModel.updateTunedElementValue(liveValue, typeSupplier.get(), positionSupplier.get(), stubTypeSupplier.get(), permittivitySupplier.get(), zoLineSupplier.get(), qualityFactorSupplier.get());
         }
 
         viewModel.ghostCursorGamma.set(snappedGammaForMouseAdd); // Update the ghost cursor position
@@ -482,10 +486,10 @@ public class SmithChartInteractionController {
         if (liveValue != null) {
             if (typeSupplier.get() == CircuitElement.ElementType.LINE) {
                 if (z0_lineOpt.isPresent() && permittivityOpt.isPresent()) {
-                    viewModel.addLiveComponentPreview(liveValue, z0_lineOpt.get(), permittivityOpt.get(), stubTypeSupplier.get());
+                    viewModel.addLiveComponentPreview(liveValue, z0_lineOpt.get(), permittivityOpt.get(), stubTypeSupplier.get(), qualityFactorSupplier.get());
                 }
             } else
-                viewModel.addLiveComponentPreview(typeSupplier.get(), liveValue, positionSupplier.get());
+                viewModel.addLiveComponentPreview(typeSupplier.get(), liveValue, positionSupplier.get(), qualityFactorSupplier.get());
         }
     }
 

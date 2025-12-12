@@ -7,6 +7,8 @@ import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.util.Pair;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class SmithCalculator {
@@ -27,6 +29,12 @@ public class SmithCalculator {
         Complex numerator = one.add(gamma);
         Complex denominator = one.subtract(gamma);
         return numerator.dividedBy(denominator).multiply(z0);
+    }
+
+    public static Complex impedanceToGamma(Complex impedance, double z0) {
+        Complex numerator = impedance.subReal(z0);
+        Complex denominator = impedance.addReal(z0);
+        return numerator.dividedBy(denominator);
     }
 
     /**
@@ -296,4 +304,39 @@ public class SmithCalculator {
         if (!Double.isFinite(componentValue) || componentValue <= 0.0) return null;
         return componentValue;
     }
+
+    public static List<Complex> getLossyComponentPath(Complex startGamma, CircuitElement element, double z0, double frequency, int points) {
+        List<Complex> path = new ArrayList<>();
+
+        Complex startImpedance = gammaToImpedance(startGamma, z0);
+        Complex startAdmittance = startImpedance.inverse(); // Used for parallel
+
+        Complex finalComponentZ = element.getImpedance(frequency);
+
+        for (int i = 0; i <= points; i++) {
+            double fraction = (double) i / points;
+            Complex stepTotalZ;
+
+            if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
+                // Z_step = Z_start + (Z_final_component * fraction)
+                stepTotalZ = startImpedance.add(finalComponentZ.multiply(fraction));
+            } else {
+                // PARALLEL
+                // Y_final_component = 1 / Z_final_component
+                Complex finalComponentY = finalComponentZ.inverse();
+
+                // Y_step = Y_start + (Y_final_component * fraction)
+                Complex stepTotalY = startAdmittance.add(finalComponentY.multiply(fraction));
+
+                // Convert back to Z for gamma calculation
+                stepTotalZ = stepTotalY.inverse();
+            }
+
+            // Convert to Gamma and add to path
+            path.add(impedanceToGamma(stepTotalZ, z0));
+        }
+
+        return path;
+    }
+
 }

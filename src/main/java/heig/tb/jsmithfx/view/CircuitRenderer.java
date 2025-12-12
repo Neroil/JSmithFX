@@ -164,6 +164,12 @@ public class CircuitRenderer {
                 registerHitBox(element, x, y, false);
             }
 
+            // Draw a little Q indicator if the element has a quality factor
+            if (element.getQualityFactor().isPresent()) {
+                gc.setFill(JUNCTION_COLOR);
+                gc.fillText("Q=" + String.format("%.1f", element.getQualityFactor().get()), x, labelFont.getSize() * 4);
+            }
+
             switch (type) {
                 case RESISTOR -> {
                     drawResistor(x, y, gc);
@@ -241,7 +247,6 @@ public class CircuitRenderer {
     }
 
     private void registerHitBox(CircuitElement element, double centerX, double centerY, boolean isRotated) {
-        // Use a generous bounding box that covers the largest component type
         double w = isRotated ? MAX_COMPONENT_H : MAX_COMPONENT_W;
         double h = isRotated ? MAX_COMPONENT_W : MAX_COMPONENT_H;
 

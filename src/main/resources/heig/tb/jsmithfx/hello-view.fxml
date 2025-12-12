@@ -233,6 +233,8 @@
                                         <HBox alignment="CENTER_LEFT" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
                                             <TextField fx:id="valueTextField" HBox.hgrow="ALWAYS" />
                                             <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
+                                            <CheckBox fx:id="useQualityFactorCheckBox" text="Use Q" />
+                                            <TextField fx:id="qualityFactorTextField" prefWidth="80.0" visible="false" managed="false"/>
                                             <Label fx:id="zoInputLabel" text="Z0:" visible="false" />
                                             <TextField fx:id="zoInputField" promptText="e.g. 50" visible="false" />
                                             <Label fx:id="permittivityLabel" text="εr:" visible="false" />

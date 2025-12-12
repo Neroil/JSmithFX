@@ -128,6 +128,12 @@ public final class SmithChartViewModel {
     // Preview while adding new component
     private final ObjectProperty<CircuitElement> previewElement = new SimpleObjectProperty<>();
 
+    // Quality factor stuff
+    private final BooleanProperty isUsingQualityFactor = new SimpleBooleanProperty(false);
+    public ReadOnlyBooleanProperty isUsingQualityFactorProperty() {
+        return isUsingQualityFactor;
+    }
+
     public boolean isAnyUseS1PAsLoad() {
         return useS1PAsLoadF1.get() || useS1PAsLoadF2.get() || useS1PAsLoadF3.get();
     }
@@ -327,7 +333,7 @@ public final class SmithChartViewModel {
         return previewTransformedS1PPoints.getReadOnlyProperty();
     }
 
-    public void addLiveComponentPreview(Double liveValue, double z0Line, double permittivity, Line.StubType stubType) {
+    public void addLiveComponentPreview(Double liveValue, double z0Line, double permittivity, Line.StubType stubType, Optional<Double> qualityFactor) {
         if (stubType == null || stubType == Line.StubType.NONE) {
             if (isShowS1PAsLoad()) previewElementS1P.set(new Line(liveValue, z0Line, permittivity));
             previewElement.set(new Line(liveValue, z0Line, permittivity));
@@ -335,9 +341,11 @@ public final class SmithChartViewModel {
             if (isShowS1PAsLoad()) previewElementS1P.set(new Line(liveValue, z0Line, permittivity, stubType));
             previewElement.set(new Line(liveValue, z0Line, permittivity, stubType));
         }
+
+        qualityFactor.ifPresent(aDouble -> previewElement.get().setQualityFactor(aDouble));
     }
 
-    public void addLiveComponentPreview(CircuitElement.ElementType type, Double liveValue, CircuitElement.ElementPosition position) {
+    public void addLiveComponentPreview(CircuitElement.ElementType type, Double liveValue, CircuitElement.ElementPosition position, Optional<Double> qualityFactor) {
         CircuitElement element = switch (type) {
             case INDUCTOR -> new Inductor(liveValue, position, type);
             case CAPACITOR -> new Capacitor(liveValue, position, type);
@@ -346,6 +354,8 @@ public final class SmithChartViewModel {
         };
         if (isShowS1PAsLoad()) previewElementS1P.set(element);
         previewElement.set(element);
+
+        qualityFactor.ifPresent(aDouble -> previewElement.get().setQualityFactor(aDouble));
     }
 
     public void clearLiveComponentPreview() {
@@ -629,8 +639,8 @@ public final class SmithChartViewModel {
         return (zNorm.addReal(-1)).dividedBy(zNorm.addReal(1));
     }
 
-    public void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position) {
-        addComponent(type, value, 0.0, 0.0, position, null);
+    public void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position, Optional<Double> qualityFactor) {
+        addComponent(type, value, 0.0, 0.0, position, qualityFactor, null);
     }
 
     void addS1PDatapoints(List<DataPoint> dp) {
@@ -735,7 +745,7 @@ public final class SmithChartViewModel {
     /**
      * Adds a new component to the circuit and triggers a full recalculation.
      */
-    public void addComponent(CircuitElement.ElementType type, double value, double characteristicImpedance, double permittivity, CircuitElement.ElementPosition position, Line.StubType stubType) {
+    public void addComponent(CircuitElement.ElementType type, double value, double characteristicImpedance, double permittivity, CircuitElement.ElementPosition position, Optional<Double> qualityFactor, Line.StubType stubType) {
         CircuitElement newElem = switch (type) {
             case INDUCTOR -> new Inductor(value, position, type);
             case CAPACITOR -> new Capacitor(value, position, type);
@@ -748,6 +758,8 @@ public final class SmithChartViewModel {
                 }
             }
         };
+
+        if (isUsingQualityFactor.get() && qualityFactor.isPresent()) newElem.setQualityFactor(qualityFactor.get());
 
         int index;
 
@@ -1130,7 +1142,7 @@ public final class SmithChartViewModel {
      * @param newValue The new value from the slider
      */
     public void updateTunedElementValue(double newValue) {
-        updateTunedElementValue(newValue, null, null, null, Optional.empty(), Optional.empty());
+        updateTunedElementValue(newValue, null, null, null, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /**
@@ -1139,7 +1151,7 @@ public final class SmithChartViewModel {
      * @param elementType The new type of the element
      * @param elementPosition The new position of the element
      */
-    public void updateTunedElementValue(double newValue, CircuitElement.ElementType elementType, CircuitElement.ElementPosition elementPosition, Line.StubType stubType, Optional<Double> permittivity, Optional<Double> z0Line) {
+    public void updateTunedElementValue(double newValue, CircuitElement.ElementType elementType, CircuitElement.ElementPosition elementPosition, Line.StubType stubType, Optional<Double> permittivity, Optional<Double> z0Line, Optional<Double> qualityFactor) {
         CircuitElement current = selectedElement.get();
 
         if (current != null) {
@@ -1193,6 +1205,10 @@ public final class SmithChartViewModel {
                 z0Line.ifPresent(line::setCharacteristicImpedance);
             }
 
+            if (isUsingQualityFactor.get() && qualityFactor.isPresent()) {
+                current.setQualityFactor(qualityFactor.get());
+            }
+
             current.setRealWorldValue(newValue);
         }
     }
@@ -1232,6 +1248,10 @@ public final class SmithChartViewModel {
 
     public void setHoveredElement(CircuitElement hoveredElement) {
         this.hoveredElement.set(hoveredElement);
+    }
+
+    public void setUseQualityFactor(Boolean newVal) {
+        this.isUsingQualityFactor.set(newVal);
     }
 
     // Undo Redo logic

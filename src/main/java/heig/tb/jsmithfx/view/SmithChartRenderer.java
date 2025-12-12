@@ -549,54 +549,89 @@ public class SmithChartRenderer {
 
     private void drawArcSegment(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout,
                                 double mainRadius, Complex startGamma, Complex endGamma, CircuitElement element) {
-        Complex startImpedance = SmithCalculator.gammaToImpedance(startGamma, viewModel.zo.get());
-        Pair<Complex, Double> arcParams = SmithCalculator.getArcParameters(startImpedance, element, viewModel.zo.get());
 
-        Complex arcCenter = arcParams.getKey();
-        double arcRadius = arcParams.getValue() * mainRadius;
+        boolean hasQ = element.getQualityFactor().isPresent()
+                && Double.isFinite(element.getQualityFactor().get())
+                && element.getQualityFactor().get() > 0;
 
-        // Convert arc center to canvas coordinates
-        double arcCenterX = layout.toScreenX(arcCenter);
-        double arcCenterY = layout.toScreenY(arcCenter);
+        if (hasQ && (element.getType() == CircuitElement.ElementType.CAPACITOR ||
+                element.getType() == CircuitElement.ElementType.INDUCTOR)) {
 
-        // Calculate start and end angles
-        double startAngle = Math.toDegrees(Math.atan2(
-                startGamma.imag() - arcCenter.imag(),
-                startGamma.real() - arcCenter.real()
-        ));
+            drawLossyPath(gc, viewModel, layout, startGamma, element);
 
-        double endAngle = Math.toDegrees(Math.atan2(
-                endGamma.imag() - arcCenter.imag(),
-                endGamma.real() - arcCenter.real()
-        ));
+        } else {
+            Complex startImpedance = SmithCalculator.gammaToImpedance(startGamma, viewModel.zo.get());
+            Pair<Complex, Double> arcParams = SmithCalculator.getArcParameters(startImpedance, element, viewModel.zo.get());
 
-        // Check which direction the arc should be drawn in
-        int expectedDirection = SmithCalculator.getExpectedDirection(element, startGamma);
+            Complex arcCenter = arcParams.getKey();
+            double arcRadius = arcParams.getValue() * mainRadius;
 
-        // Calculate the raw angle difference
-        double arcExtent = endAngle - startAngle;
+            // Convert arc center to canvas coordinates
+            double arcCenterX = layout.toScreenX(arcCenter);
+            double arcCenterY = layout.toScreenY(arcCenter);
 
-        // Normalize to the shortest path first (-180 to 180)
-        while (arcExtent <= -180) arcExtent += 360;
-        while (arcExtent > 180) arcExtent -= 360;
+            // Calculate start and end angles
+            double startAngle = Math.toDegrees(Math.atan2(
+                    startGamma.imag() - arcCenter.imag(),
+                    startGamma.real() - arcCenter.real()
+            ));
 
-        // Correct which path to take
-        if (arcExtent != 0 && Math.signum(arcExtent) != expectedDirection) {
-            // If the shortest path was positive (CCW) but we expected negative (CW), subtract 360.
-            // If the shortest path was negative (CW) but we expected positive (CCW), add 360.
-            arcExtent = (arcExtent > 0) ? arcExtent - 360 : arcExtent + 360;
+            double endAngle = Math.toDegrees(Math.atan2(
+                    endGamma.imag() - arcCenter.imag(),
+                    endGamma.real() - arcCenter.real()
+            ));
+
+            // Check which direction the arc should be drawn in
+            int expectedDirection = SmithCalculator.getExpectedDirection(element, startGamma);
+
+            // Calculate the raw angle difference
+            double arcExtent = endAngle - startAngle;
+
+            // Normalize to the shortest path first (-180 to 180)
+            while (arcExtent <= -180) arcExtent += 360;
+            while (arcExtent > 180) arcExtent -= 360;
+
+            // Correct which path to take
+            if (arcExtent != 0 && Math.signum(arcExtent) != expectedDirection) {
+                // If the shortest path was positive (CCW) but we expected negative (CW), subtract 360.
+                // If the shortest path was negative (CW) but we expected positive (CCW), add 360.
+                arcExtent = (arcExtent > 0) ? arcExtent - 360 : arcExtent + 360;
+            }
+
+            // Draw the arc
+            gc.strokeArc(
+                    arcCenterX - arcRadius,
+                    arcCenterY - arcRadius,
+                    arcRadius * 2,
+                    arcRadius * 2,
+                    startAngle,
+                    arcExtent,
+                    ArcType.OPEN
+            );
+        }
+    }
+
+    private void drawLossyPath(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout,
+                               Complex startGamma, CircuitElement element) {
+        List<Complex> points = SmithCalculator.getLossyComponentPath(
+                startGamma,
+                element,
+                viewModel.zo.get(),
+                viewModel.frequencyProperty().get(),
+                50 // Number of segments for smoothness, fixed for now
+        );
+
+        if (points.size() < 2) return;
+
+        double[] xPoints = new double[points.size()];
+        double[] yPoints = new double[points.size()];
+
+        for (int i = 0; i < points.size(); i++) {
+            xPoints[i] = layout.toScreenX(points.get(i));
+            yPoints[i] = layout.toScreenY(points.get(i));
         }
 
-        // Draw the arc
-        gc.strokeArc(
-                arcCenterX - arcRadius,
-                arcCenterY - arcRadius,
-                arcRadius * 2,
-                arcRadius * 2,
-                startAngle,
-                arcExtent,
-                ArcType.OPEN
-        );
+        gc.strokePolyline(xPoints, yPoints, points.size());
     }
 
     /**

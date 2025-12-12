@@ -2,7 +2,6 @@ package heig.tb.jsmithfx.model;
 
 import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
-import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.DistanceUnit;
@@ -105,8 +104,16 @@ public abstract class CircuitElement {
 
     public CircuitElement copy() {
         return switch (this.elementType) {
-            case CAPACITOR -> new Capacitor(this.getRealWorldValue(), this.elementPosition, this.elementType);
-            case INDUCTOR -> new Inductor(this.getRealWorldValue(), this.elementPosition, this.elementType);
+            case CAPACITOR -> {
+                var newEl = new Capacitor(this.getRealWorldValue(), this.elementPosition, this.elementType);
+                this.qualityFactor.ifPresent(newEl::setQualityFactor);
+                yield newEl;
+            }
+            case INDUCTOR -> {
+                var newEl = new Inductor(this.getRealWorldValue(), this.elementPosition, this.elementType);
+                this.qualityFactor.ifPresent(newEl::setQualityFactor);
+                yield newEl;
+            }
             case RESISTOR -> new Resistor(this.getRealWorldValue(), this.elementPosition, this.elementType);
             case LINE -> null;
         };

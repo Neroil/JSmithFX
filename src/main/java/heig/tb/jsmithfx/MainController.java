@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
 
 public class MainController {
 
+    @FXML private CheckBox useQualityFactorCheckBox;
+    @FXML private TextField qualityFactorTextField;
     // FXML Bindings
     @FXML
     private CheckMenuItem enableQualityFactorInput;
@@ -225,7 +227,8 @@ public class MainController {
                     valueTextField.setText(value);
                     unitComboBox.getSelectionModel().select(unit);
                 },
-                text -> addMouseButton.setText(text)
+                text -> addMouseButton.setText(text),
+                () -> SmithUtilities.parseOptionalDouble(qualityFactorTextField.getText())
         );
 
         // filter enabled bindings
@@ -488,6 +491,12 @@ public class MainController {
             useS1PAsLoadCheckBoxF3.setSelected(newVal);
         });
 
+        useQualityFactorCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            viewModel.setUseQualityFactor(newVal);
+            qualityFactorTextField.setVisible(newVal);
+            qualityFactorTextField.setManaged(newVal);
+        });
+
 
         //Enable CTRL Z (undo) and CTRL Y (redo)
         Platform.runLater(() -> {
@@ -574,6 +583,14 @@ public class MainController {
             permittivityField.setText(String.valueOf(line.getPermittivity()));
         }
 
+        if (el.getQualityFactor().isPresent()){
+            useQualityFactorCheckBox.setSelected(true);
+            qualityFactorTextField.setText(String.valueOf(el.getQualityFactor().get()));
+        } else {
+            useQualityFactorCheckBox.setSelected(false);
+            qualityFactorTextField.clear();
+        }
+
         var deleteButton = new Button("Delete");
         deleteButton.setOnAction(_ -> { viewModel.removeComponent(el); });
         // Add delete button to the hbox
@@ -634,6 +651,8 @@ public class MainController {
 
         typeComboBox.valueProperty().addListener((_, _, newType) -> {
             boolean isLineType = newType == CircuitElement.ElementType.LINE;
+            boolean isQualityFactorVisible = newType == CircuitElement.ElementType.INDUCTOR ||
+                    newType == CircuitElement.ElementType.CAPACITOR;
 
             // Make the additional info visible if it's a line
             zoInputLabel.setVisible(isLineType);
@@ -642,6 +661,11 @@ public class MainController {
             permittivityField.setVisible(isLineType);
             positionComboBox.setVisible(!isLineType);
             stubComboBox.setVisible(isLineType);
+
+            useQualityFactorCheckBox.setVisible(isQualityFactorVisible);
+            useQualityFactorCheckBox.setManaged(isQualityFactorVisible);
+            qualityFactorTextField.setVisible(isQualityFactorVisible && useQualityFactorCheckBox.isSelected());
+            qualityFactorTextField.setManaged(isQualityFactorVisible && useQualityFactorCheckBox.isSelected());
 
             if (isLineType) {
                 updateUnitComboBox(DistanceUnit.class);
@@ -764,10 +788,11 @@ public class MainController {
         try {
             CircuitElement.ElementType type = typeComboBox.getValue();
             double value = Double.parseDouble(valueTextField.getText());
+            var qualityFactor = SmithUtilities.parseOptionalDouble(qualityFactorTextField.getText());
 
             if (type != CircuitElement.ElementType.LINE) {
                 CircuitElement.ElementPosition position = positionComboBox.getValue();
-                viewModel.addComponent(type, value * getSelectedUnitFactor(), position);
+                viewModel.addComponent(type, value * getSelectedUnitFactor(), position, qualityFactor);
             } else { //It's a line, we need to get the line's characterstic impedance
                 double impValue = Double.parseDouble(zoInputField.getText());
                 double permittivityValue = Double.parseDouble(permittivityField.getText());
@@ -783,6 +808,7 @@ public class MainController {
                         impValue,
                         permittivityValue,
                         null,
+                        qualityFactor,
                         stubType
                 );
             }
@@ -869,6 +895,7 @@ public class MainController {
 
     public void importS1P() {
         FileChooser fileChooser = new FileChooser();
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Touchstone S1P Files", "*.s1p"));
         File selectedFile = fileChooser.showOpenDialog(smithCanvas.getScene().getWindow());
         if (selectedFile != null) {
             try {
