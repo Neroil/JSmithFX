@@ -33,4 +33,17 @@ public class DialogUtils {
         }
         return Optional.empty();
     }
+
+    public static Boolean areYouSureDialog(String title, String content, Window stage) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.initOwner(stage);
+        alert.setTitle(title);
+
+        // Setting header to null and putting text in content usually looks cleaner
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+
+        Optional<javafx.scene.control.ButtonType> result = alert.showAndWait();
+        return result.isPresent() && result.get() == javafx.scene.control.ButtonType.OK;
+    }
 }

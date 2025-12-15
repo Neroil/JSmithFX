@@ -35,8 +35,11 @@ import java.util.stream.Collectors;
 
 public class MainController {
 
+
     @FXML private CheckBox useQualityFactorCheckBox;
     @FXML private TextField qualityFactorTextField;
+    @FXML private CheckMenuItem useDiscreteComponentsCheckBox;
+    @FXML private MenuItem configureDiscreteComponentsMenuItem;
     // FXML Bindings
     @FXML
     private CheckMenuItem enableQualityFactorInput;
@@ -1075,7 +1078,7 @@ public class MainController {
     }
 
     @FXML
-    public void toggle2Filter() {
+    private void toggle2Filter() {
         boolean selected = toggle2FilterButton.isSelected();
         toggle1FilterButton.setSelected(false);
         toggle3FilterButton.setSelected(false);
@@ -1088,7 +1091,7 @@ public class MainController {
     }
 
     @FXML
-    public void toggle3Filter() {
+    private void toggle3Filter() {
         boolean selected = toggle3FilterButton.isSelected();
         toggle1FilterButton.setSelected(false);
         toggle2FilterButton.setSelected(false);
@@ -1101,7 +1104,18 @@ public class MainController {
     }
 
     @FXML
-    public void setOnQualityFactorEnable() {
+    private void onUseDiscreteComponentsToggle() {
+
+    }
+
+    @FXML
+    private void onConfigureDiscreteComponents() {
+        var stage = smithCanvas.getScene().getWindow();
+        DiscreteComponentConfigDialog dialog = new DiscreteComponentConfigDialog();
+        dialog.initOwner(stage);
+        dialog.showAndWait().ifPresent(config -> {
+            //viewModel.setDiscreteComponentConfig(config);
+        });
     }
 }
 

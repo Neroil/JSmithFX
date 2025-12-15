@@ -17,24 +17,29 @@
                 <MenuItem text="Exit" />
             </Menu>
             <Menu text="Set">
-                <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance..." />
-                <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options..." />
-                <CheckMenuItem fx:id="enableQualityFactorInput" onAction="#setOnQualityFactorEnable" text="Enable Quality Factor Input"/>
+                <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance" />
+                <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options" />
+                <CheckMenuItem fx:id="enableQualityFactorInput" text="Enable Quality Factor Input"/>
                 <CheckMenuItem fx:id="toggle1FilterButton" onAction="#toggle1Filter" text="Enable 1 Frequency Filter" selected="true" />
                 <CheckMenuItem fx:id="toggle2FilterButton" onAction="#toggle2Filter" text="Enable 2 Frequency Filters" />
                 <CheckMenuItem fx:id="toggle3FilterButton" onAction="#toggle3Filter" text="Enable 3 Frequency Filters" />
             </Menu>
             <Menu text="Import/Export">
-                <MenuItem fx:id="importS1PButton" onAction="#importS1P" text="Import S1P..." />
-                <MenuItem fx:id="exportS1PButton" onAction="#exportS1P" text="Export S1P..." />
+                <MenuItem fx:id="importS1PButton" onAction="#importS1P" text="Import S1P" />
+                <MenuItem fx:id="exportS1PButton" onAction="#exportS1P" text="Export S1P" />
             </Menu>
             <Menu text="Show">
                 <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" selected="true" text="Show navigation buttons" />
                 <CheckMenuItem fx:id="toggleSweepInDataPointsButton" onAction="#toggleSweepInDataPoints" text="Show sweep points in data points table" />
                 <CheckMenuItem fx:id="toggleS1PInDataPointsButton" onAction="#toggleS1PInDataPoints" text="Show S1P points in data points table" />
             </Menu>
+            <Menu text="Use discrete components">
+                <CheckMenuItem fx:id="useDiscreteComponentsCheckBox" onAction="#onUseDiscreteComponentsToggle" text="Use discrete components" />
+                <MenuItem fx:id="configureDiscreteComponentsMenuItem" onAction="#onConfigureDiscreteComponents" text="Configure discrete components" />
+            </Menu>
             <Menu text="Help">
                 <MenuItem text="About" />
+                <MenuItem text="Star the project on GitHub" />
             </Menu>
         </MenuBar>
         <Button fx:id="sweepButton" onAction="#onSweep" text="Sweep" />

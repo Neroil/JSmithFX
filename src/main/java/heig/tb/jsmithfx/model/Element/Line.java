@@ -22,6 +22,8 @@ public class Line extends CircuitElement {
 
     }
 
+    // The quality factor here is used to model losses in the transmission line
+
     private double characteristicImpedance;
     private StubType stubType;
     private double permittivity;
@@ -102,10 +104,15 @@ public class Line extends CircuitElement {
 
     @Override
     public CircuitElement copy() {
+        Line newLine;
         if (this.stubType == StubType.NONE) {
-            return new Line(this.getRealWorldValue(), this.getCharacteristicImpedance(), this.getPermittivity());
+            newLine = new Line(this.getRealWorldValue(), this.getCharacteristicImpedance(), this.getPermittivity());
         } else {
-            return new Line(this.getRealWorldValue(), this.getCharacteristicImpedance(), this.getPermittivity(), this.getStubType());
+            newLine = new Line(this.getRealWorldValue(), this.getCharacteristicImpedance(), this.getPermittivity(), this.getStubType());
         }
+
+        this.getQualityFactor().ifPresent(newLine::setQualityFactor);
+
+        return newLine;
     }
 }
