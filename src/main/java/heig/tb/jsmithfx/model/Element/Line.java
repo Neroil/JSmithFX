@@ -23,7 +23,6 @@ public class Line extends CircuitElement {
     }
 
     // The quality factor here is used to model losses in the transmission line
-
     private double characteristicImpedance;
     private StubType stubType;
     private double permittivity;

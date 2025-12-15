@@ -315,6 +315,7 @@ public class SmithChartRenderer {
         // Draw the points
         if (!pointsToDraw.isEmpty()) {
             int index = 0;
+            int selectedInsertionPoint = viewModel.getSelectedInsertionIndexProperty().get();
 
             for (Complex gamma : pointsToDraw) {
                 String labelText = (index == 0) ? "LD" : "DP" + index;
@@ -329,6 +330,13 @@ public class SmithChartRenderer {
                 double pointSize = 5; // logical size
 
                 activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, viewModel.frequencyProperty().get(), labelText, pointSize * scale, false));
+
+                if (index == selectedInsertionPoint) {
+                    // Draw a green circle around the insertion point
+                    gc.setStroke(Color.LIME);
+                    gc.setLineWidth(2);
+                    gc.strokeOval(localX - 2*pointSize, localY - 2*pointSize, pointSize * 4, pointSize * 4);
+                }
 
                 // Color Logic
                 if (isPreviewing && index == viewModel.getSelectedInsertionIndexProperty().get() + 1) {
@@ -485,15 +493,18 @@ public class SmithChartRenderer {
 
         Complex previousGamma = committedGammas.getFirst(); // Start at Load
 
-        // Draw the circuit up to the insertion point
-        gc.setStroke(Color.RED);
 
+        // Draw the circuit up to the insertion point
         for (int i = 1; i <= insertionIndex; i++) {
             if (i >= committedGammas.size()) break;
 
             Complex currGamma = committedGammas.get(i);
             // The element responsible for this arc is at index i-1
             CircuitElement element = viewModel.circuitElements.get(i - 1);
+
+            if (viewModel.selectedElementProperty().isNotNull().get() && viewModel.selectedElementProperty().get().equals(element)) {
+                gc.setStroke(Color.LIME);
+            } else  gc.setStroke(Color.RED);
 
             drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, currGamma, element);
             previousGamma = currGamma;
@@ -538,6 +549,10 @@ public class SmithChartRenderer {
             for (int i = insertionIndex + 1; i < committedGammas.size(); i++) {
                 Complex currGamma = committedGammas.get(i);
                 CircuitElement element = viewModel.circuitElements.get(i - 1);
+
+                if (viewModel.selectedElementProperty().isNotNull().get() && viewModel.selectedElementProperty().get().equals(element)) {
+                    gc.setStroke(Color.LIME);
+                } else  gc.setStroke(Color.RED);
 
                 drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, currGamma, element);
                 previousGamma = currGamma;
@@ -645,6 +660,14 @@ public class SmithChartRenderer {
 
     public List<ChartPoint> getActivePoints() {
         return activePoints;
+    }
+
+    public Complex getCurrentSelectedGamma() {
+        if (currentSelectedIndex < 0 || currentSelectedIndex >= activePoints.size()) {
+            return null;
+        }
+
+        return activePoints.get(currentSelectedIndex).gamma();
     }
 
     public void handleTooltip(double mouseX, double mouseY, double scale) {

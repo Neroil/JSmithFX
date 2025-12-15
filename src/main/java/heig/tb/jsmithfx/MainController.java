@@ -268,7 +268,6 @@ public class MainController {
 
         dataPointsTable.getSelectionModel().selectedItemProperty().addListener((_, _, _) -> {
             viewModel.setDpTableSelIndex(dataPointsTable.getSelectionModel().getSelectedIndex());
-            smithInteractionController.redrawSmithCanvas();
         });
 
         viewModel.getDpTableSelIndex().addListener((obs, oldVal, newVal) -> {
@@ -343,7 +342,6 @@ public class MainController {
                 setupAddElement();
             }
             circuitRenderer.render(viewModel);
-
         });
 
         tuningSlider.valueProperty().addListener((_1, _2, newValue) -> {

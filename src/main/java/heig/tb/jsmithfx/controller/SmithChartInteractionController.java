@@ -113,13 +113,21 @@ public class SmithChartInteractionController {
 
     private void setupListeners() {
         // Whenever the preview element changes, re-render the chart
-        viewModel.previewElementS1PProperty().addListener(_ -> renderer.render(viewModel, currentScale, offsetX, offsetY, 0));
-        viewModel.previewElementProperty().addListener(_ -> renderer.render(viewModel, currentScale, offsetX, offsetY, 0));
+        viewModel.previewElementS1PProperty().addListener(_ -> redrawSmithCanvas());
+        viewModel.previewElementProperty().addListener(_ -> redrawSmithCanvas());
         viewModel.sweepDataPointsProperty().addListener((ListChangeListener<DataPoint>) _ -> {
-            renderer.render(viewModel, currentScale, offsetX, offsetY, 0);
+            redrawSmithCanvas();
         });
         viewModel.vswrCirclesProperty().addListener((ListChangeListener<Double>) _ -> {
-            renderer.render(viewModel, currentScale, offsetX, offsetY, 0);
+            redrawSmithCanvas();
+        });
+
+        viewModel.getSelectedInsertionIndexProperty().addListener(_ -> {
+            redrawSmithCanvas();
+        });
+
+        viewModel.getDpTableSelIndex().addListener(_ -> {
+            redrawSmithCanvas();
         });
 
         ContextMenu contextMenu = new ContextMenu();
@@ -248,7 +256,14 @@ public class SmithChartInteractionController {
                 renderer.handleTooltip(mouseX, mouseY, currentScale);
             }
 
-            // Pass the correct Gamma coordinates to the ViewModel.
+            // Pass the correct Gamma coordinates to the ViewModel or if close enough to a component, "lock" onto it
+            var gamma = renderer.getCurrentSelectedGamma();
+
+            if (gamma != null) {
+                gammaX = gamma.real();
+                gammaY = gamma.imag();
+            }
+
             viewModel.calculateMouseInformations(gammaX, gammaY);
 
         });
@@ -258,6 +273,10 @@ public class SmithChartInteractionController {
             if (isAddingMouseComponent && event.getCode() == KeyCode.ESCAPE) {
                 cancelMouseAddComponent();
             }
+        });
+
+        viewModel.selectedElementProperty().addListener(_ -> {
+            redrawSmithCanvas();
         });
 
 
