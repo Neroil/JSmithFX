@@ -1104,7 +1104,7 @@ public class MainController {
 
     @FXML
     private void onUseDiscreteComponentsToggle() {
-
+        viewModel.setUsingDiscreteComponents(useDiscreteComponentsCheckBox.isSelected());
     }
 
     @FXML
@@ -1113,7 +1113,7 @@ public class MainController {
         DiscreteComponentConfigDialog dialog = new DiscreteComponentConfigDialog();
         dialog.initOwner(stage);
         dialog.showAndWait().ifPresent(config -> {
-            //viewModel.setDiscreteComponentConfig(config);
+            viewModel.setDiscreteComponentConfig(javafx.collections.FXCollections.observableArrayList(config));
         });
     }
 }

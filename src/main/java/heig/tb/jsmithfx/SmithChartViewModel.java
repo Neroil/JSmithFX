@@ -9,10 +9,13 @@ import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
 import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
+import heig.tb.jsmithfx.utilities.ComponentEntry;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
+import heig.tb.jsmithfx.utilities.dialogs.DiscreteComponentConfigDialog;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 
 import java.io.File;
 import java.util.*;
@@ -25,9 +28,7 @@ public final class SmithChartViewModel {
     public final DoubleProperty zo = new SimpleDoubleProperty();
     public final ObjectProperty<Complex> loadImpedance = new SimpleObjectProperty<>();
     public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
-    //==========================
-    //--- Mouse informations ---
-    //==========================
+    // Mouse info
     public final DoubleProperty mouseReturnLoss = new SimpleDoubleProperty(0);
     public final DoubleProperty mouseVSWR = new SimpleDoubleProperty(0);
     public final DoubleProperty mouseQualityFactor = new SimpleDoubleProperty(0);
@@ -133,6 +134,22 @@ public final class SmithChartViewModel {
 
     public boolean isAnyUseS1PAsLoad() {
         return useS1PAsLoadF1.get() || useS1PAsLoadF2.get() || useS1PAsLoadF3.get();
+    }
+
+    // Discrete component handling
+    private final SimpleListProperty<ComponentEntry> discreteComponentConfig =
+            new SimpleListProperty<>(FXCollections.observableArrayList());
+
+    public ReadOnlyListProperty<ComponentEntry> discreteComponentConfigProperty() {
+        return discreteComponentConfig;
+    }
+
+    private final BooleanProperty isUsingDiscreteComponents = new SimpleBooleanProperty(false);
+    public void setUsingDiscreteComponents(boolean useDiscreteComponents) {
+        isUsingDiscreteComponents.set(useDiscreteComponents);
+    }
+    public ReadOnlyBooleanProperty isUsingDiscreteComponentsProperty() {
+        return isUsingDiscreteComponents;
     }
 
     private SmithChartViewModel() {
@@ -1244,6 +1261,43 @@ public final class SmithChartViewModel {
             removeComponentAt(index);
         }
     }
+
+    public void setDiscreteComponentConfig (List<ComponentEntry> config) {
+        this.discreteComponentConfig.set((ObservableList<ComponentEntry>) config);
+    }
+
+    public List<Complex> getDiscreteComponentGammas() {
+        if (discreteComponentConfig.isEmpty() ||
+                !isUsingDiscreteComponents.get() ||
+                previewElement.get() == null ||
+                previewElement.get().getType() == CircuitElement.ElementType.LINE) {
+            return null;
+        } else {
+        List<Complex> gammas = new ArrayList<>();
+        for (ComponentEntry entry : discreteComponentConfig) {
+            if (entry.getType() != previewElement.get().getType()) {
+                continue; // Skip if type doesn't match
+            }
+
+            // Now we should only have elements of the same type, we now need to display their gammas
+            Complex impedanceToAdd = switch (entry.getType()) {
+                case INDUCTOR -> Inductor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
+                case CAPACITOR -> Capacitor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
+                case RESISTOR -> new Complex(entry.getValue(), 0);
+                default -> null;
+            };
+
+            if (impedanceToAdd != null) {
+                Complex startImpedance = getLastImpedance();
+                Complex newImpedance = calculateNextImpedance(startImpedance, impedanceToAdd, previewElement.get().getElementPosition());
+                Complex gamma = calculateGamma(newImpedance);
+                gammas.add(gamma);
+            }
+
+        }
+
+        return gammas;
+    }}
 
     public void setHoveredElement(CircuitElement hoveredElement) {
         this.hoveredElement.set(hoveredElement);

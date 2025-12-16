@@ -102,6 +102,7 @@ public abstract class CircuitElement {
         this.elementType = elementType;
     }
 
+
     public CircuitElement copy() {
         return switch (this.elementType) {
             case CAPACITOR -> {

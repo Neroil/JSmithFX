@@ -5,6 +5,7 @@ import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
+import heig.tb.jsmithfx.utilities.ComponentEntry;
 import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.beans.property.SimpleObjectProperty;
@@ -27,42 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class DiscreteComponentConfigDialog extends Dialog<List<DiscreteComponentConfigDialog.ComponentEntry>> {
-
-    public static class ComponentEntry {
-        private final SimpleObjectProperty<ElementType> type;
-        private final SimpleStringProperty typeName;
-        private final double value;
-        private final double parasitic;
-        private final boolean isQFactor;
-
-        public ComponentEntry(ElementType type, double value, double parasitic, boolean isQFactor) {
-            this.type = new SimpleObjectProperty<>(type);
-            this.typeName = new SimpleStringProperty(type.toString());
-            this.value = value;
-            this.parasitic = parasitic;
-            this.isQFactor = isQFactor;
-        }
-
-        public ElementType getType() { return type.get(); }
-        public String getTypeName() { return typeName.get(); }
-        public double getValue() { return value; }
-        public double getParasitic() { return parasitic; }
-        public boolean isQFactor() { return isQFactor; }
-
-        public String getParasiticDisplay() {
-            if (isQFactor) {
-                return String.format("%.3g (Q)", parasitic);
-            }
-
-            if (getType() == ElementType.RESISTOR) {
-                // Nothing to show for resistor parasitic
-                return "-";
-            } else {
-                return SmithUtilities.displayBestUnitAndFormattedValue(parasitic, ResistanceUnit.values());
-            }
-        }
-    }
+public class DiscreteComponentConfigDialog extends Dialog<List<ComponentEntry>> {
 
     private final static ObservableList<ComponentEntry> componentList = FXCollections.observableArrayList();
     private final ObservableList<ComponentEntry> componentListTemp = FXCollections.observableArrayList();
@@ -232,8 +198,9 @@ public class DiscreteComponentConfigDialog extends Dialog<List<DiscreteComponent
         TableColumn<ComponentEntry, String> parCol = new TableColumn<>("Parasitic");
         parCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getParasiticDisplay()));
 
-        table.getColumns().addAll(typeCol, valCol, parCol);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.getColumns().setAll(List.of(typeCol, valCol, parCol));
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+
         VBox.setVgrow(table, Priority.ALWAYS);
 
         Button removeButton = new Button("Remove Selected");

@@ -62,9 +62,28 @@ public class SmithChartRenderer {
         drawS1PPoints(gc, viewModel, layout, currentScale, offsetX, offsetY);
         drawImpedancePath(gc, viewModel, layout);
         drawImpedancePoints(gc, viewModel, layout, selectedIndex, currentScale, offsetX, offsetY);
+        drawDiscreteComponentPreviews(gc, viewModel, layout);
         drawSweepPoints(gc, viewModel, layout, currentScale, offsetX, offsetY);
 
         gc.restore();
+    }
+
+    private void drawDiscreteComponentPreviews(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout) {
+        List<Complex> previews = viewModel.getDiscreteComponentGammas();
+        if (previews == null || previews.isEmpty()) return;
+
+        System.out.println(previews.size());
+
+        gc.setStroke(Color.AQUA);
+
+        gc.setLineWidth(1.5);
+        for (Complex gamma : previews) {
+            double localX = layout.toScreenX(gamma);
+            double localY = layout.toScreenY(gamma);
+
+            double size = 8.0;
+            gc.strokeOval(localX - size / 2, localY - size / 2, size, size);
+        }
     }
 
     private void drawSweepPoints(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout, double currentScale, double offsetX, double offsetY) {

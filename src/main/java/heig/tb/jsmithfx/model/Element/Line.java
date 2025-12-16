@@ -4,6 +4,8 @@ import heig.tb.jsmithfx.logic.SmithCalculator;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.utilities.Complex;
 
+import java.util.Optional;
+
 public class Line extends CircuitElement {
 
     public enum StubType {
@@ -62,15 +64,21 @@ public class Line extends CircuitElement {
     }
 
     public Complex calculateImpedance(Complex currentImpedance, double frequency) {
+        return calculateImpedance(currentImpedance, frequency, characteristicImpedance, permittivity,
+                getRealWorldValue(), stubType, qualityFactor);
+    }
+
+    public static Complex calculateImpedance(Complex currentImpedance, double frequency, double characteristicImpedance,
+                                             double permittivity, double length, StubType stubType, Optional<Double> qualityFactor) {
 
         // We use the quality factor variable but here it's the loss in dB per meter
-        double lossDbPerMeter = this.getQualityFactor().orElse(0.0);
+        double lossDbPerMeter = qualityFactor.orElse(0.0);
 
         double alpha = lossDbPerMeter * SmithCalculator.getDbmToNeperConversionFactor(); // Convert dB/m to Np/m
         double beta = (2 * Math.PI * frequency) / SmithCalculator.getSpeedOfLight() * Math.sqrt(permittivity);
 
         Complex gamma = new Complex(alpha, beta);
-        Complex gammaL = gamma.multiply(getRealWorldValue());
+        Complex gammaL = gamma.multiply(length);
         Complex z0Complex = new Complex(characteristicImpedance, 0);
         Complex tanhGammaL = gammaL.tanh();
 
