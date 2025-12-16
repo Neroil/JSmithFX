@@ -493,22 +493,8 @@ public class SmithChartRenderer {
 
         Complex previousGamma = committedGammas.getFirst(); // Start at Load
 
-
         // Draw the circuit up to the insertion point
-        for (int i = 1; i <= insertionIndex; i++) {
-            if (i >= committedGammas.size()) break;
-
-            Complex currGamma = committedGammas.get(i);
-            // The element responsible for this arc is at index i-1
-            CircuitElement element = viewModel.circuitElements.get(i - 1);
-
-            if (viewModel.selectedElementProperty().isNotNull().get() && viewModel.selectedElementProperty().get().equals(element)) {
-                gc.setStroke(Color.LIME);
-            } else  gc.setStroke(Color.RED);
-
-            drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, currGamma, element);
-            previousGamma = currGamma;
-        }
+        previousGamma = drawPath(committedGammas, viewModel, layout, gc, mainRadius, 1, insertionIndex + 1, previousGamma);
 
         // Draw the preview
         if (previewElement != null && previewGamma != null && !viewModel.isModifyingComponent.get()) {
@@ -546,20 +532,27 @@ public class SmithChartRenderer {
                 }
             }
         } else { // No preview, just draw the rest of the committed path
-            for (int i = insertionIndex + 1; i < committedGammas.size(); i++) {
-                Complex currGamma = committedGammas.get(i);
-                CircuitElement element = viewModel.circuitElements.get(i - 1);
-
-                if (viewModel.selectedElementProperty().isNotNull().get() && viewModel.selectedElementProperty().get().equals(element)) {
-                    gc.setStroke(Color.LIME);
-                } else  gc.setStroke(Color.RED);
-
-                drawArcSegment(gc, viewModel, layout, mainRadius, previousGamma, currGamma, element);
-                previousGamma = currGamma;
-            }
+            drawPath(committedGammas, viewModel, layout, gc, mainRadius, insertionIndex + 1, committedGammas.size(), previousGamma);
         }
 
         gc.restore();
+    }
+
+    private Complex drawPath(List<Complex> committedGammas, SmithChartViewModel viewModel, SmithChartLayout layout,
+                             GraphicsContext gc, double mainRadius, int startIndex, int endIndex, Complex startingGamma) {
+        Complex current = startingGamma;
+        for (int i = startIndex; i < endIndex; i++) {
+            Complex currGamma = committedGammas.get(i);
+            CircuitElement element = viewModel.circuitElements.get(i - 1);
+
+            if (viewModel.selectedElementProperty().isNotNull().get() && viewModel.selectedElementProperty().get().equals(element)) {
+                gc.setStroke(Color.LIME);
+            } else  gc.setStroke(Color.RED);
+
+            drawArcSegment(gc, viewModel, layout, mainRadius, current, currGamma, element);
+            current = currGamma;
+        }
+        return current;
     }
 
     private void drawArcSegment(GraphicsContext gc, SmithChartViewModel viewModel, SmithChartLayout layout,
