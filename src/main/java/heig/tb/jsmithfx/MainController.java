@@ -312,7 +312,6 @@ public class MainController {
             int selectedIndex = circuitRenderer.getInsertionIndexAt(event.getX(), event.getY());
             CircuitElement clickedElement = circuitRenderer.getElementAt(event.getX(), event.getY());
             viewModel.setSelectedInsertionIndex(selectedIndex);
-
             if (selectedIndex != -1) {
                 viewModel.cancelTuningAdjustments(); // Cancel any ongoing tuning/modification
             }
@@ -324,6 +323,7 @@ public class MainController {
                     event.consume();
                 } else if (event.getClickCount() == 1) {
                     viewModel.selectElement(clickedElement);
+                    viewModel.setDpTableSelIndex(viewModel.circuitElements.indexOf(clickedElement) + 1); // +1 to account for Load at index 0
                 }
             }
         });
@@ -657,7 +657,7 @@ public class MainController {
         typeComboBox.valueProperty().addListener((_, _, newType) -> {
             boolean isLineType = newType == CircuitElement.ElementType.LINE;
             boolean isQualityFactorVisible = newType == CircuitElement.ElementType.INDUCTOR ||
-                    newType == CircuitElement.ElementType.CAPACITOR;
+                    newType == CircuitElement.ElementType.CAPACITOR || isLineType;
 
             // Make the additional info visible if it's a line
             zoInputLabel.setVisible(isLineType);
@@ -671,6 +671,7 @@ public class MainController {
             useQualityFactorCheckBox.setManaged(isQualityFactorVisible);
             qualityFactorTextField.setVisible(isQualityFactorVisible && useQualityFactorCheckBox.isSelected());
             qualityFactorTextField.setManaged(isQualityFactorVisible && useQualityFactorCheckBox.isSelected());
+            useQualityFactorCheckBox.setText(isLineType ? "Use Loss (Db/m)" : "Use Q");
 
             if (isLineType) {
                 updateUnitComboBox(DistanceUnit.class);

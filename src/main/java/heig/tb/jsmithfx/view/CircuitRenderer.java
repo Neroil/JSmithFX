@@ -164,10 +164,16 @@ public class CircuitRenderer {
                 registerHitBox(element, x, y, false);
             }
 
-            // Draw a little Q indicator if the element has a quality factor
+            // Draw a little Q or loss indicator if the element has a quality factor
             if (element.getQualityFactor().isPresent()) {
                 gc.setFill(JUNCTION_COLOR);
-                gc.fillText("Q=" + String.format("%.1f", element.getQualityFactor().get()), x, labelFont.getSize() * 4);
+                String text;
+                if (element.getType().equals(CircuitElement.ElementType.LINE)) {
+                    text = "Loss=";
+                } else {
+                    text = "Q=";
+                }
+                gc.fillText(text + String.format("%.1f", element.getQualityFactor().get()), x, labelFont.getSize() * 4);
             }
 
             switch (type) {

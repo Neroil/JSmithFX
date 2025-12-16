@@ -543,6 +543,7 @@ public class SmithChartRenderer {
         Complex current = startingGamma;
         for (int i = startIndex; i < endIndex; i++) {
             Complex currGamma = committedGammas.get(i);
+            if (viewModel.circuitElements.size() < i) break; // Safety check
             CircuitElement element = viewModel.circuitElements.get(i - 1);
 
             if (viewModel.selectedElementProperty().isNotNull().get() && viewModel.selectedElementProperty().get().equals(element)) {
@@ -563,7 +564,8 @@ public class SmithChartRenderer {
                 && element.getQualityFactor().get() > 0;
 
         if (hasQ && (element.getType() == CircuitElement.ElementType.CAPACITOR ||
-                element.getType() == CircuitElement.ElementType.INDUCTOR)) {
+                element.getType() == CircuitElement.ElementType.INDUCTOR ||
+                element.getType() == CircuitElement.ElementType.LINE)) {
 
             drawLossyPath(gc, viewModel, layout, startGamma, element);
 
@@ -625,8 +627,7 @@ public class SmithChartRenderer {
                 startGamma,
                 element,
                 viewModel.zo.get(),
-                viewModel.frequencyProperty().get(),
-                50 // Number of segments for smoothness, fixed for now
+                viewModel.frequencyProperty().get()
         );
 
         if (points.size() < 2) return;

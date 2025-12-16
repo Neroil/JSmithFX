@@ -14,8 +14,12 @@ import java.util.Optional;
 public class SmithCalculator {
 
     private static double SPEED_OF_LIGHT = 299792458.0; // Speed of light in m/s
+    private static double DBM_TO_NEPERM = 0.115129254650564; // Conversion factor from dB/m to Neper/m
     public static double getSpeedOfLight() {
         return SPEED_OF_LIGHT;
+    }
+    public static double getDbmToNeperConversionFactor() {
+        return DBM_TO_NEPERM;
     }
 
     /**
@@ -161,6 +165,7 @@ public class SmithCalculator {
      * @param position       if the component is in series or parallel
      * @param z0             the base impedance
      * @param frequency      of the circuit
+     * @param totalRotation  number of times the component has rotated around the chart (only for lines)
      * @return the calculated value of the component
      */
     public static Double calculateComponentValue(Complex gamma,
@@ -171,7 +176,8 @@ public class SmithCalculator {
                                                  double z0,
                                                  double frequency,
                                                  Optional<Double> z0_line,
-                                                 Optional<Double> permittivity) {
+                                                 Optional<Double> permittivity,
+                                                 Optional<Double> totalRotation) {
         final double EPS = 1e-12;
 
         if (gamma == null || startImpedance == null) return null;
@@ -206,33 +212,39 @@ public class SmithCalculator {
             if (beta < EPS) return null; // Avoid division by zero
 
             if (stubType == Line.StubType.NONE) {
-                // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j2βL)
-                // Multiplying by e^(-j2βL) rotates Γ by an angle -2βL on the complex plane.
-                // So the physical length L can be recovered from the change in angle of Γ.
+                if (totalRotation.isPresent()) { // Used when using the mouse to draw the line
+                    // Calculate length directly from total accumulated angle
+                    // Formula: Theta = 2 * Beta * Length  =>  Length = Theta / (2 * Beta)
+                    componentValue = totalRotation.get() / (2.0 * beta);
+                } else {
+                    // Based on the reflection propagation formula: Γ(L) = Γ(0) * e^(-j2βL)
+                    // Multiplying by e^(-j2βL) rotates Γ by an angle -2βL on the complex plane.
+                    // So the physical length L can be recovered from the change in angle of Γ.
 
-                // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j2βL))
-                // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
-                Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line.get(), 0)).dividedBy(startImpedance.add(new Complex(z0_line.get(), 0)));
-                Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line.get(), 0)).dividedBy(finalImpedance.add(new Complex(z0_line.get(), 0)));
+                    // So we transform the equation like this: ∠Γ(L) = ∠Γ(0) +  ∠(e^(-j2βL))
+                    // And then we rearrange and rewrite it to: ∠Γ(L) - ∠Γ(0) = -2βL
+                    Complex gamma_start_line = startImpedance.subtract(new Complex(z0_line.get(), 0)).dividedBy(startImpedance.add(new Complex(z0_line.get(), 0)));
+                    Complex gamma_final_line = finalImpedance.subtract(new Complex(z0_line.get(), 0)).dividedBy(finalImpedance.add(new Complex(z0_line.get(), 0)));
 
-                // Calculate the change in angle. (Δθ)
-                double startAngle = gamma_start_line.angle();
-                double finalAngle = gamma_final_line.angle();
-                double angleChange = finalAngle - startAngle;
+                    // Calculate the change in angle. (Δθ)
+                    double startAngle = gamma_start_line.angle();
+                    double finalAngle = gamma_final_line.angle();
+                    double angleChange = finalAngle - startAngle;
 
-                // The rotation for adding a line is always clockwise.
-                if (angleChange > 0) {
-                    angleChange -= 2.0 * Math.PI;
+                    // The rotation for adding a line is always clockwise.
+                    if (angleChange > 0) {
+                        angleChange -= 2.0 * Math.PI;
+                    }
+                    // L = ∣Δθ∣ / 2β
+                    double electricalRotation = Math.abs(angleChange);
+
+                    // Avoid division by zero if beta is somehow zero
+                    if (Math.abs(beta) < EPS) return null;
+
+                    // Calculate the final physical length.
+                    componentValue = electricalRotation / (2.0 * beta);
                 }
-                // L = ∣Δθ∣ / 2β
-                double electricalRotation = Math.abs(angleChange);
-
-                // Avoid division by zero if beta is somehow zero
-                if (Math.abs(beta) < EPS) return null;
-
-                // Calculate the final physical length.
-                componentValue = electricalRotation / (2.0 * beta);
-            } else {
+            } else { // OPEN or SHORT STUB
                 // Here we use the basic formula of Z_in = Z_0 * (Z_L + jZ_0tan(βL)) / (Z_0 + jZ_Ltan(βL))
                 // If it's a short circuit, Z_L becomes 0 so Z_in = jZ_0tan(βL)
                 // If it's an open circuit, Z_L becomes infinity, so we simplify the equation to get Z_in = Z_0 / jtan(βL)
@@ -329,39 +341,61 @@ public class SmithCalculator {
      * @param element       The circuit element being added.
      * @param z0            The characteristic impedance.
      * @param frequency     The operating frequency.
-     * @param points        The number of points to generate along the path.
      * @return A list of Complex numbers representing the path on the Smith chart.
      */
-    public static List<Complex> getLossyComponentPath(Complex startGamma, CircuitElement element, double z0, double frequency, int points) {
+    public static List<Complex> getLossyComponentPath(Complex startGamma, CircuitElement element, double z0, double frequency) {
         List<Complex> path = new ArrayList<>();
+
+        int points = 200;
 
         Complex startImpedance = gammaToImpedance(startGamma, z0);
         Complex startAdmittance = startImpedance.inverse(); // Used for parallel
+        Complex stepTotalZ;
 
-        Complex finalComponentZ = element.getImpedance(frequency);
+        if (element.getType() == CircuitElement.ElementType.LINE) {
+            Line originalLine = (Line) element;
+            double totalLength = originalLine.getRealWorldValue();
 
-        for (int i = 0; i <= points; i++) {
-            double fraction = (double) i / points;
-            Complex stepTotalZ;
+            for (int i = 0; i <= points; i++) {
+                double fraction = (double) i / points;
+                double stepLength = totalLength * fraction;
 
-            if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
-                // Z_step = Z_start + (Z_final_component * fraction)
-                stepTotalZ = startImpedance.add(finalComponentZ.multiply(fraction));
-            } else {
-                // PARALLEL
-                // Y_final_component = 1 / Z_final_component
-                Complex finalComponentY = finalComponentZ.inverse();
+                Line stepLine = (Line)originalLine.copy();
+                stepLine.setRealWorldValue(stepLength);
 
-                // Y_step = Y_start + (Y_final_component * fraction)
-                Complex stepTotalY = startAdmittance.add(finalComponentY.multiply(fraction));
+                stepTotalZ = stepLine.calculateImpedance(startImpedance, frequency);
 
-                // Convert back to Z for gamma calculation
-                stepTotalZ = stepTotalY.inverse();
+                // Convert to Gamma and add to path
+                path.add(impedanceToGamma(stepTotalZ, z0));
             }
 
-            // Convert to Gamma and add to path
-            path.add(impedanceToGamma(stepTotalZ, z0));
+        } else {
+            Complex finalComponentZ = element.getImpedance(frequency);
+
+            for (int i = 0; i <= points; i++) {
+                double fraction = (double) i / points;
+
+                if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
+                    // Z_step = Z_start + (Z_final_component * fraction)
+                    stepTotalZ = startImpedance.add(finalComponentZ.multiply(fraction));
+                } else {
+                    // PARALLEL
+                    // Y_final_component = 1 / Z_final_component
+                    Complex finalComponentY = finalComponentZ.inverse();
+
+                    // Y_step = Y_start + (Y_final_component * fraction)
+                    Complex stepTotalY = startAdmittance.add(finalComponentY.multiply(fraction));
+
+                    // Convert back to Z for gamma calculation
+                    stepTotalZ = stepTotalY.inverse();
+                }
+
+                // Convert to Gamma and add to path
+                path.add(impedanceToGamma(stepTotalZ, z0));
+            }
+
         }
+
 
         return path;
     }

@@ -32,9 +32,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static heig.tb.jsmithfx.logic.SmithCalculator.addParallelImpedance;
-import static heig.tb.jsmithfx.logic.SmithCalculator.calculateComponentValue;
-
 public class SmithChartInteractionController {
     // Renderer and viewModel
     private final Pane smithChartPane;
@@ -331,7 +328,7 @@ public class SmithChartInteractionController {
         Optional<Double> permittivityOpt = permittivitySupplier.get();
         Optional<Double> z0_lineOpt = zoLineSupplier.get();
 
-        Double componentValue = calculateComponentValue(
+        Double componentValue = SmithCalculator.calculateComponentValue(
                 snappedGammaForMouseAdd,
                 startImpedanceForMouseAdd,
                 type,
@@ -340,7 +337,8 @@ public class SmithChartInteractionController {
                 z0,
                 freq,
                 z0_lineOpt,
-                permittivityOpt
+                permittivityOpt,
+                Optional.of(totalAngleTraveled)
         );
 
         if (componentValue != null) {
@@ -450,9 +448,12 @@ public class SmithChartInteractionController {
         double newTotalAngleTraveled = totalAngleTraveled + (angleChange * directionMultiplier);
 
         // Clamping the movement
-        if (newTotalAngleTraveled < 0 && allowedAngleTravel <= 360) {
+        if (newTotalAngleTraveled < 0) {
             newTotalAngleTraveled = 0;
-        } else if (newTotalAngleTraveled > allowedAngleTravel) {
+        }
+
+        // Only clamp the maximum if it's NOT a line (Lines can wind infinitely)
+        else if (typeSupplier.get() != CircuitElement.ElementType.LINE && newTotalAngleTraveled > allowedAngleTravel) {
             newTotalAngleTraveled = allowedAngleTravel;
         }
 
@@ -461,9 +462,11 @@ public class SmithChartInteractionController {
         // Re-calculate the absolute angle based on the clamped travel
         double currentAngle = startAngleForMouseAdd + (totalAngleTraveled * directionMultiplier);
 
-        // Normalize angle
-        while (currentAngle <= -Math.PI) currentAngle += 2 * Math.PI;
-        while (currentAngle > Math.PI) currentAngle -= 2 * Math.PI;
+        // Normalize angle between -π and π (not applicable if we have a line with a loss factor as the line can loop indefinitely)
+        if( typeSupplier.get() != CircuitElement.ElementType.LINE || qualityFactorSupplier.get().isEmpty()) {
+            while (currentAngle <= -Math.PI) currentAngle += 2 * Math.PI;
+            while (currentAngle > Math.PI) currentAngle -= 2 * Math.PI;
+        }
 
         previousAngle = currentAngle;
 
@@ -472,7 +475,7 @@ public class SmithChartInteractionController {
                 new Complex(Math.cos(currentAngle), Math.sin(currentAngle)).multiply(circleRadiusForMouseAdd)
         );
 
-        Double liveValue = calculateComponentValue(
+        Double liveValue = SmithCalculator.calculateComponentValue(
                 idealGamma,
                 startImpedanceForMouseAdd,
                 typeSupplier.get(),
@@ -481,7 +484,8 @@ public class SmithChartInteractionController {
                 viewModel.zo.get(),
                 viewModel.frequencyProperty().get(),
                 zoLineSupplier.get(),
-                permittivitySupplier.get()
+                permittivitySupplier.get(),
+                Optional.of(totalAngleTraveled)
         );
 
         if (liveValue != null) {
@@ -510,16 +514,20 @@ public class SmithChartInteractionController {
                 double freq = viewModel.frequencyProperty().get();
                 double z0 = viewModel.zo.get();
 
-                // Get the physical impedance of the component
-                Complex componentZ = currentElement.getImpedance(freq);
-
                 Complex totalZ;
 
-                // Combine with start impedance based on series/parallel
-                if (positionSupplier.get() == CircuitElement.ElementPosition.SERIES) {
-                    totalZ = startImpedanceForMouseAdd.add(componentZ);
+                if (currentElement.getType() == CircuitElement.ElementType.LINE) {
+                    Line lineElement = (Line) currentElement;
+                    totalZ = lineElement.calculateImpedance(startImpedanceForMouseAdd, freq);
                 } else {
-                    totalZ = addParallelImpedance(startImpedanceForMouseAdd, componentZ);
+                    // Standard components (R, L, C)
+                    Complex componentZ = currentElement.getImpedance(freq);
+
+                    if (positionSupplier.get() == CircuitElement.ElementPosition.SERIES) {
+                        totalZ = startImpedanceForMouseAdd.add(componentZ);
+                    } else {
+                        totalZ = SmithCalculator.addParallelImpedance(startImpedanceForMouseAdd, componentZ);
+                    }
                 }
 
                 // Convert back to Gamma

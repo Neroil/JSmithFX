@@ -238,17 +238,19 @@
                                         <HBox alignment="CENTER_LEFT" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
                                             <TextField fx:id="valueTextField" HBox.hgrow="ALWAYS" />
                                             <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
-                                            <CheckBox fx:id="useQualityFactorCheckBox" text="Use Q" />
-                                            <TextField fx:id="qualityFactorTextField" prefWidth="80.0" visible="false" managed="false"/>
                                             <Label fx:id="zoInputLabel" text="Z0:" visible="false" />
                                             <TextField fx:id="zoInputField" promptText="e.g. 50" visible="false" />
                                             <Label fx:id="permittivityLabel" text="εr:" visible="false" />
                                             <TextField fx:id="permittivityField" prefWidth="50" promptText="e.g. 4.4" visible="false" />
                                         </HBox>
+                                        <Label text="Position:"  GridPane.rowIndex="2"/>
+                                        <HBox alignment="CENTER_LEFT" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="2">
+                                            <ComboBox fx:id="positionComboBox" prefWidth="150.0"  />
+                                            <ComboBox fx:id="stubComboBox" prefWidth="200.0" visible="false"  />
+                                            <CheckBox fx:id="useQualityFactorCheckBox" text="Use Q" />
+                                            <TextField fx:id="qualityFactorTextField" prefWidth="80.0" visible="false" managed="false"/>
+                                        </HBox>
 
-                                        <Label text="Position:" GridPane.rowIndex="2" />
-                                        <ComboBox fx:id="positionComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                                        <ComboBox fx:id="stubComboBox" prefWidth="200.0" visible="false" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                                         <HBox fx:id="addComponentButtonHBox" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
                                             <Button fx:id="addButton" onAction="#onAddComponent" text="Add" />
                                             <Button fx:id="addMouseButton" onAction="#onAddComponentMouse" text="Mouse add" />
