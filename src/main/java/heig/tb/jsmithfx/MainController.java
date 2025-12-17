@@ -1,6 +1,7 @@
 package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.controller.SmithChartInteractionController;
+import heig.tb.jsmithfx.logic.SmithCalculator;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Line;
@@ -40,6 +41,9 @@ public class MainController {
     @FXML private TextField qualityFactorTextField;
     @FXML private CheckMenuItem useDiscreteComponentsCheckBox;
     @FXML private MenuItem configureDiscreteComponentsMenuItem;
+
+    @FXML private Label lambdaLengthLabel;
+    @FXML private TextField lambdaLengthTextField;
     // FXML Bindings
     @FXML
     private CheckMenuItem enableQualityFactorInput;
@@ -207,6 +211,7 @@ public class MainController {
     //Renderer
     private CircuitRenderer circuitRenderer;
     private SmithChartInteractionController smithInteractionController;
+    private boolean isUpdatingLength = false;
 
     /**
      * This method is called by the FXMLLoader after the FXML file has been loaded.
@@ -264,6 +269,7 @@ public class MainController {
         setupResizableCanvas();
         setupControls();
         bindViewModel();
+        setupLineLengthListeners();
 
         // Whenever the circuit elements change, re-render the circuit diagram
         viewModel.circuitElements.addListener((ListChangeListener<CircuitElement>) _ -> circuitRenderer.render(viewModel));
@@ -527,6 +533,76 @@ public class MainController {
     }
 
     /**
+     * Sets up listeners to sync physical length and lambda length.
+     */
+    private void setupLineLengthListeners() {
+        // Update Lambda when physical values change
+        valueTextField.textProperty().addListener((obs, old, val) -> updateLambdaDisplay());
+        unitComboBox.valueProperty().addListener((obs, old, val) -> updateLambdaDisplay());
+        permittivityField.textProperty().addListener((obs, old, val) -> updateLambdaDisplay());
+        viewModel.frequencyProperty().addListener((obs, old, val) -> updateLambdaDisplay());
+
+        // Update Physical Length when Lambda changes
+        lambdaLengthTextField.textProperty().addListener((obs, old, val) -> updatePhysicalLengthDisplay());
+    }
+
+    private void updateLambdaDisplay() {
+        if (isUpdatingLength) return;
+        if (typeComboBox.getValue() != CircuitElement.ElementType.LINE) return;
+
+        try {
+            String valText = valueTextField.getText();
+            String permText = permittivityField.getText();
+
+            if (valText.isEmpty() || permText.isEmpty()) return;
+
+            double lambda = Line.getLambdaLength(
+                    Double.parseDouble(valText) * getSelectedUnitFactor(),
+                    viewModel.frequencyProperty().get(),
+                    Double.parseDouble(permText));
+
+            isUpdatingLength = true;
+            lambdaLengthTextField.setText(String.format("%.3f", lambda));
+            isUpdatingLength = false;
+        } catch (Exception e) {
+            // Ignore parsing errors during typing
+        }
+    }
+
+    /**
+     * Calculates Physical length based on Lambda length, frequency, and permittivity.
+     */
+    private void updatePhysicalLengthDisplay() {
+        if (isUpdatingLength) return;
+        if (typeComboBox.getValue() != CircuitElement.ElementType.LINE) return;
+
+        try {
+            String lambdaText = lambdaLengthTextField.getText();
+            String permText = permittivityField.getText();
+
+            if (lambdaText.isEmpty() || permText.isEmpty()) return;
+
+            double physicalLength = Line.getLengthFromLambda(
+                    Double.parseDouble(lambdaText),
+                    viewModel.frequencyProperty().get(),
+                    Double.parseDouble(permText)
+                    );
+
+            isUpdatingLength = true;
+
+            var unitClass = (ElectronicUnit[]) typeComboBox.getValue().getUnitClass().getEnumConstants();
+            var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(physicalLength, unitClass);
+
+            valueTextField.setText(toDisplay.getValue());
+            unitComboBox.getSelectionModel().select((Enum<?>) toDisplay.getKey());
+
+            isUpdatingLength = false;
+        } catch (Exception e) {
+            // Ignore parsing errors during typing
+        }
+    }
+
+    /**
      * Helper to wire up a Slider, its TextFields, and the ViewModel
      */
     private void setupFilterControl(RangeSlider slider, TextField minField, TextField maxField,
@@ -672,6 +748,9 @@ public class MainController {
             positionComboBox.setVisible(!isLineType);
             stubComboBox.setVisible(isLineType);
 
+            lambdaLengthLabel.setVisible(isLineType);
+            lambdaLengthTextField.setVisible(isLineType);
+
             useQualityFactorCheckBox.setVisible(isQualityFactorVisible);
             useQualityFactorCheckBox.setManaged(isQualityFactorVisible);
             qualityFactorTextField.setVisible(isQualityFactorVisible && useQualityFactorCheckBox.isSelected());
@@ -679,6 +758,7 @@ public class MainController {
             useQualityFactorCheckBox.setText(isLineType ? "Use Loss (Db/m)" : "Use Q");
 
             if (isLineType) {
+                updateLambdaDisplay();
                 updateUnitComboBox(DistanceUnit.class);
                 if (zoInputField.getText().isEmpty()) {
                     zoInputField.setText("50");
@@ -701,6 +781,8 @@ public class MainController {
         permittivityField.managedProperty().bind(permittivityField.visibleProperty());
         positionComboBox.managedProperty().bind(positionComboBox.visibleProperty());
         stubComboBox.managedProperty().bind(stubComboBox.visibleProperty());
+        lambdaLengthLabel.managedProperty().bind(lambdaLengthLabel.visibleProperty());
+        lambdaLengthTextField.managedProperty().bind(lambdaLengthTextField.visibleProperty());
     }
 
     /**

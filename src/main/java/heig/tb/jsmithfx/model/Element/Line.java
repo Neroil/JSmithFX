@@ -28,6 +28,7 @@ public class Line extends CircuitElement {
     private double characteristicImpedance;
     private StubType stubType;
     private double permittivity;
+    private double lambdaLength = 0.0;
 
 
     // Constructor for a standard in-line transmission line
@@ -64,6 +65,7 @@ public class Line extends CircuitElement {
     }
 
     public Complex calculateImpedance(Complex currentImpedance, double frequency) {
+        lambdaLength = getLambdaLength(getRealWorldValue(), frequency, permittivity);
         return calculateImpedance(currentImpedance, frequency, characteristicImpedance, permittivity,
                 getRealWorldValue(), stubType, qualityFactor);
     }
@@ -75,7 +77,7 @@ public class Line extends CircuitElement {
         double lossDbPerMeter = qualityFactor.orElse(0.0);
 
         double alpha = lossDbPerMeter * SmithCalculator.getDbmToNeperConversionFactor(); // Convert dB/m to Np/m
-        double beta = (2 * Math.PI * frequency) / SmithCalculator.getSpeedOfLight() * Math.sqrt(permittivity);
+        double beta = getBeta(frequency, permittivity);
 
         Complex gamma = new Complex(alpha, beta);
         Complex gammaL = gamma.multiply(length);
@@ -123,24 +125,16 @@ public class Line extends CircuitElement {
         this.permittivity = permittivity;
     }
 
-    /**
-     * Calculates the electrical length of the transmission line in degrees.
-     * Formula: Theta = Beta * Physical_Length
-     * where Beta = (2 * pi * f * sqrt(permittivity)) / c
-     *
-     * @param frequency The operating frequency in Hz
-     * @return The electrical length in degrees
-     */
-    public double calculateElectricalLengthDegrees(double frequency) {
-        // 1. Calculate Beta (Phase Constant) in rad/m
-        // Note: This matches the logic inside calculateImpedance
-        double beta = (2 * Math.PI * frequency) / SmithCalculator.getSpeedOfLight() * Math.sqrt(permittivity);
+    public static double getBeta(double frequency, double permittivity){
+        return (2 * Math.PI * frequency) / SmithCalculator.getSpeedOfLight() * Math.sqrt(permittivity);
+    }
 
-        // 2. Calculate Electrical Length in Radians (Theta = β * l)
-        double electricalLengthRadians = beta * getRealWorldValue();
+    public static double getLambdaLength(double length, double frequency, double permittivity){
+        return getBeta(frequency, permittivity) * length / (2 * Math.PI);
+    }
 
-        // 3. Convert to Degrees
-        return Math.toDegrees(electricalLengthRadians);
+    public static double getLengthFromLambda(double lambdaLength, double frequency, double permittivity) {
+        return (lambdaLength * 2 * Math.PI) / getBeta(frequency, permittivity);
     }
 
     @Override
@@ -158,6 +152,7 @@ public class Line extends CircuitElement {
         }
 
         this.getQualityFactor().ifPresent(newLine::setQualityFactor);
+        newLine.lambdaLength = this.lambdaLength;
 
         return newLine;
     }

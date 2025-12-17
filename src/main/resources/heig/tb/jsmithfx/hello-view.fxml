@@ -235,20 +235,26 @@
                                         <ComboBox fx:id="typeComboBox" prefWidth="150.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
                                         <Label text="Value:" GridPane.rowIndex="1" />
 
-                                        <HBox alignment="CENTER_LEFT" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                            <TextField fx:id="valueTextField" HBox.hgrow="ALWAYS" />
-                                            <ComboBox fx:id="unitComboBox" prefWidth="100.0" />
-                                            <Label fx:id="zoInputLabel" text="Z0:" visible="false" />
-                                            <TextField fx:id="zoInputField" promptText="e.g. 50" visible="false" />
-                                            <Label fx:id="permittivityLabel" text="εr:" visible="false" />
-                                            <TextField fx:id="permittivityField" prefWidth="50" promptText="e.g. 4.4" visible="false" />
+                                        <HBox alignment="CENTER_LEFT" spacing="5.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                            <TextField fx:id="valueTextField" HBox.hgrow="ALWAYS" minWidth="30.0"/>
+                                            <ComboBox fx:id="unitComboBox" prefWidth="90.0" minWidth="70.0" />
+
+                                            <Label fx:id="lambdaLengthLabel" visible="false" managed="false" text="λ:" minWidth="-Infinity"/>
+                                            <TextField fx:id="lambdaLengthTextField" visible="false" managed="false" prefWidth="60.0" minWidth="40.0"/>
+
+                                            <Label fx:id="zoInputLabel" text="Z0:" visible="false" managed="false" minWidth="-Infinity" />
+                                            <TextField fx:id="zoInputField" promptText="50" visible="false" managed="false" prefWidth="60.0" minWidth="40.0" />
+
+                                            <Label fx:id="permittivityLabel" text="εr:" visible="false" managed="false" minWidth="-Infinity"/>
+                                            <TextField fx:id="permittivityField" prefWidth="60.0" minWidth="40.0" promptText="4.4" visible="false" managed="false" />
                                         </HBox>
+
                                         <Label text="Position:"  GridPane.rowIndex="2"/>
-                                        <HBox alignment="CENTER_LEFT" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="2">
+                                        <HBox alignment="CENTER_LEFT" spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="2">
                                             <ComboBox fx:id="positionComboBox" prefWidth="150.0"  />
-                                            <ComboBox fx:id="stubComboBox" prefWidth="200.0" visible="false"  />
-                                            <CheckBox fx:id="useQualityFactorCheckBox" text="Use Q" />
-                                            <TextField fx:id="qualityFactorTextField" prefWidth="80.0" visible="false" managed="false"/>
+                                            <ComboBox fx:id="stubComboBox" prefWidth="150.0" visible="false" managed="false" />
+                                            <CheckBox fx:id="useQualityFactorCheckBox" text="Use Q" minWidth="-Infinity" />
+                                            <TextField fx:id="qualityFactorTextField" prefWidth="70.0" visible="false" managed="false"/>
                                         </HBox>
 
                                         <HBox fx:id="addComponentButtonHBox" spacing="20.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
