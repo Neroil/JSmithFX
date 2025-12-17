@@ -72,8 +72,6 @@ public class SmithChartRenderer {
         List<Complex> previews = viewModel.getDiscreteComponentGammas();
         if (previews == null || previews.isEmpty()) return;
 
-        System.out.println(previews.size());
-
         gc.setStroke(Color.AQUA);
 
         gc.setLineWidth(1.5);

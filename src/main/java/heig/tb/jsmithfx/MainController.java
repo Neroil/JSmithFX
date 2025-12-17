@@ -230,8 +230,13 @@ public class MainController {
                     valueTextField.setText(value);
                     unitComboBox.getSelectionModel().select(unit);
                 },
+                () -> SmithUtilities.parseValueWithUnit(valueTextField.getText() + " " + unitComboBox.getValue(), (ElectronicUnit[]) typeComboBox.getValue().getUnitClass().getEnumConstants()),
                 text -> addMouseButton.setText(text),
-                () -> SmithUtilities.parseOptionalDouble(qualityFactorTextField.getText())
+                () -> SmithUtilities.parseOptionalDouble(qualityFactorTextField.getText()),
+                (value) -> {
+                    qualityFactorTextField.setText(value);
+                    useQualityFactorCheckBox.setSelected(true);
+                }
         );
 
         // filter enabled bindings

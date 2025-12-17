@@ -680,7 +680,8 @@ public final class SmithChartViewModel {
         }
 
         List<DataPoint> newTransformedPoints = new ArrayList<>();
-        boolean isPreviewing = previewElementS1P.get() != null;
+        boolean isPreviewing = previewElementS1P.get() != null && !isModifyingComponent.get();
+
 
         List<DataPoint> sourcePoints;
 
@@ -1266,6 +1267,14 @@ public final class SmithChartViewModel {
         this.discreteComponentConfig.set((ObservableList<ComponentEntry>) config);
     }
 
+    public Optional<ComponentEntry> getClosestComponentEntry(double actualValue, CircuitElement.ElementType type){
+        return discreteComponentConfig.stream()
+                .filter(e -> e.getType() == type)
+                .reduce((closest, current) ->
+                        Math.abs(current.getValue() - actualValue) < Math.abs(closest.getValue() - actualValue) ? current : closest
+        );
+    }
+
     public List<Complex> getDiscreteComponentGammas() {
         if (discreteComponentConfig.isEmpty() ||
                 !isUsingDiscreteComponents.get() ||
@@ -1288,10 +1297,8 @@ public final class SmithChartViewModel {
             };
 
             if (impedanceToAdd != null) {
-                Complex startImpedance = getLastImpedance();
-                Complex newImpedance = calculateNextImpedance(startImpedance, impedanceToAdd, previewElement.get().getElementPosition());
-                Complex gamma = calculateGamma(newImpedance);
-                gammas.add(gamma);
+                Complex newImpedance = calculateNextImpedance(getCurrentInteractionStartImpedance(), impedanceToAdd, previewElement.get().getElementPosition());
+                gammas.add(calculateGamma(newImpedance));
             }
 
         }

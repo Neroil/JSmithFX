@@ -262,11 +262,17 @@ public class DiscreteComponentConfigDialog extends Dialog<List<ComponentEntry>> 
                 valueLabel.setText("Inductance:");
             }
 
-            if (rbQ.isSelected()) {
-                parasiticLabel.setText("Q-Factor:");
-            } else {
-                parasiticLabel.setText("ESR (Ω):");
-            }
+            setupParasitic();
+        }
+    }
+
+    private void setupParasitic() {
+        if (rbQ.isSelected()) {
+            parasiticLabel.setText("Q-Factor:");
+            parasiticField.setText("10000"); // Default to high Q
+        } else {
+            parasiticLabel.setText("ESR (Ω):");
+            parasiticField.setText("0.0"); // Default to 0 ESR
         }
     }
 
@@ -306,7 +312,7 @@ public class DiscreteComponentConfigDialog extends Dialog<List<ComponentEntry>> 
         componentListTemp.add(new ComponentEntry(type, val, par, isQ));
 
         valueField.clear();
-        parasiticField.clear();
+        setupParasitic();
         valueField.requestFocus();
     }
 

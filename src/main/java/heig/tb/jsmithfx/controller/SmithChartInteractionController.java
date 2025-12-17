@@ -10,6 +10,7 @@ import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ElectronicUnit;
 import heig.tb.jsmithfx.utilities.Complex;
+import heig.tb.jsmithfx.utilities.ComponentEntry;
 import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import heig.tb.jsmithfx.view.ChartPoint;
@@ -47,8 +48,10 @@ public class SmithChartInteractionController {
     private final Supplier<Optional<Double>> zoLineSupplier;
     private final Supplier<Optional<Double>> permittivitySupplier;
     private final BiConsumer<String, Enum<?>> valueUpdater; // (value, unit)
+    private final Supplier<Double> valueSupplier;
     private final Consumer<String> buttonTextUpdater;
     private final Supplier<Optional<Double>> qualityFactorSupplier;
+    private final Consumer<String> qualityValueUpdater;
 
     //View State for zooming and panning
     private double currentScale = 1.0;
@@ -71,6 +74,7 @@ public class SmithChartInteractionController {
     private double lastScreenXForAdd;
     private double lastScreenYForAdd;
     private boolean isProgrammaticallyMovingCursor = false;
+    private boolean isRedrawPending = false;
 
     public SmithChartInteractionController(
             Pane smithChartPane,
@@ -83,8 +87,10 @@ public class SmithChartInteractionController {
             Supplier<Optional<Double>> zoLineSupplier,
             Supplier<Optional<Double>> permittivitySupplier,
             BiConsumer<String, Enum<?>> valueUpdater,
+            Supplier<Double> valueSupplier,
             Consumer<String> buttonTextUpdater,
-            Supplier<Optional<Double>> qualityFactorSupplier
+            Supplier<Optional<Double>> qualityFactorSupplier,
+            Consumer<String> qualityValueUpdater
     ) {
         this.smithChartPane = smithChartPane;
         this.smithCanvas = smithCanvas;
@@ -98,8 +104,10 @@ public class SmithChartInteractionController {
         this.zoLineSupplier = zoLineSupplier;
         this.permittivitySupplier = permittivitySupplier;
         this.valueUpdater = valueUpdater;
+        this.valueSupplier = valueSupplier;
         this.buttonTextUpdater = buttonTextUpdater;
         this.qualityFactorSupplier = qualityFactorSupplier;
+        this.qualityValueUpdater = qualityValueUpdater;
 
 
         this.renderer = new SmithChartRenderer(smithCanvas, cursorCanvas);
@@ -276,18 +284,36 @@ public class SmithChartInteractionController {
             redrawSmithCanvas();
         });
 
-
+        viewModel.transformedS1PPointsProperty().addListener((ListChangeListener<DataPoint>) _ -> {
+            redrawSmithCanvas();
+        });
     }
 
     /**
-     * Clears and redraws the entire chart's canvas. This method will be called whenever the data
-     * or the window size changes.
+     * Schedules a redraw of the canvas.
+     * Uses Platform.runLater to merge multiple update events into a single render frame.
      */
     public void redrawSmithCanvas() {
-        if (renderer != null) {
-            int selectedIndex = viewModel.getDpTableSelIndex().get();
-            renderer.render(viewModel, currentScale, offsetX, offsetY, selectedIndex);
+        if (isRedrawPending) {
+            return;
         }
+
+        isRedrawPending = true;
+
+        Platform.runLater(() -> {
+                    // Perform the actual drawing
+                    if (renderer != null) {
+                        int selectedIndex = -1;
+                        // Safety check in case the property is unbound or null during teardown
+                        if (viewModel.getDpTableSelIndex() != null) {
+                            selectedIndex = viewModel.getDpTableSelIndex().get();
+                        }
+                        renderer.render(viewModel, currentScale, offsetX, offsetY, selectedIndex);
+                    }
+
+                    // Reset the flag so future updates can trigger a new draw
+                    isRedrawPending = false;
+        });
     }
 
     /**
@@ -328,18 +354,7 @@ public class SmithChartInteractionController {
         Optional<Double> permittivityOpt = permittivitySupplier.get();
         Optional<Double> z0_lineOpt = zoLineSupplier.get();
 
-        Double componentValue = SmithCalculator.calculateComponentValue(
-                snappedGammaForMouseAdd,
-                startImpedanceForMouseAdd,
-                type,
-                position,
-                stubType,
-                z0,
-                freq,
-                z0_lineOpt,
-                permittivityOpt,
-                Optional.of(totalAngleTraveled)
-        );
+        Double componentValue = valueSupplier.get(); // The value is already being updated by the mouse move, so just fetch the already calculated value displayed
 
         if (componentValue != null) {
             if (type == CircuitElement.ElementType.LINE && z0_lineOpt.isPresent() && permittivityOpt.isPresent()) {
@@ -489,11 +504,24 @@ public class SmithChartInteractionController {
         );
 
         if (liveValue != null) {
+
+            Optional<ComponentEntry> closestDiscreteEntry = viewModel.getClosestComponentEntry(liveValue, typeSupplier.get());
+
             // Update UI Text
-            Pair<ElectronicUnit, String> result = SmithUtilities.getBestUnitAndFormattedValue(
-                    liveValue,
-                    (ElectronicUnit[]) typeSupplier.get().getUnitClass().getEnumConstants()
-            );
+            Pair<ElectronicUnit, String> result;
+            if (viewModel.isUsingDiscreteComponentsProperty().get() && closestDiscreteEntry.isPresent()){
+                result = SmithUtilities.getBestUnitAndFormattedValue(
+                        closestDiscreteEntry.get().getValue(),
+                        (ElectronicUnit[]) typeSupplier.get().getUnitClass().getEnumConstants()
+                );
+                qualityValueUpdater.accept(String.valueOf(closestDiscreteEntry.get().getQualityFactor(viewModel.frequencyProperty().get())));
+            } else {
+                result = SmithUtilities.getBestUnitAndFormattedValue(
+                        liveValue,
+                        (ElectronicUnit[]) typeSupplier.get().getUnitClass().getEnumConstants()
+                );
+            }
+
             valueUpdater.accept(result.getValue(), (Enum<?>) result.getKey());
 
             // Update the live preview element
