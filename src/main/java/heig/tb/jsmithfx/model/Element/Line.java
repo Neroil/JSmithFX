@@ -30,6 +30,10 @@ public class Line extends CircuitElement {
     private double permittivity;
     private double lambdaLength = 0.0;
 
+    // Default constructor for Jackson
+    protected Line() {
+        super();
+    }
 
     // Constructor for a standard in-line transmission line
     public Line(double length, double characteristicImpedance, double permittivity) {

@@ -1,7 +1,10 @@
 package heig.tb.jsmithfx.model;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import heig.tb.jsmithfx.model.Element.Capacitor;
 import heig.tb.jsmithfx.model.Element.Inductor;
+import heig.tb.jsmithfx.model.Element.Line;
 import heig.tb.jsmithfx.model.Element.Resistor;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.CapacitanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.DistanceUnit;
@@ -13,6 +16,19 @@ import javafx.beans.property.SimpleDoubleProperty;
 
 import java.util.Optional;
 
+// Setup Jackson annotations for polymorphic serialization/deserialization
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "elementType"
+)
+
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = Resistor.class, name = "RESISTOR"),
+        @JsonSubTypes.Type(value = Inductor.class, name = "INDUCTOR"),
+        @JsonSubTypes.Type(value = Capacitor.class, name = "CAPACITOR"),
+        @JsonSubTypes.Type(value = Line.class, name = "LINE")
+})
 public abstract class CircuitElement {
 
     public enum ElementType {
@@ -94,6 +110,10 @@ public abstract class CircuitElement {
 
     public ElementPosition getPosition() {
         return this.elementPosition;
+    }
+
+    // Default constructor for Jackson deserialization
+    protected CircuitElement() {
     }
 
     protected CircuitElement(double realWorldValue, ElementPosition elementPosition,  ElementType elementType) {

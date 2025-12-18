@@ -2,6 +2,7 @@ package heig.tb.jsmithfx;
 
 import heig.tb.jsmithfx.logic.CircuitSimulator;
 import heig.tb.jsmithfx.logic.HistoryManager;
+import heig.tb.jsmithfx.logic.ProjectManager;
 import heig.tb.jsmithfx.logic.SmithCalculator;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
@@ -18,12 +19,15 @@ import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.stage.FileChooser;
 
 import java.io.File;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+
+import static org.controlsfx.tools.Utils.getWindow;
 
 /**
  * The ViewModel for the Smith Chart application.
@@ -258,7 +262,6 @@ public final class SmithChartViewModel {
         recalculateImpedanceChain();
 
         suppressModificationEvents = false;
-
     }
 
     /**
@@ -1055,11 +1058,73 @@ public final class SmithChartViewModel {
     public void setProjectName(String name) { this.projectName.set(name); }
     public void setHasBeenSaved(boolean saved) { this.hasBeenSaved.set(saved); }
     public void setIsModified(boolean modified) { this.isModified.set(modified); }
+    private ProjectManager projectManager = new ProjectManager();
 
     private void markAsModified() {
         if (!suppressModificationEvents && !isModified.get()) {
             isModified.set(true);
         }
+    }
+
+    public void resetProject(){
+        suppressModificationEvents = true;
+        projectName.set("Untitled Project");
+        hasBeenSaved.set(false);
+        isModified.set(false);
+        circuitElements.clear();
+        dataPoints.clear();
+        measuresGamma.clear();
+        s1pDataPoints.clear();
+        sweepDataPoints.clear();
+        combinedDataPoints.clear();
+        selectedElement.set(null);
+        selectedInsertionIndex.set(-1);
+        historyManager.clear();
+        projectManager.resetProject();
+        suppressModificationEvents = false;
+    }
+
+    public void load(){
+        suppressModificationEvents = true;
+
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Load a JSMFX Project");
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSMFX file", "*.jsmfx"));
+        File file = fc.showOpenDialog(SmithUtilities.getActiveStage());
+
+        if (file == null) {
+            suppressModificationEvents = false;
+            return;
+        }
+
+        projectManager.loadProject(this, file);
+        isModified.set(false);
+        suppressModificationEvents = false;
+    }
+
+    public void save(){
+        suppressModificationEvents = true;
+        // Check if the project has ever been saved
+        if (!hasBeenSaved.get()) {
+            // Create a new project file and let the user choose the location
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Save your new project !");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSMFX file", "*.jsmfx"));
+            fc.setInitialFileName(projectName.get() + ".jsmfx");
+            File f = fc.showSaveDialog(SmithUtilities.getActiveStage());
+
+            if (f == null) {
+                suppressModificationEvents = false;
+                return;
+            }
+
+            projectManager.saveProject(this, Optional.of(f));
+            hasBeenSaved.set(true);
+        } else {
+            projectManager.saveProject(this, Optional.empty());
+        }
+        isModified.set(false);
+        suppressModificationEvents = false;
     }
 
     // Frequency Range Filter Helpers

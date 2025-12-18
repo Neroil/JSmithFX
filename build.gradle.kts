@@ -62,6 +62,8 @@ dependencies {
         exclude(group = "org.openjfx")
         exclude(group = "org.jetbrains.kotlin")
     }
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.20.1")
+
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
 

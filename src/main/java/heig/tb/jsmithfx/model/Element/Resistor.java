@@ -5,6 +5,11 @@ import heig.tb.jsmithfx.utilities.Complex;
 
 public class Resistor extends CircuitElement {
 
+    // Default constructor for Jackson
+    protected Resistor() {
+        super();
+    }
+
     public Resistor(double realWorldValue, ElementPosition elementPosition, ElementType elementType) {
         super(realWorldValue, elementPosition, elementType);
     }

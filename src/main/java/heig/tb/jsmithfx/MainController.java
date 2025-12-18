@@ -1207,5 +1207,63 @@ public class MainController {
             viewModel.setDiscreteComponentConfig(javafx.collections.FXCollections.observableArrayList(config));
         });
     }
+
+    @FXML
+    private void onCreateNewProject() {
+        var stage = smithCanvas.getScene().getWindow();
+        if (SmithChartViewModel.getInstance().isModifiedProperty().get()) {
+            if (DialogUtils.areYouSureDialog(
+                    "New Project",
+                    "Are you sure you want to create a new project? Unsaved changes will be lost.",
+                    stage)) {
+                viewModel.resetProject();
+            }
+        } else {
+            viewModel.resetProject();
+        }
+    }
+
+    @FXML
+    private void onOpenProject() {
+        var stage = smithCanvas.getScene().getWindow();
+        if (SmithChartViewModel.getInstance().isModifiedProperty().get()) {
+            if (DialogUtils.areYouSureDialog(
+                    "Load Project",
+                    "Are you sure you want to load another project? Unsaved changes will be lost.",
+                    stage)) {
+                viewModel.load();
+            }
+        } else {
+            viewModel.load();
+        }
+    }
+
+    @FXML
+    private void onSaveProject() {
+        viewModel.save();
+    }
+
+    @FXML
+    private void onSaveAsProject() {
+        // Little hacky way to make this work
+        viewModel.setHasBeenSaved(false);
+        viewModel.save();
+    }
+
+    @FXML
+    private void onExitApp() {
+        var stage = smithCanvas.getScene().getWindow();
+        if (SmithChartViewModel.getInstance().isModifiedProperty().get()) {
+            if (DialogUtils.areYouSureDialog(
+                    "Exit Application",
+                    "Are you sure you want to exit JSmithFX? Unsaved changes will be lost.",
+                    stage)) {
+                Platform.exit();
+            }
+        } else {
+            Platform.exit();
+        }
+    }
+
 }
 

@@ -17,6 +17,9 @@ module heig.tb.jsmithfx {
     requires transitive javafx.graphics;
     requires annotations;
     requires java.logging;
+    requires com.fasterxml.jackson.annotation;
+    requires com.fasterxml.jackson.databind;
+    requires com.fasterxml.jackson.datatype.jdk8;
 
     opens heig.tb.jsmithfx to javafx.fxml;
     exports heig.tb.jsmithfx;

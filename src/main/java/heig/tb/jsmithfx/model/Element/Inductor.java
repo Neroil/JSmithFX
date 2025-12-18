@@ -7,6 +7,11 @@ import java.util.Optional;
 
 public class Inductor extends CircuitElement {
 
+    // Default constructor for Jackson
+    protected Inductor(){
+        super();
+    }
+
     public Inductor(double inductance, ElementPosition elementPosition,   ElementType elementType) {
         super(inductance, elementPosition,elementType);
     }

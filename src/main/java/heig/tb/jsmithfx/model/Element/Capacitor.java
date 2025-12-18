@@ -7,6 +7,10 @@ import java.util.Optional;
 
 public class Capacitor extends CircuitElement {
 
+    protected Capacitor() {
+        super();
+    }
+
     public Capacitor(double capacitance, ElementPosition elementPosition,  ElementType elementType) {
         super(capacitance, elementPosition, elementType);
     }

@@ -3,13 +3,18 @@ package heig.tb.jsmithfx;
 import atlantafx.base.theme.NordDark;
 import com.pixelduke.window.ThemeWindowManager;
 import com.pixelduke.window.ThemeWindowManagerFactory;
+import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.StageController;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 
@@ -48,5 +53,23 @@ public class JSmithFXApplication extends Application {
 
         stage.show();
         themeWindowManager.setDarkModeForWindowFrame(stage, true);
+
+        stage.setOnCloseRequest(event -> {
+            // Prevent closing if there are unsaved changes
+            if (SmithChartViewModel.getInstance().isModifiedProperty().get()){
+                if (DialogUtils.areYouSureDialog(
+                        "Exit Application",
+                        "Are you sure you want to exit JSmithFX? Unsaved changes will be lost.",
+                        stage)){
+                    Platform.exit();
+                }
+                event.consume();
+            }
+        });
+
+        // Add CTRL+S shortcut for saving
+        scene.getAccelerators().put(
+                new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN),
+                () -> SmithChartViewModel.getInstance().save());
     }
 }

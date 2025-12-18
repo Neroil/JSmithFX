@@ -10,11 +10,12 @@
     <HBox spacing="20.0" styleClass="menu-bar-container">
         <MenuBar>
             <Menu text="File">
-                <MenuItem text="New" />
-                <MenuItem text="Open..." />
-                <MenuItem text="Save" />
+                <MenuItem text="New" onAction="#onCreateNewProject"/>
+                <MenuItem text="Open" onAction="#onOpenProject"/>
+                <MenuItem text="Save" onAction="#onSaveProject"/>
+                <MenuItem text="Save As" onAction="#onSaveAsProject"/>
                 <SeparatorMenuItem />
-                <MenuItem text="Exit" />
+                <MenuItem text="Exit" onAction="#onExitApp"/>
             </Menu>
             <Menu text="Set">
                 <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance" />
@@ -65,7 +66,7 @@
             <items>
                 <!-- TOP PART: The Circuit Diagram -->
                 <AnchorPane>
-                    <HBox fx:id="topControlsHBox" alignment="CENTER_LEFT" spacing="20.0" AnchorPane.leftAnchor="10.0"
+                    <HBox alignment="CENTER_LEFT" spacing="20.0" AnchorPane.leftAnchor="10.0"
                           AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
                         <Button fx:id="changeLoadButton" mnemonicParsing="false" onAction="#onChangeLoad"
                                 text="Change load"/>
