@@ -528,6 +528,10 @@ public class MainController {
             viewModel.setUseQualityFactor(newVal);
             qualityFactorTextField.setVisible(newVal);
             qualityFactorTextField.setManaged(newVal);
+
+            if (!newVal) {
+                qualityFactorTextField.clear();
+            }
         });
 
 
@@ -713,7 +717,6 @@ public class MainController {
             qualityFactorTextField.setText(String.valueOf(el.getQualityFactor().get()));
         } else {
             useQualityFactorCheckBox.setSelected(false);
-            qualityFactorTextField.clear();
         }
 
         var deleteButton = new Button("Delete");

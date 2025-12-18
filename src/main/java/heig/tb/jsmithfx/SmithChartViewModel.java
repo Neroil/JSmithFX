@@ -225,11 +225,6 @@ public final class SmithChartViewModel {
 
             // If circuits are removed while modifying, cancel it to avoid issues
             cancelTuningAdjustments();
-
-            // Ensure at least one circuit always exists
-            if (allCircuits.isEmpty()) {
-                addCircuit();
-            }
         });
 
         // When any sources change, trigger a full recalculation.
