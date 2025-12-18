@@ -13,19 +13,22 @@ import java.util.Optional;
 
 public class SmithCalculator {
 
-    private static double SPEED_OF_LIGHT = 299792458.0; // Speed of light in m/s
-    private static double DBM_TO_NEPERM = 0.115129254650564; // Conversion factor from dB/m to Neper/m
+    private static final double SPEED_OF_LIGHT = 299792458.0; // Speed of light in m/s
+    private static final double DBM_TO_NEPERM = 0.115129254650564; // Conversion factor from dB/m to Neper/m
+
     public static double getSpeedOfLight() {
         return SPEED_OF_LIGHT;
     }
+
     public static double getDbmToNeperConversionFactor() {
         return DBM_TO_NEPERM;
     }
 
     /**
      * Converts the reflection coefficient Gamma to its complex impedance
+     *
      * @param gamma the reflection coefficient
-     * @param z0 the characteristic impedance
+     * @param z0    the characteristic impedance
      * @return the complex impedance
      */
     public static Complex gammaToImpedance(Complex gamma, double z0) {
@@ -94,14 +97,13 @@ public class SmithCalculator {
                 //The center will be exactly at the middle of those two points
                 Complex gamma = startImpedance.subReal(z0).dividedBy(startImpedance.addReal(z0));
                 double denom = 2 * (1 + gamma.real());
-                double nom = Math.pow(gamma.magnitude(),2) - 1;
-                double centerX = nom/denom;
+                double nom = Math.pow(gamma.magnitude(), 2) - 1;
+                double centerX = nom / denom;
 
                 center = new Complex(centerX, 0);
                 radius = Math.abs(centerX - (-1.0));
             }
-        }
-        else if (element.getType() == CircuitElement.ElementType.RESISTOR) {
+        } else if (element.getType() == CircuitElement.ElementType.RESISTOR) {
             // Constant Reactance (Series) or Susceptance (Parallel) Circles
             if (element.getPosition() == CircuitElement.ElementPosition.SERIES) {
                 double x = zNorm.imag();
@@ -132,7 +134,8 @@ public class SmithCalculator {
 
     /**
      * Determines the expected direction of movement on the Smith chart depending on the type and position of the circuit element.
-     * @param element the circuit element being added
+     *
+     * @param element       the circuit element being added
      * @param previousGamma the previous reflection coefficient before adding the element
      * @return 1 for counter-clockwise, -1 for clockwise
      */
@@ -141,18 +144,18 @@ public class SmithCalculator {
         CircuitElement.ElementType type = element.getType();
         CircuitElement.ElementPosition position = element.getPosition();
 
-        if (type == CircuitElement.ElementType.LINE){
+        if (type == CircuitElement.ElementType.LINE) {
             expectedDirection = 1;
-            expectedDirection *= ((Line)element).getStubType() == Line.StubType.SHORT ? 1 : -1;
+            expectedDirection *= ((Line) element).getStubType() == Line.StubType.SHORT ? 1 : -1;
 
             return expectedDirection;
         }
 
         expectedDirection = (type == CircuitElement.ElementType.CAPACITOR || type == CircuitElement.ElementType.RESISTOR) ? 1 : -1;
-        expectedDirection *= (position ==  CircuitElement.ElementPosition.SERIES) ? 1 : -1;
+        expectedDirection *= (position == CircuitElement.ElementPosition.SERIES) ? 1 : -1;
 
         // Correct the direction if the last gamma's imag was negative for the resistor
-        if(type == CircuitElement.ElementType.RESISTOR) expectedDirection *= (previousGamma.imag() < 0) ? -1 : 1;
+        if (type == CircuitElement.ElementType.RESISTOR) expectedDirection *= (previousGamma.imag() < 0) ? -1 : 1;
         return expectedDirection;
     }
 
@@ -199,9 +202,10 @@ public class SmithCalculator {
         if (type == CircuitElement.ElementType.LINE) {
             //Get the current values of εr and z_L
             try {
-                if (z0_line.isEmpty() || permittivity.isEmpty() || z0_line.get() <= 0 || permittivity.get() < 1.0 ) return null; // Basic validation
+                if (z0_line.isEmpty() || permittivity.isEmpty() || z0_line.get() <= 0 || permittivity.get() < 1.0)
+                    return null; // Basic validation
             } catch (NumberFormatException e) {
-                DialogUtils.showErrorAlert( "Invalid Input", "Please make sure the z0 and εr field are filled", SmithUtilities.getActiveStage());
+                DialogUtils.showErrorAlert("Invalid Input", "Please make sure the z0 and εr field are filled", SmithUtilities.getActiveStage());
                 return null; // A value hasn't been entered yet
             }
 
@@ -337,10 +341,11 @@ public class SmithCalculator {
 
     /**
      * Generates a list of points representing the path of adding a lossy component on the Smith chart.
-     * @param startGamma    The starting reflection coefficient (Gamma).
-     * @param element       The circuit element being added.
-     * @param z0            The characteristic impedance.
-     * @param frequency     The operating frequency.
+     *
+     * @param startGamma The starting reflection coefficient (Gamma).
+     * @param element    The circuit element being added.
+     * @param z0         The characteristic impedance.
+     * @param frequency  The operating frequency.
      * @return A list of Complex numbers representing the path on the Smith chart.
      */
     public static List<Complex> getLossyComponentPath(Complex startGamma, CircuitElement element, double z0, double frequency) {
@@ -360,7 +365,7 @@ public class SmithCalculator {
                 double fraction = (double) i / points;
                 double stepLength = totalLength * fraction;
 
-                Line stepLine = (Line)originalLine.copy();
+                Line stepLine = (Line) originalLine.copy();
                 stepLine.setRealWorldValue(stepLength);
 
                 stepTotalZ = stepLine.calculateImpedance(startImpedance, frequency);
@@ -393,11 +398,18 @@ public class SmithCalculator {
                 // Convert to Gamma and add to path
                 path.add(impedanceToGamma(stepTotalZ, z0));
             }
-
         }
-
-
         return path;
+    }
+
+    public static double calculateVswr(Complex gamma) {
+        double mag = gamma.magnitude();
+        return (mag < 1e-9) ? Double.POSITIVE_INFINITY : (1 + mag) / (1 - mag);
+    }
+
+    public static double calculateReturnLoss(Complex gamma) {
+        double mag = gamma.magnitude();
+        return (mag < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(mag);
     }
 
 }

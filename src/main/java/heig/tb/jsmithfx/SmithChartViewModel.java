@@ -1,5 +1,8 @@
 package heig.tb.jsmithfx;
 
+import heig.tb.jsmithfx.logic.CircuitSimulator;
+import heig.tb.jsmithfx.logic.HistoryManager;
+import heig.tb.jsmithfx.logic.SmithCalculator;
 import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.Capacitor;
@@ -33,6 +36,16 @@ import java.util.stream.Collectors;
 public final class SmithChartViewModel {
 
     // =============================================================================================
+    // Services & Logic Delegates
+    // =============================================================================================
+
+    /** Stateless service for calculating impedance chains and transformations. */
+    private final CircuitSimulator simulator = new CircuitSimulator();
+
+    /** Generic manager for Undo/Redo stack operations. */
+    private final HistoryManager<UndoRedoEntry> historyManager = new HistoryManager<>();
+
+    // =============================================================================================
     // Core Physics Properties
     // =============================================================================================
 
@@ -50,7 +63,11 @@ public final class SmithChartViewModel {
     // =============================================================================================
 
     /** The list of circuit elements (components) added to the chart. */
-    public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(FXCollections.observableArrayList());
+    public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(
+            FXCollections.observableArrayList(element -> new javafx.beans.Observable[] {
+                    element.realWorldValueProperty(),
+            })
+    );
 
     /**
      * Main calculation points.
@@ -126,10 +143,6 @@ public final class SmithChartViewModel {
     private final BooleanProperty isModified = new SimpleBooleanProperty(false);
     public BooleanProperty isModifyingComponent = new SimpleBooleanProperty(false);
 
-    // Undo/Redo Stacks
-    private final Deque<UndoRedoEntry> undoStack = new ArrayDeque<>();
-    private final Deque<UndoRedoEntry> redoStack = new ArrayDeque<>();
-
     // State preservation for cancellation
     private CircuitElement originalElement;
     private boolean suppressModificationEvents = true;
@@ -191,16 +204,15 @@ public final class SmithChartViewModel {
         });
 
         circuitElements.addListener((ListChangeListener<CircuitElement>) change -> {
-            markAsModified();
             while (change.next()) {
-                if (change.wasAdded()) {
-                    for (CircuitElement elem : change.getAddedSubList()) {
-                        elem.realWorldValueProperty().addListener((_, _, _) -> {
-                            recalculateImpedanceChain();
-                            performFrequencySweep();
-                            markAsModified();
-                        });
-                    }
+                if (change.wasUpdated()) {
+                    recalculateImpedanceChain();
+                    // Sweep is handled within recalculateImpedanceChain (delegated below)
+                    markAsModified();
+                }
+                if (change.wasAdded() || change.wasRemoved()) {
+                    recalculateImpedanceChain();
+                    markAsModified();
                 }
             }
         });
@@ -237,22 +249,16 @@ public final class SmithChartViewModel {
             recalculateS1PChain();
         });
 
-        // Perform the initial calculation when the view model is created.
-        recalculateImpedanceChain();
-
         // Listen for changes in the main data points and update combined points
         dataPoints.addListener((ListChangeListener<DataPoint>) _ -> updateCombinedDataPoints());
         s1pDataPoints.addListener((ListChangeListener<DataPoint>) _ -> updateCombinedDataPoints());
         sweepDataPoints.addListener((ListChangeListener<DataPoint>) _ -> updateCombinedDataPoints());
 
-        // Ensure combined points are initialized
-        updateCombinedDataPoints();
+        // Perform the initial calculation when the view model is created.
+        recalculateImpedanceChain();
 
         suppressModificationEvents = false;
 
-        // Now update the display
-        setIsModified(true);
-        setProjectName("New Project");
     }
 
     /**
@@ -264,104 +270,60 @@ public final class SmithChartViewModel {
     }
 
     // =============================================================================================
-    // Core Calculation Logic
+    // Core Calculation Logic (Delegated)
     // =============================================================================================
 
     /**
-     * This is the single source of truth for recalculating the entire impedance path.
-     * It clears the old 'measures' list and builds a new one from the load and all circuit elements.
+     * Delegates the main circuit calculation to the Simulator Service.
+     * Also triggers S1P and Sweep updates.
      */
     private void recalculateImpedanceChain() {
         Complex currentImpedance = loadImpedance.get();
-        if (currentImpedance == null) return; //We have no main impedance, gg
+        if (currentImpedance == null) return;
 
-        // Use a temporary list to build the new state.
-        List<DataPoint> newDataPoints = new ArrayList<>();
-        double freq = frequency.get();
+        // Calculate Main Chain
+        List<DataPoint> mainPoints = simulator.calculateChain(
+                loadImpedance.get(),
+                frequency.get(),
+                zo.get(),
+                circuitElements.get()
+        );
+        dataPoints.setAll(mainPoints);
 
-        Complex loadGamma = calculateGamma(currentImpedance);
-        double loadVswr = calculateVswr(loadGamma);
-        double loadRetLoss = calculateReturnLoss(loadGamma);
-
-        newDataPoints.add(new DataPoint(freq, "LD", currentImpedance, loadGamma, loadVswr, loadRetLoss));
-
-        // Sequentially add the effect of each component
-        int index = 1;
-        for (CircuitElement element : circuitElements) {
-
-            if (element.getType() == CircuitElement.ElementType.LINE) {
-                currentImpedance = ((Line) element).calculateImpedance(currentImpedance, freq);
-            } else {
-                Complex elementImpedance = element.getImpedance(freq);
-                currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, element.getElementPosition());
-            }
-            //Calculate the values needed for the data points
-            Complex elGamma = calculateGamma(currentImpedance);
-            double elVswr = calculateVswr(elGamma);
-            double elRetLoss = calculateReturnLoss(elGamma);
-
-            newDataPoints.add(new DataPoint(freq, "DP" + index++, currentImpedance, elGamma, elVswr, elRetLoss));
-        }
-
-        // Atomically update the main 'measures' property with the new list.
-        dataPoints.setAll(newDataPoints);
-        // Also recalculate the S1P chain if needed
+        // Trigger Secondary Calculations
         recalculateS1PChain();
-        // Finally, perform a frequency sweep if needed
         performFrequencySweep();
     }
 
     /**
-     * Recalculates the S1P data points by applying the current circuit elements
-     * to the imported S1P data (used when S1P is treated as a load source).
+     * Delegates S1P transformation to the Simulator Service.
      */
     private void recalculateS1PChain() {
         if (!isAnyUseS1PAsLoad() || s1pDataPoints.isEmpty()) {
             transformedS1PPoints.clear();
             if (!isAnyUseS1PAsLoad()) transformedS1PPoints.setAll(s1pDataPoints);
-            cachedS1PPoints.clear(); // Just in case
+            cachedS1PPoints.clear();
             return;
         }
 
-        List<DataPoint> newTransformedPoints = new ArrayList<>();
         boolean isPreviewing = previewElementS1P.get() != null && !isModifyingComponent.get();
 
-        List<DataPoint> sourcePoints;
+        // Select Data Source (Cache vs Original)
+        List<DataPoint> sourcePoints = (isPreviewing && !cachedS1PPoints.isEmpty()) ?
+                cachedS1PPoints : s1pDataPoints;
 
-        if (isPreviewing) {
-            if (cachedS1PPoints.isEmpty()) {
-                sourcePoints = s1pDataPoints;
-                isPreviewing = false; // No valid cache, do full calc
-            } else {
-                sourcePoints = cachedS1PPoints;
-            }
-        } else {
-            sourcePoints = s1pDataPoints;
-        }
+        // Select Elements (All vs Preview Only)
+        List<CircuitElement> elementsToApply = isPreviewing ?
+                List.of(previewElementS1P.get()) : circuitElements.get();
 
-        List<CircuitElement> elementsToApply;
-
-        if (isPreviewing) {
-            elementsToApply = new ArrayList<>();
-            elementsToApply.add(previewElementS1P.get()); // Only the preview element
-        } else {
-            elementsToApply = circuitElements.get();
-        }
-
-        for (DataPoint originalPoint : sourcePoints) {
-            double freq = originalPoint.getFrequency();
-
-            Complex currentImpedance = originalPoint.getImpedance();
-
-            currentImpedance = propagateThroughElements(currentImpedance, freq, elementsToApply);
-
-            Complex newGamma = calculateGamma(currentImpedance);
-            newTransformedPoints.add(new DataPoint(freq, originalPoint.getLabel(), currentImpedance, newGamma, calculateVswr(newGamma), calculateReturnLoss(newGamma)));
-        }
+        // Calculate
+        List<DataPoint> newTransformedPoints = simulator.calculateTransformedS1P(
+                sourcePoints, elementsToApply, zo.get()
+        );
 
         transformedS1PPoints.setAll(newTransformedPoints);
 
-        // Update cache only if not previewing (means we added a new component)
+        // Update cache only if not previewing (means we added a new component/changed baseline)
         if (!isPreviewing) {
             cachedS1PPoints.clear();
             cachedS1PPoints.addAll(newTransformedPoints);
@@ -370,60 +332,36 @@ public final class SmithChartViewModel {
 
     /**
      * Updates the UI-bound properties based on the mouse cursor position on the chart.
+     * Delegates math to SmithCalculator.
      *
      * @param gammaX The X component of Gamma (Real part).
      * @param gammaY The Y component of Gamma (Imaginary part).
      */
     public void calculateMouseInformations(double gammaX, double gammaY) {
         Complex gamma = new Complex(gammaX, gammaY);
-        double gammaMagnitude = gamma.magnitude();
-
-        //Update raw data
         this.mouseGamma.set(gamma);
 
         // Only perform calculations for points within the Smith Chart (|Gamma| <= 1)
-        if (gammaMagnitude > 1.0) {
-            mouseReturnLossText.set("- dB");
-            mouseVSWRText.set("∞");
-            mouseQualityFactorText.set("-");
-            mouseGammaText.set("-");
-            mouseAdmittanceYText.set("-");
-            mouseImpedanceZText.set("-");
+        if (gamma.magnitude() > 1.0) {
+            setMouseInfoToDefault();
             return;
         }
 
-        // Update properties based on Gamma
-        double returnLoss = calculateReturnLoss(gamma);
-        double vswr = calculateVswr(gamma);
+        // Use SmithCalculator for transformations
+        // Z = Gamma -> Impedance
+        Complex impedanceZ = SmithCalculator.gammaToImpedance(gamma, zo.get());
 
-        // Calculate mouse pos impedance
-        Complex one = new Complex(1, 0);
-        Complex z0Complex = new Complex(zo.get(), 0);
-
-        Complex denominator = one.subtract(gamma);
-
-        // Check for open circuit condition (Gamma ≈ 1)
-        if (denominator.magnitude() < 1e-9) {
-            // Handle open circuit - set to very high impedance or infinity
-            mouseReturnLossText.set("0.00 dB");
-            mouseVSWRText.set("∞");
-            mouseQualityFactorText.set("∞");
-            mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.magnitude(), Math.toDegrees(gamma.angle())));
-            mouseAdmittanceYText.set("0.00 + j0.00 mS");
-            mouseImpedanceZText.set("∞");
+        // Handle singularity (Gamma ~ 1)
+        if (impedanceZ.real() > 1e9) { // Extremely high resistance
+            setMouseInfoToOpenCircuit(gamma);
             return;
         }
 
-        // Calculate normalized impedance: Z_norm = (1 + Gamma) / (1 - Gamma)
-        Complex zNorm = one.add(gamma).dividedBy(denominator);
-
-        // Calculate characteristic impedance: Z = Z_norm * Z0
-        Complex impedanceZ = zNorm.multiply(z0Complex);
-
-        // Calculate characteristic admittance: Y = (1 / Z)
         Complex admittanceY = impedanceZ.inverse();
 
-        // Calculate Q-Factor, Q = |X| / R
+        // Calculate derived RF values
+        double returnLoss = (gamma.magnitude() < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(gamma.magnitude());
+        double vswr = (gamma.magnitude() < 1e-9) ? Double.POSITIVE_INFINITY : (1 + gamma.magnitude()) / (1 - gamma.magnitude());
         double qFactor = (impedanceZ.real() < 1e-9) ? Double.POSITIVE_INFINITY : Math.abs(impedanceZ.imag()) / impedanceZ.real();
 
         //Update properties
@@ -442,8 +380,26 @@ public final class SmithChartViewModel {
         mouseQualityFactorText.set(String.format("%.3f", qFactor));
     }
 
+    private void setMouseInfoToDefault() {
+        mouseReturnLossText.set("- dB");
+        mouseVSWRText.set("∞");
+        mouseQualityFactorText.set("-");
+        mouseGammaText.set("-");
+        mouseAdmittanceYText.set("-");
+        mouseImpedanceZText.set("-");
+    }
+
+    private void setMouseInfoToOpenCircuit(Complex gamma) {
+        mouseReturnLossText.set("0.00 dB");
+        mouseVSWRText.set("∞");
+        mouseQualityFactorText.set("∞");
+        mouseGammaText.set(String.format("%.3f ∠ %.3f°", gamma.magnitude(), Math.toDegrees(gamma.angle())));
+        mouseAdmittanceYText.set("0.00 + j0.00 mS");
+        mouseImpedanceZText.set("∞");
+    }
+
     /**
-     * Converts the entire measures list (impedances) into the measuresGamma list (reflection coefficients).
+     * Converts the entire measures list (impedance) into the measuresGamma list (reflection coefficients).
      */
     private void recalculateAllGammas() {
         List<Complex> newGammas = dataPoints.stream()
@@ -465,26 +421,14 @@ public final class SmithChartViewModel {
 
     /**
      * Adds a new component to the circuit and triggers a full recalculation.
-     *
-     * @param type The type of the component.
-     * @param value The main value (e.g., Inductance in Henries).
-     * @param position Series or Parallel (Shunt).
-     * @param qualityFactor Optional quality factor.
      */
     public void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position, Optional<Double> qualityFactor) {
         addComponent(type, value, 0.0, 0.0, position, qualityFactor, null);
     }
 
     /**
-     * Adds a new component to the circuit (detailed version including Line parameters).
-     *
-     * @param type The component type.
-     * @param value Main value (L, C, R, or Length).
-     * @param characteristicImpedance Z0 for transmission lines.
-     * @param permittivity Epsilon for transmission lines.
-     * @param position Series or Parallel.
-     * @param qualityFactor Optional Q factor.
-     * @param stubType Stub type for lines.
+     * Adds a new component to the circuit (detailed version).
+     * Uses HistoryManager to record the action.
      */
     public void addComponent(CircuitElement.ElementType type, double value, double characteristicImpedance, double permittivity, CircuitElement.ElementPosition position, Optional<Double> qualityFactor, Line.StubType stubType) {
         CircuitElement newElem = switch (type) {
@@ -505,60 +449,44 @@ public final class SmithChartViewModel {
         int index;
 
         if (isModifyingComponent.get() && selectedElement.get() != null) {
+            // Modification Case
             index = circuitElements.indexOf(selectedElement.get());
-            if (index == -1) {
-                System.out.println("Error: Selected element not found in the circuit elements list.");
-                return;
-            }
+            if (index == -1) return;
 
             CircuitElement oldElem = circuitElements.get(index);
             circuitElements.set(index, newElem);
-            undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem));
-        } else if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() <= circuitElements.size()) {
-            index = selectedInsertionIndex.get();
-            circuitElements.add(index, newElem);
-
-            // Record the ADD operation
-            undoStack.push(new UndoRedoEntry(Operation.ADD, index, newElem));
+            historyManager.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem)); // Save old state for undo
         } else {
-            index = circuitElements.size();
-            circuitElements.add(newElem);
-
-            // Record the ADD operation
-            undoStack.push(new UndoRedoEntry(Operation.ADD, index, newElem));
+            // Addition Case
+            if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() <= circuitElements.size()) {
+                index = selectedInsertionIndex.get();
+            } else {
+                index = circuitElements.size();
+            }
+            circuitElements.add(index, newElem);
+            historyManager.push(new UndoRedoEntry(Operation.ADD, index, newElem));
         }
 
-        redoStack.clear(); // New action clears redo history
-        selectedElement.set(null); // Clear selection after adding/modifying
-
-        // Update the selected insertion index to the end
+        selectedElement.set(null);
         selectedInsertionIndex.set(circuitElements.size());
         recalculateImpedanceChain();
     }
 
     /**
-     * Remove the component using their index number, used to remove from the point list
-     *
-     * @param index of the component to remove
+     * Remove the component using their index number.
      */
     void removeComponentAt(int index) {
         try {
-            if (index < 0 || index >= circuitElements.size()) return; //Boundary check
+            if (index < 0 || index >= circuitElements.size()) return;
 
             CircuitElement removed = circuitElements.get(index);
             circuitElements.remove(index);
 
             if (isModifyingComponent.get() && selectedElement.get() != null) {
-                // If we were modifying this element, clear the selection
-                if (removed == selectedElement.get()) {
-                    selectedElement.set(null);
-                }
+                if (removed == selectedElement.get()) selectedElement.set(null);
             }
 
-            // Record the REMOVE operation
-            undoStack.push(new UndoRedoEntry(Operation.REMOVE, index, removed));
-            redoStack.clear(); // New action clears redo history
-
+            historyManager.push(new UndoRedoEntry(Operation.REMOVE, index, removed));
             recalculateImpedanceChain();
         } catch (ArrayIndexOutOfBoundsException e) {
             Logger.getLogger("Error").log(Level.SEVERE, e.getMessage());
@@ -567,45 +495,36 @@ public final class SmithChartViewModel {
 
     public void removeComponent(CircuitElement element) {
         int index = circuitElements.indexOf(element);
-        if (index != -1) {
-            removeComponentAt(index);
-        }
+        if (index != -1) removeComponentAt(index);
     }
 
     /**
      * Sets the element to be modified.
-     * @param element The element to select.
      */
     public void selectElement(CircuitElement element) {
-        // Cancel if the user switch from one to another element without applying
         if (selectedElement.get() != null) {
             cancelTuningAdjustments();
         }
 
         if (element != null && circuitElements.contains(element)) {
             selectedElement.set(element);
-            // Save the state BEFORE tuning starts
-            originalElement = element.copy();
+            originalElement = element.copy(); // Save the state BEFORE tuning starts
         } else {
             selectedElement.set(null);
         }
     }
 
     /**
-     * Called by the Slider in the View to update the value live or when modifying a component
-     *
-     * @param newValue The new value from the slider
+     * Called by the Slider in the View to update the value live.
      */
     public void updateTunedElementValue(double newValue) {
         updateTunedElementValue(newValue, null, null, null, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /**
-     * Called by the View when modifying a component to update type/position/value live
-     *
-     * @param newValue        The new value from the modif
-     * @param elementType     The new type of the element
-     * @param elementPosition The new position of the element
+     * Called by the View when modifying a component to update type/position/value live.
+     * Note: This logic recreates objects if types change, which is why it's kept in ViewModel
+     * rather than delegated to a purely stateless service.
      */
     public void updateTunedElementValue(double newValue, CircuitElement.ElementType elementType, CircuitElement.ElementPosition elementPosition, Line.StubType stubType, Optional<Double> permittivity, Optional<Double> z0Line, Optional<Double> qualityFactor) {
         CircuitElement current = selectedElement.get();
@@ -619,20 +538,17 @@ public final class SmithChartViewModel {
             boolean stubChanged = false;
 
             if (current instanceof Line line && stubType != null) {
-                // If the current line has a different stub type than the one requested, we must recreate it
                 stubChanged = (line.getStubType() != stubType);
             }
 
-            // If Type or StubType changed, we MUST recreate the object to ensure correct constructor logic (Series vs Shunt)
+            // Recreate logic (similar to addComponent factory logic)
             if (typeChanged || stubChanged) {
                 CircuitElement newElement = switch (elementType) {
                     case INDUCTOR -> new Inductor(newValue, current.getElementPosition(), elementType);
                     case CAPACITOR -> new Capacitor(newValue, current.getElementPosition(), elementType);
                     case RESISTOR -> new Resistor(newValue, current.getElementPosition(), elementType);
                     case LINE -> {
-                        if (z0Line.isEmpty() || permittivity.isEmpty()) {
-                            yield null;
-                        }
+                        if (z0Line.isEmpty() || permittivity.isEmpty()) yield null;
                         if (stubType == null || stubType == Line.StubType.NONE) {
                             yield new Line(newValue, z0Line.get(), permittivity.get());
                         } else {
@@ -654,7 +570,6 @@ public final class SmithChartViewModel {
                 current.setPosition(elementPosition);
             }
 
-            // Even if we didn't recreate, ensure properties are set
             if (current instanceof Line line) {
                 if (stubType != null) line.setStubType(stubType);
                 permittivity.ifPresent(line::setPermittivity);
@@ -675,11 +590,10 @@ public final class SmithChartViewModel {
     public void applyTuningAdjustments() {
         if (selectedElement.get() == null) return;
 
-        // Record the MODIFY operation
         int index = circuitElements.indexOf(selectedElement.get());
-
         selectedElement.set(null);
-        undoStack.push(new UndoRedoEntry(Operation.MODIFY, index, originalElement.copy()));
+        // Push the ORIGINAL element to undo stack (so undo reverts to pre-modification)
+        historyManager.push(new UndoRedoEntry(Operation.MODIFY, index, originalElement.copy()));
     }
 
     /**
@@ -696,46 +610,52 @@ public final class SmithChartViewModel {
     }
 
     /**
-     * Undo logic for the components ONLY
+     * Undo logic delegated to HistoryManager
      */
     public void undo() {
-        processHistoryStep(undoStack, redoStack, false);
+        historyManager.popUndo().ifPresent(entry -> processUndoRedo(entry, true));
     }
 
     /**
-     * Redo logic for the components ONLY
+     * Redo logic delegated to HistoryManager
      */
     public void redo() {
-        processHistoryStep(redoStack, undoStack, true);
+        historyManager.popRedo().ifPresent(entry -> processUndoRedo(entry, false));
     }
 
     /**
-     * Core logic to handle both Undo and Redo operations.
-     *
-     * @param sourceStack The stack to take the action FROM.
-     * @param destStack   The stack to push the inverse action TO.
-     * @param isRedo      True if redoing (ADD=ADD), False if undoing (ADD=REMOVE).
+     * Processes an Undo/Redo entry retrieved from the HistoryManager.
      */
-    private void processHistoryStep(Deque<UndoRedoEntry> sourceStack, Deque<UndoRedoEntry> destStack, boolean isRedo) {
-        cancelTuningAdjustments();
-        if (sourceStack.isEmpty()) return;
-
-        UndoRedoEntry entry = sourceStack.pop();
+    private void processUndoRedo(UndoRedoEntry entry, boolean isUndo) {
+        cancelTuningAdjustments(); // Ensure clean state
 
         if (entry.operation == Operation.MODIFY) {
-            CircuitElement currentElem = circuitElements.get(entry.index);
-            circuitElements.set(entry.index, entry.element);
+            if (entry.index < circuitElements.size()) {
+                // Capture the current state (which is about to be overwritten)
+                CircuitElement currentElem = circuitElements.get(entry.index);
 
-            destStack.push(new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem));
+                // Apply the restoration (entry.element holds the state we are moving TO)
+                circuitElements.set(entry.index, entry.element);
 
+                // Prepare the inverse entry for the opposite stack.
+                // If we just Undid (restored Old), we need to save New for Redo.
+                // If we just Redid (restored New), we need to save Old for Undo.
+                UndoRedoEntry inverseEntry = new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem);
+
+                if (isUndo) {
+                    historyManager.pushRedo(inverseEntry);
+                } else {
+                    // Use pushUndo to avoid clearing the redo stack
+                    historyManager.pushUndo(inverseEntry);
+                }
+            }
         } else {
-            // For ADD/REMOVE, the action depends on direction
+            // ADD / REMOVE Logic
             boolean shouldAdd;
-
             if (entry.operation == Operation.ADD) {
-                shouldAdd = isRedo; // If Undo, ADD becomes Remove (false)
+                shouldAdd = !isUndo; // Undo Add = Remove
             } else { // Operation.REMOVE
-                shouldAdd = !isRedo; // If Undo, REMOVE becomes Add (true)
+                shouldAdd = isUndo;  // Undo Remove = Add
             }
 
             if (shouldAdd) {
@@ -744,11 +664,17 @@ public final class SmithChartViewModel {
                 circuitElements.remove(entry.index);
             }
 
-            destStack.push(entry);
+            // Push the inverse operation to the opposite stack
+            if (isUndo) {
+                historyManager.pushRedo(entry);
+            } else {
+                historyManager.pushUndo(entry);
+            }
         }
 
         recalculateImpedanceChain();
     }
+
 
     // =============================================================================================
     // S1P & Sweep Operations
@@ -781,6 +707,7 @@ public final class SmithChartViewModel {
         ).getKey();
 
         try {
+            // Delegated to TouchstoneS1P service
             TouchstoneS1P.export(sweepDataPoints, zo.get(), frequencyUnit, outputFile);
         } catch (Exception e) {
             Logger.getLogger("Error").log(Level.SEVERE, "Error exporting sweep to S1P: " + e.getMessage());
@@ -788,36 +715,29 @@ public final class SmithChartViewModel {
     }
 
     private void performFrequencySweep() {
-        // Create a copy to avoid an issue with the setAll in the main function
         performFrequencySweep(new ArrayList<>(pointToSweep));
     }
 
     public void performFrequencySweep(List<Double> frequencies) {
         if (frequencies.isEmpty()) return;
 
-        // Capture state for the buttons/text fields
-        frequencies.sort(Double::compareTo); // Ensure sorted
+        frequencies.sort(Double::compareTo);
         this.currentSweepMin = frequencies.getFirst();
         this.currentSweepMax = frequencies.getLast();
         this.currentSweepCount = frequencies.size();
-        this.pointToSweep.setAll(frequencies); // Save for re-sweeps on circuit change
+        this.pointToSweep.setAll(frequencies);
 
-        List<DataPoint> sweepPoints = new ArrayList<>();
-        Complex startingLoad = loadImpedance.get();
-
-        for (Double freq : frequencies) {
-            Complex finalImpedance = propagateThroughElements(startingLoad, freq, circuitElements.get());
-            Complex gamma = calculateGamma(finalImpedance);
-            double vswr = calculateVswr(gamma);
-            double retLoss = calculateReturnLoss(gamma);
-
-            sweepPoints.add(new DataPoint(freq, "SWEEP", finalImpedance, gamma, vswr, retLoss));
-        }
-        sweepDataPoints.setAll(sweepPoints);
+        List<DataPoint> results = simulator.performSweep(
+                loadImpedance.get(),
+                frequencies,
+                circuitElements.get(),
+                zo.get()
+        );
+        sweepDataPoints.setAll(results);
     }
 
     public void updateSweepConfiguration(double minFreq, double maxFreq, int count) {
-        if (minFreq >= maxFreq || count < 2) return; // Validation
+        if (minFreq >= maxFreq || count < 2) return;
 
         this.currentSweepMin = minFreq;
         this.currentSweepMax = maxFreq;
@@ -835,9 +755,7 @@ public final class SmithChartViewModel {
 
     public void incrementSweepStartFrequency() {
         double newMin = currentSweepMin * 1.05;
-        if (newMin < currentSweepMax) {
-            updateSweepConfiguration(newMin, currentSweepMax, currentSweepCount);
-        }
+        if (newMin < currentSweepMax) updateSweepConfiguration(newMin, currentSweepMax, currentSweepCount);
     }
 
     public void decrementSweepStartFrequency() {
@@ -850,9 +768,7 @@ public final class SmithChartViewModel {
 
     public void decrementSweepEndFrequency() {
         double newMax = currentSweepMax * 0.95;
-        if (newMax > currentSweepMin) {
-            updateSweepConfiguration(currentSweepMin, newMax, currentSweepCount);
-        }
+        if (newMax > currentSweepMin) updateSweepConfiguration(currentSweepMin, newMax, currentSweepCount);
     }
 
     // =============================================================================================
@@ -897,24 +813,28 @@ public final class SmithChartViewModel {
         if (preview == null) return null;
 
         Complex currentImpedance = getCurrentInteractionStartImpedance();
-
         if (currentImpedance == null) return null;
 
-        double freq = frequency.get();
+        // Calculate single step using helper logic (inlined here or could be in simulator)
         Complex finalImpedance;
-
-        // Apply only the preview element
         if (preview.getType() == CircuitElement.ElementType.LINE) {
-            finalImpedance = ((Line) preview).calculateImpedance(currentImpedance, freq);
+            finalImpedance = ((Line) preview).calculateImpedance(currentImpedance, frequency.get());
         } else {
-            Complex elementImpedance = preview.getImpedance(freq);
-            finalImpedance = calculateNextImpedance(currentImpedance, elementImpedance, preview.getElementPosition());
+            Complex elementImpedance = preview.getImpedance(frequency.get());
+            // Using SmithCalculator helper for combining impedances
+            if (preview.getElementPosition() == CircuitElement.ElementPosition.SERIES) {
+                finalImpedance = currentImpedance.add(elementImpedance);
+            } else {
+                finalImpedance = SmithCalculator.addParallelImpedance(currentImpedance, elementImpedance);
+            }
         }
 
-        return calculateGamma(finalImpedance);
+        return SmithCalculator.impedanceToGamma(finalImpedance, zo.get());
     }
 
     public List<Complex> getProjectedGammas() {
+        // Logic remains in ViewModel as it depends heavily on the 'selectedInsertionIndex' state
+        // and iterates over the specific ViewModel list.
         CircuitElement preview = previewElement.get();
         if (preview == null) return new ArrayList<>();
 
@@ -922,99 +842,50 @@ public final class SmithChartViewModel {
         int insertIndex = selectedInsertionIndex.get();
         List<CircuitElement> elements = circuitElements.get();
 
-        // Safety check for insertion index
-        if (insertIndex < 0 || insertIndex >= elements.size()) {
-            return projectedGammas;
-        }
+        if (insertIndex < 0 || insertIndex >= elements.size()) return projectedGammas;
 
         double freq = frequency.get();
+        Complex currentImpedance = getCurrentInteractionStartImpedance();
 
-        // Determine the starting impedance for the chain
-        Complex currentImpedance = getCurrentInteractionStartImpedance(); // Start Z (before preview)
-
-        // Apply preview element
+        // Apply preview
         if (preview.getType() == CircuitElement.ElementType.LINE) {
             currentImpedance = ((Line) preview).calculateImpedance(currentImpedance, freq);
         } else {
             Complex elementImpedance = preview.getImpedance(freq);
-            currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, preview.getElementPosition());
+            if (preview.getElementPosition() == CircuitElement.ElementPosition.SERIES)
+                currentImpedance = currentImpedance.add(elementImpedance);
+            else
+                currentImpedance = SmithCalculator.addParallelImpedance(currentImpedance, elementImpedance);
         }
 
-        // Loop from the insertion index to the end of the existing list
+        // Propagate rest of chain
         for (int i = insertIndex; i < elements.size(); i++) {
             CircuitElement existingElement = elements.get(i);
-
             if (existingElement.getType() == CircuitElement.ElementType.LINE) {
                 currentImpedance = ((Line) existingElement).calculateImpedance(currentImpedance, freq);
             } else {
                 Complex elementImpedance = existingElement.getImpedance(freq);
-                currentImpedance = calculateNextImpedance(currentImpedance, elementImpedance, existingElement.getElementPosition());
+                if (existingElement.getElementPosition() == CircuitElement.ElementPosition.SERIES)
+                    currentImpedance = currentImpedance.add(elementImpedance);
+                else
+                    currentImpedance = SmithCalculator.addParallelImpedance(currentImpedance, elementImpedance);
             }
-
-            projectedGammas.add(calculateGamma(currentImpedance));
+            projectedGammas.add(SmithCalculator.impedanceToGamma(currentImpedance, zo.get()));
         }
 
         return projectedGammas;
     }
 
-    // =============================================================================================
-    // Mathematical Helpers
-    // =============================================================================================
-
     /**
      * Helper function to calculate the resulting impedance after adding a new component.
-     *
-     * @param previousImpedance The impedance at the previous point in the chain.
-     * @param impedanceToAdd    The impedance of the new component.
-     * @param position          Whether the component is in SERIES or PARALLEL.
-     * @return The new total impedance.
      */
     private Complex calculateNextImpedance(Complex previousImpedance, Complex impedanceToAdd, CircuitElement.ElementPosition position) {
         if (previousImpedance == null || impedanceToAdd == null) return null;
-
         if (position == CircuitElement.ElementPosition.SERIES) {
             return previousImpedance.add(impedanceToAdd);
-        } else { // PARALLEL
-            Complex previousAdmittance = previousImpedance.inverse();
-            Complex newElemAdmittance = impedanceToAdd.inverse();
-            return previousAdmittance.add(newElemAdmittance).inverse();
+        } else {
+            return SmithCalculator.addParallelImpedance(previousImpedance, impedanceToAdd);
         }
-    }
-
-    /**
-     * Calculates the reflection coefficient (Gamma) for a given impedance Z.
-     *
-     * @param z The complex impedance.
-     * @return The complex reflection coefficient.
-     */
-    private Complex calculateGamma(Complex z) {
-        double z0 = zo.get();
-        if (z0 <= 0) return new Complex(0, 0);
-
-        Complex zNorm = z.dividedBy(new Complex(z0, 0));
-        return (zNorm.addReal(-1)).dividedBy(zNorm.addReal(1));
-    }
-
-    /**
-     * Calculate the VSWR using the reflection coefficients (Gamma)
-     *
-     * @param gamma the reflection coefficients
-     * @return the VSWR
-     */
-    private double calculateVswr(Complex gamma) {
-        double gammaNorm = gamma.magnitude();
-        return (gammaNorm < 1e-9) ? Double.POSITIVE_INFINITY : (1 + gammaNorm) / (1 - gammaNorm);
-    }
-
-    /**
-     * Calculate the return loss value using the reflection coefficients (Gamma)
-     *
-     * @param gamma the reflection coefficients
-     * @return the return loss value
-     */
-    private double calculateReturnLoss(Complex gamma) {
-        double gammaNorm = gamma.magnitude();
-        return (gammaNorm < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(gammaNorm);
     }
 
     private Complex propagateThroughElements(Complex startImpedance, double freq, List<CircuitElement> elements) {
@@ -1034,81 +905,25 @@ public final class SmithChartViewModel {
     // Property Getters & Setters
     // =============================================================================================
 
-    public ReadOnlyDoubleProperty frequencyProperty() {
-        return frequency;
-    }
-
-    public void setFrequency(Double newFreq) {
-        this.frequency.set(newFreq);
-    }
-
-    public ReadOnlyStringProperty frequencyTextProperty() {
-        return frequencyText.getReadOnlyProperty();
-    }
-
-    public ReadOnlyStringProperty zoProperty() {
-        return zoText.getReadOnlyProperty();
-    }
-
-    public ReadOnlyListProperty<DataPoint> dataPointsProperty() {
-        return combinedDataPoints.getReadOnlyProperty();
-    }
-
-    public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() {
-        return sweepDataPoints.getReadOnlyProperty();
-    }
-
-    public ReadOnlyListProperty<DataPoint> s1pDataPointsProperty() {
-        return s1pDataPoints.getReadOnlyProperty();
-    }
-
-    public ReadOnlyListProperty<DataPoint> transformedS1PPointsProperty() {
-        return transformedS1PPoints.getReadOnlyProperty();
-    }
-
-    public ReadOnlyListProperty<DataPoint> previewTransformedS1PPointsProperty() {
-        return previewTransformedS1PPoints.getReadOnlyProperty();
-    }
-
-    public ReadOnlyListProperty<Complex> measuresGammaProperty() {
-        return measuresGamma.getReadOnlyProperty();
-    }
-
-    public ReadOnlyObjectProperty<CircuitElement> selectedElementProperty() {
-        return selectedElement;
-    }
-
-    public ReadOnlyObjectProperty<CircuitElement> hoveredElementProperty() {
-        return hoveredElement;
-    }
-
-    public void setHoveredElement(CircuitElement hoveredElement) {
-        this.hoveredElement.set(hoveredElement);
-    }
-
-    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() {
-        return previewElement;
-    }
-
-    public ReadOnlyObjectProperty<CircuitElement> previewElementS1PProperty() {
-        return previewElementS1P;
-    }
-
-    public ReadOnlyIntegerProperty getSelectedInsertionIndexProperty() {
-        return selectedInsertionIndex;
-    }
-
-    public void setSelectedInsertionIndex(int index) {
-        this.selectedInsertionIndex.set(index);
-    }
-
-    public ReadOnlyIntegerProperty getDpTableSelIndex() {
-        return dpTableSelIndex;
-    }
-
-    public void setDpTableSelIndex(int dpTableSelIndex) {
-        this.dpTableSelIndex.set(dpTableSelIndex);
-    }
+    public ReadOnlyDoubleProperty frequencyProperty() { return frequency; }
+    public void setFrequency(Double newFreq) { this.frequency.set(newFreq); }
+    public ReadOnlyStringProperty frequencyTextProperty() { return frequencyText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty zoProperty() { return zoText.getReadOnlyProperty(); }
+    public ReadOnlyListProperty<DataPoint> dataPointsProperty() { return combinedDataPoints.getReadOnlyProperty(); }
+    public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() { return sweepDataPoints.getReadOnlyProperty(); }
+    public ReadOnlyListProperty<DataPoint> s1pDataPointsProperty() { return s1pDataPoints.getReadOnlyProperty(); }
+    public ReadOnlyListProperty<DataPoint> transformedS1PPointsProperty() { return transformedS1PPoints.getReadOnlyProperty(); }
+    public ReadOnlyListProperty<DataPoint> previewTransformedS1PPointsProperty() { return previewTransformedS1PPoints.getReadOnlyProperty(); }
+    public ReadOnlyListProperty<Complex> measuresGammaProperty() { return measuresGamma.getReadOnlyProperty(); }
+    public ReadOnlyObjectProperty<CircuitElement> selectedElementProperty() { return selectedElement; }
+    public ReadOnlyObjectProperty<CircuitElement> hoveredElementProperty() { return hoveredElement; }
+    public void setHoveredElement(CircuitElement hoveredElement) { this.hoveredElement.set(hoveredElement); }
+    public ReadOnlyObjectProperty<CircuitElement> previewElementProperty() { return previewElement; }
+    public ReadOnlyObjectProperty<CircuitElement> previewElementS1PProperty() { return previewElementS1P; }
+    public ReadOnlyIntegerProperty getSelectedInsertionIndexProperty() { return selectedInsertionIndex; }
+    public void setSelectedInsertionIndex(int index) { this.selectedInsertionIndex.set(index); }
+    public ReadOnlyIntegerProperty getDpTableSelIndex() { return dpTableSelIndex; }
+    public void setDpTableSelIndex(int dpTableSelIndex) { this.dpTableSelIndex.set(dpTableSelIndex); }
 
     public Complex getLastGamma() {
         if (dataPoints.isEmpty()) return null;
@@ -1126,78 +941,41 @@ public final class SmithChartViewModel {
     }
 
     public Complex getCurrentInteractionStartImpedance() {
-        // If we are modifying an existing component
         if (isModifyingComponent.get() && selectedElement.get() != null) {
-            // Find the index of the element we are modifying
             int index = circuitElements.indexOf(selectedElement.get());
-
-            // Safety check
             if (index != -1 && index < dataPoints.size()) {
                 return dataPoints.get(index).impedanceProperty().get();
             }
         } else if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() < dataPoints.size()) {
             return dataPoints.get(selectedInsertionIndex.get()).impedanceProperty().get();
         }
-        // If we add a new component, just return the last gamma in the chain
         return getLastImpedance();
     }
 
     public Complex getCurrentInteractionStartGamma() {
         if (isModifyingComponent.get() && selectedElement.get() != null) {
-            // Find the index of the element we are modifying
             int index = circuitElements.indexOf(selectedElement.get());
-
-            // Safety check
             if (index != -1 && index < dataPoints.size()) {
                 return dataPoints.get(index).gammaProperty().get();
             }
         } else if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() < dataPoints.size()) {
             return dataPoints.get(selectedInsertionIndex.get()).gammaProperty().get();
         }
-
         return getLastGamma();
     }
 
     // UI Binding Getters
-    public ReadOnlyStringProperty mouseReturnLossTextProperty() {
-        return mouseReturnLossText.getReadOnlyProperty();
-    }
+    public ReadOnlyStringProperty mouseReturnLossTextProperty() { return mouseReturnLossText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseVSWRTextProperty() { return mouseVSWRText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseQualityFactorTextProperty() { return mouseQualityFactorText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseGammaTextProperty() { return mouseGammaText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseAdmittanceYTextProperty() { return mouseAdmittanceYText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty mouseImpedanceZTextProperty() { return mouseImpedanceZText.getReadOnlyProperty(); }
+    public ReadOnlyListProperty<Double> vswrCirclesProperty() { return vswrCircles.getReadOnlyProperty(); }
 
-    public ReadOnlyStringProperty mouseVSWRTextProperty() {
-        return mouseVSWRText.getReadOnlyProperty();
-    }
-
-    public ReadOnlyStringProperty mouseQualityFactorTextProperty() {
-        return mouseQualityFactorText.getReadOnlyProperty();
-    }
-
-    public ReadOnlyStringProperty mouseGammaTextProperty() {
-        return mouseGammaText.getReadOnlyProperty();
-    }
-
-    public ReadOnlyStringProperty mouseAdmittanceYTextProperty() {
-        return mouseAdmittanceYText.getReadOnlyProperty();
-    }
-
-    public ReadOnlyStringProperty mouseImpedanceZTextProperty() {
-        return mouseImpedanceZText.getReadOnlyProperty();
-    }
-
-    public ReadOnlyListProperty<Double> vswrCirclesProperty() {
-        return vswrCircles.getReadOnlyProperty();
-    }
-
-    public void setCircleDisplayOptions(List<Double> options) {
-        vswrCircles.setAll(options);
-    }
-
-    public ReadOnlyDoubleProperty s1pPointSizeProperty() {
-        return s1pPointSize.getReadOnlyProperty();
-    }
-
-    public void setS1PPointSize(double v) {
-        s1pPointSize.set(v);
-    }
+    public void setCircleDisplayOptions(List<Double> options) { vswrCircles.setAll(options); }
+    public ReadOnlyDoubleProperty s1pPointSizeProperty() { return s1pPointSize.getReadOnlyProperty(); }
+    public void setS1PPointSize(double v) { s1pPointSize.set(v); }
 
     public void setShowSweepDataPoints(boolean selected) {
         if (this.showSweepInDataPoints != selected) {
@@ -1217,61 +995,20 @@ public final class SmithChartViewModel {
     // Configuration & Settings Accessors
     // =============================================================================================
 
-    public BooleanProperty useS1PAsLoadF1Property() {
-        return useS1PAsLoadF1;
-    }
-
-    public BooleanProperty useS1PAsLoadF2Property() {
-        return useS1PAsLoadF2;
-    }
-
-    public BooleanProperty useS1PAsLoadF3Property() {
-        return useS1PAsLoadF3;
-    }
-
-    public BooleanProperty filter1EnabledProperty() {
-        return filter1Enabled;
-    }
-
-    public BooleanProperty filter2EnabledProperty() {
-        return filter2Enabled;
-    }
-
-    public BooleanProperty filter3EnabledProperty() {
-        return filter3Enabled;
-    }
-
-    public ReadOnlyBooleanProperty isUsingQualityFactorProperty() {
-        return isUsingQualityFactor;
-    }
-
-    public void setUseQualityFactor(Boolean newVal) {
-        this.isUsingQualityFactor.set(newVal);
-    }
-
-    public boolean isAnyUseS1PAsLoad() {
-        return useS1PAsLoadF1.get() || useS1PAsLoadF2.get() || useS1PAsLoadF3.get();
-    }
-
-    public boolean isShowS1PAsLoad() {
-        return isAnyUseS1PAsLoad();
-    }
-
-    public ReadOnlyListProperty<ComponentEntry> discreteComponentConfigProperty() {
-        return discreteComponentConfig;
-    }
-
-    public void setDiscreteComponentConfig(List<ComponentEntry> config) {
-        this.discreteComponentConfig.set((ObservableList<ComponentEntry>) config);
-    }
-
-    public void setUsingDiscreteComponents(boolean useDiscreteComponents) {
-        isUsingDiscreteComponents.set(useDiscreteComponents);
-    }
-
-    public ReadOnlyBooleanProperty isUsingDiscreteComponentsProperty() {
-        return isUsingDiscreteComponents;
-    }
+    public BooleanProperty useS1PAsLoadF1Property() { return useS1PAsLoadF1; }
+    public BooleanProperty useS1PAsLoadF2Property() { return useS1PAsLoadF2; }
+    public BooleanProperty useS1PAsLoadF3Property() { return useS1PAsLoadF3; }
+    public BooleanProperty filter1EnabledProperty() { return filter1Enabled; }
+    public BooleanProperty filter2EnabledProperty() { return filter2Enabled; }
+    public BooleanProperty filter3EnabledProperty() { return filter3Enabled; }
+    public ReadOnlyBooleanProperty isUsingQualityFactorProperty() { return isUsingQualityFactor; }
+    public void setUseQualityFactor(Boolean newVal) { this.isUsingQualityFactor.set(newVal); }
+    public boolean isAnyUseS1PAsLoad() { return useS1PAsLoadF1.get() || useS1PAsLoadF2.get() || useS1PAsLoadF3.get(); }
+    public boolean isShowS1PAsLoad() { return isAnyUseS1PAsLoad(); }
+    public ReadOnlyListProperty<ComponentEntry> discreteComponentConfigProperty() { return discreteComponentConfig; }
+    public void setDiscreteComponentConfig(List<ComponentEntry> config) { this.discreteComponentConfig.set((ObservableList<ComponentEntry>) config); }
+    public void setUsingDiscreteComponents(boolean useDiscreteComponents) { isUsingDiscreteComponents.set(useDiscreteComponents); }
+    public ReadOnlyBooleanProperty isUsingDiscreteComponentsProperty() { return isUsingDiscreteComponents; }
 
     public Optional<ComponentEntry> getClosestComponentEntry(double actualValue, CircuitElement.ElementType type) {
         return discreteComponentConfig.stream()
@@ -1290,63 +1027,34 @@ public final class SmithChartViewModel {
         } else {
             List<Complex> gammas = new ArrayList<>();
             for (ComponentEntry entry : discreteComponentConfig) {
-                if (entry.getType() != previewElement.get().getType()) {
-                    continue; // Skip if type doesn't match
-                }
+                if (entry.getType() != previewElement.get().getType()) continue;
 
-                // Now we should only have elements of the same type, we now need to display their gammas
                 Complex impedanceToAdd = switch (entry.getType()) {
-                    case INDUCTOR ->
-                            Inductor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
-                    case CAPACITOR ->
-                            Capacitor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
+                    case INDUCTOR -> Inductor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
+                    case CAPACITOR -> Capacitor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
                     case RESISTOR -> new Complex(entry.getValue(), 0);
                     default -> null;
                 };
 
                 if (impedanceToAdd != null) {
                     Complex newImpedance = calculateNextImpedance(getCurrentInteractionStartImpedance(), impedanceToAdd, previewElement.get().getElementPosition());
-                    gammas.add(calculateGamma(newImpedance));
+                    gammas.add(SmithCalculator.impedanceToGamma(newImpedance, zo.get()));
                 }
-
             }
-
             return gammas;
         }
     }
 
-    public ReadOnlyBooleanProperty isSettingLoadInputByMouseProperty() {
-        return isSettingLoadInputByMouse;
-    }
-
-    public void setLoadInputByMouse(boolean val) {
-        isSettingLoadInputByMouse.set(val);
-    }
+    public ReadOnlyBooleanProperty isSettingLoadInputByMouseProperty() { return isSettingLoadInputByMouse; }
+    public void setLoadInputByMouse(boolean val) { isSettingLoadInputByMouse.set(val); }
 
     // Project state accessors
-    public StringProperty projectNameProperty() {
-        return projectName;
-    }
-
-    public BooleanProperty hasBeenSavedProperty() {
-        return hasBeenSaved;
-    }
-
-    public BooleanProperty isModifiedProperty() {
-        return isModified;
-    }
-
-    public void setProjectName(String name) {
-        this.projectName.set(name);
-    }
-
-    public void setHasBeenSaved(boolean saved) {
-        this.hasBeenSaved.set(saved);
-    }
-
-    public void setIsModified(boolean modified) {
-        this.isModified.set(modified);
-    }
+    public StringProperty projectNameProperty() { return projectName; }
+    public BooleanProperty hasBeenSavedProperty() { return hasBeenSaved; }
+    public BooleanProperty isModifiedProperty() { return isModified; }
+    public void setProjectName(String name) { this.projectName.set(name); }
+    public void setHasBeenSaved(boolean saved) { this.hasBeenSaved.set(saved); }
+    public void setIsModified(boolean modified) { this.isModified.set(modified); }
 
     private void markAsModified() {
         if (!suppressModificationEvents && !isModified.get()) {
@@ -1355,49 +1063,23 @@ public final class SmithChartViewModel {
     }
 
     // Frequency Range Filter Helpers
-    public void setFrequencyRangeMinF1(double v) {
-        this.freqRangeMinF1 = v;
-    }
-
-    public void setFrequencyRangeMaxF1(double v) {
-        this.freqRangeMaxF1 = v;
-    }
-
-    public void setFrequencyRangeMinF2(double v) {
-        this.freqRangeMinF2 = v;
-    }
-
-    public void setFrequencyRangeMaxF2(double v) {
-        this.freqRangeMaxF2 = v;
-    }
-
-    public void setFrequencyRangeMinF3(double v) {
-        this.freqRangeMinF3 = v;
-    }
-
-    public void setFrequencyRangeMaxF3(double v) {
-        this.freqRangeMaxF3 = v;
-    }
+    public void setFrequencyRangeMinF1(double v) { this.freqRangeMinF1 = v; }
+    public void setFrequencyRangeMaxF1(double v) { this.freqRangeMaxF1 = v; }
+    public void setFrequencyRangeMinF2(double v) { this.freqRangeMinF2 = v; }
+    public void setFrequencyRangeMaxF2(double v) { this.freqRangeMaxF2 = v; }
+    public void setFrequencyRangeMinF3(double v) { this.freqRangeMinF3 = v; }
+    public void setFrequencyRangeMaxF3(double v) { this.freqRangeMaxF3 = v; }
 
     public boolean isFrequencyInRange(double freq) {
         boolean inF1 = filter1Enabled.get() && isFrequencyInRangeF1(freq);
         boolean inF2 = filter2Enabled.get() && isFrequencyInRangeF2(freq);
         boolean inF3 = filter3Enabled.get() && isFrequencyInRangeF3(freq);
-
         return inF1 || inF2 || inF3;
     }
 
-    public boolean isFrequencyInRangeF1(double freq) {
-        return freq >= freqRangeMinF1 && freq <= freqRangeMaxF1;
-    }
-
-    public boolean isFrequencyInRangeF2(double freq) {
-        return freq >= freqRangeMinF2 && freq <= freqRangeMaxF2;
-    }
-
-    public boolean isFrequencyInRangeF3(double freq) {
-        return freq >= freqRangeMinF3 && freq <= freqRangeMaxF3;
-    }
+    public boolean isFrequencyInRangeF1(double freq) { return freq >= freqRangeMinF1 && freq <= freqRangeMaxF1; }
+    public boolean isFrequencyInRangeF2(double freq) { return freq >= freqRangeMinF2 && freq <= freqRangeMaxF2; }
+    public boolean isFrequencyInRangeF3(double freq) { return freq >= freqRangeMinF3 && freq <= freqRangeMaxF3; }
 
     public void setUseS1PAsLoadF1(Boolean newVal) {
         if (newVal == null || newVal == useS1PAsLoadF1.get()) return;
@@ -1416,46 +1098,28 @@ public final class SmithChartViewModel {
 
     private void setUseS1PAsLoad(Boolean newVal, int filterNumber) {
         switch (filterNumber) {
-            case 1:
-                useS1PAsLoadF1.set(newVal);
-                useS1PAsLoadF2.set(false);
-                useS1PAsLoadF3.set(false);
-                break;
-            case 2:
-                useS1PAsLoadF1.set(false);
-                useS1PAsLoadF2.set(newVal);
-                useS1PAsLoadF3.set(false);
-                break;
-            case 3:
-                useS1PAsLoadF1.set(false);
-                useS1PAsLoadF2.set(false);
-                useS1PAsLoadF3.set(newVal);
-                break;
-            default:
-                return; //Invalid filter number
+            case 1: useS1PAsLoadF1.set(newVal); useS1PAsLoadF2.set(false); useS1PAsLoadF3.set(false); break;
+            case 2: useS1PAsLoadF1.set(false); useS1PAsLoadF2.set(newVal); useS1PAsLoadF3.set(false); break;
+            case 3: useS1PAsLoadF1.set(false); useS1PAsLoadF2.set(false); useS1PAsLoadF3.set(newVal); break;
+            default: return;
         }
 
         if (savedFrequency == -1 && savedLoadImpedance == null) {
-            // Save current state
             savedFrequency = frequency.get();
             savedLoadImpedance = loadImpedance.get();
-
         } else if (!isAnyUseS1PAsLoad()) {
-            // Restore saved state
             loadImpedance.set(savedLoadImpedance);
             frequency.set(savedFrequency);
             savedFrequency = -1;
             savedLoadImpedance = null;
-            return; //No need to update middle point
+            return;
         }
-
         updateMiddleRangePoint();
     }
 
     public void setS1PLoadValue(Double newValue) {
-        if (!isAnyUseS1PAsLoad()) return; //Only update if we are using S1P as load
-
-        if (s1pDataPoints.isEmpty()) return; //No S1P data to use
+        if (!isAnyUseS1PAsLoad()) return;
+        if (s1pDataPoints.isEmpty()) return;
         DataPoint targetPoint = s1pDataPoints.get(getS1PIndexAtRange(newValue));
         loadImpedance.set(targetPoint.getImpedance());
         frequency.set(targetPoint.getFrequency());
@@ -1465,38 +1129,22 @@ public final class SmithChartViewModel {
         if (useS1PAsLoadF1.get()) return 1;
         if (useS1PAsLoadF2.get()) return 2;
         if (useS1PAsLoadF3.get()) return 3;
-        return -1; //None
+        return -1;
     }
 
     public void updateMiddleRangePoint() {
-        if (!isAnyUseS1PAsLoad()) return; //Only update if we are using S1P as load
-
-        if (s1pDataPoints.isEmpty()) return; //No S1P data to use
+        if (!isAnyUseS1PAsLoad() || s1pDataPoints.isEmpty()) return;
         int s1pIndexMin;
         int s1pIndexMax;
 
         switch (whichFilterIsUsingS1PAsLoad()) {
-            case 1:
-                s1pIndexMin = getS1PIndexAtRange(freqRangeMinF1);
-                s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF1);
-                break;
-            case 2:
-                s1pIndexMin = getS1PIndexAtRange(freqRangeMinF2);
-                s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF2);
-                break;
-            case 3:
-                s1pIndexMin = getS1PIndexAtRange(freqRangeMinF3);
-                s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF3);
-                break;
-            default:
-                return; //Invalid filter number
+            case 1: s1pIndexMin = getS1PIndexAtRange(freqRangeMinF1); s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF1); break;
+            case 2: s1pIndexMin = getS1PIndexAtRange(freqRangeMinF2); s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF2); break;
+            case 3: s1pIndexMin = getS1PIndexAtRange(freqRangeMinF3); s1pIndexMax = getS1PIndexAtRange(freqRangeMaxF3); break;
+            default: return;
         }
 
-        if (s1pIndexMin > s1pIndexMax) {
-            // Invalid range, skip calculation
-            return;
-        }
-
+        if (s1pIndexMin > s1pIndexMax) return;
         DataPoint middlePoint = s1pDataPoints.get((s1pIndexMin + s1pIndexMax) / 2);
         loadImpedance.set(middlePoint.getImpedance());
         frequency.set(middlePoint.getFrequency());
@@ -1504,23 +1152,21 @@ public final class SmithChartViewModel {
 
     private int getS1PIndexAtRange(double freq) {
         for (int i = 0; i < s1pDataPoints.size(); i++) {
-            if (s1pDataPoints.get(i).getFrequency() >= freq) {
-                return i;
-            }
+            if (s1pDataPoints.get(i).getFrequency() >= freq) return i;
         }
-        return s1pDataPoints.size() - 1; // Return last index if freq is beyond range
+        return s1pDataPoints.size() - 1;
     }
 
     // =============================================================================================
     // Inner Classes
     // =============================================================================================
 
-    private enum Operation {ADD, REMOVE, MODIFY}
+    public enum Operation {ADD, REMOVE, MODIFY}
 
     private static class Holder {
         private static final SmithChartViewModel INSTANCE = new SmithChartViewModel();
     }
 
-    private record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
+    public record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
     }
 }
