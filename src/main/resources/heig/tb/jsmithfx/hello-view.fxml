@@ -18,6 +18,10 @@
                 <MenuItem text="Exit" onAction="#onExitApp"/>
             </Menu>
             <Menu text="Set">
+                <MenuItem mnemonicParsing="false" onAction="#onChangeLoad"
+                        text="Change load"/>
+                <MenuItem mnemonicParsing="false" onAction="#onChangeFreq"
+                        text="Change freq"/>
                 <MenuItem fx:id="setCharacteristicImpedanceButton" onAction="#setCharacteristicImpedance" text="Set Characteristic Impedance" />
                 <MenuItem fx:id="setDisplayCirclesOptionsButton" onAction="#setDisplayCirclesOptions" text="Set Display Circles Options" />
                 <CheckMenuItem fx:id="enableQualityFactorInput" text="Enable Quality Factor Input"/>
@@ -68,10 +72,12 @@
                 <AnchorPane>
                     <HBox alignment="CENTER_LEFT" spacing="20.0" AnchorPane.leftAnchor="10.0"
                           AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
-                        <Button fx:id="changeLoadButton" mnemonicParsing="false" onAction="#onChangeLoad"
-                                text="Change load"/>
-                        <Button fx:id="changeFreqButton" mnemonicParsing="false" onAction="#onChangeFreq"
-                                text="Change freq"/>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <Label text="Circuit:" />
+                            <ComboBox fx:id="circuitComboBox" onAction="#onCircuitSelected" prefWidth="150.0" />
+                            <Button onAction="#onAddCircuit" text="+" />
+                            <Button onAction="#onRemoveCircuit" text="-" />
+                        </HBox>
                         <HBox alignment="CENTER_LEFT">
                             <Label text="Load impedance :"/>
                             <Label fx:id="loadImpedanceLabel" text="None"/>
@@ -89,13 +95,12 @@
                                 AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="50.0">
                         <VBox spacing="10.0">
                             <AnchorPane fx:id="circuitPane" minHeight="80.0" minWidth="0.0" VBox.vgrow="ALWAYS">
-
                                 <Canvas fx:id="circuitCanvas"/>
                             </AnchorPane>
                             <HBox fx:id="tuningPane" alignment="CENTER_LEFT" managed="false" spacing="15.0"
                                   visible="false">
 
-                                <Label fx:id="tuningComponentLabel" style="-fx-font-weight: bold;" text="Tuning:"/>
+                                <Label style="-fx-font-weight: bold;" text="Tuning:"/>
 
                                 <!-- Slider grows to fill space -->
                                 <Slider fx:id="tuningSlider" HBox.hgrow="ALWAYS"/>

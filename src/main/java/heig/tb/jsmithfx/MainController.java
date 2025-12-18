@@ -13,6 +13,7 @@ import heig.tb.jsmithfx.utilities.SmithUtilities;
 import heig.tb.jsmithfx.utilities.dialogs.*;
 import heig.tb.jsmithfx.view.CircuitRenderer;
 import javafx.application.Platform;
+import javafx.beans.InvalidationListener;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
@@ -41,13 +42,19 @@ import java.util.stream.Collectors;
 public class MainController {
 
 
-    @FXML private CheckBox useQualityFactorCheckBox;
-    @FXML private TextField qualityFactorTextField;
-    @FXML private CheckMenuItem useDiscreteComponentsCheckBox;
-    @FXML private MenuItem configureDiscreteComponentsMenuItem;
+    @FXML
+    private CheckBox useQualityFactorCheckBox;
+    @FXML
+    private TextField qualityFactorTextField;
+    @FXML
+    private CheckMenuItem useDiscreteComponentsCheckBox;
+    @FXML
+    private MenuItem configureDiscreteComponentsMenuItem;
 
-    @FXML private Label lambdaLengthLabel;
-    @FXML private TextField lambdaLengthTextField;
+    @FXML
+    private Label lambdaLengthLabel;
+    @FXML
+    private TextField lambdaLengthTextField;
     // FXML Bindings
     @FXML
     private CheckMenuItem enableQualityFactorInput;
@@ -158,10 +165,14 @@ public class MainController {
     @FXML
     private CheckBox useS1PAsLoadCheckBoxF3;
 
-    @FXML private CheckMenuItem toggle1FilterButton, toggle2FilterButton, toggle3FilterButton;
-    @FXML private VBox filter1Box, filter2Box, filter3Box;
-    @FXML private TextField minFreqTextField1, maxFreqTextField1, minFreqTextField2, maxFreqTextField2, minFreqTextField3, maxFreqTextField3;
-    @FXML private RangeSlider frequencyRangeSlider1, frequencyRangeSlider2, frequencyRangeSlider3;
+    @FXML
+    private CheckMenuItem toggle1FilterButton, toggle2FilterButton, toggle3FilterButton;
+    @FXML
+    private VBox filter1Box, filter2Box, filter3Box;
+    @FXML
+    private TextField minFreqTextField1, maxFreqTextField1, minFreqTextField2, maxFreqTextField2, minFreqTextField3, maxFreqTextField3;
+    @FXML
+    private RangeSlider frequencyRangeSlider1, frequencyRangeSlider2, frequencyRangeSlider3;
     @FXML
     private MenuItem setDisplayCirclesOptionsButton;
     @FXML
@@ -208,6 +219,8 @@ public class MainController {
     private Button cancelTuningButton;
     @FXML
     private TableColumn<DataPoint, Number> qualityFactorColumn;
+    @FXML
+    private ComboBox<Integer> circuitComboBox;
 
     //Viewmodel
     private SmithChartViewModel viewModel;
@@ -534,6 +547,28 @@ public class MainController {
                 }
             });
         });
+
+        // Initialize circuit management
+        circuitComboBox.getItems().add(viewModel.circuitElementIndex.get());
+        circuitComboBox.getSelectionModel().select(viewModel.circuitElementIndex.get());
+
+        // Listens if we add or remove circuits
+        viewModel.allCircuits.addListener((InvalidationListener) _ -> {
+            int size = viewModel.allCircuits.size();
+
+            for (int i = 0; i < size; ++i){
+                if (!circuitComboBox.getItems().contains(i)){
+                    circuitComboBox.getItems().add(i);
+                }
+            }
+
+            circuitComboBox.getSelectionModel().select(viewModel.circuitElementIndex.get());
+        });
+
+        viewModel.circuitElementIndex.addListener((_, _, newVal) -> {
+            System.out.println(newVal);
+            circuitComboBox.getSelectionModel().select(newVal.intValue());
+        });
     }
 
     /**
@@ -590,7 +625,7 @@ public class MainController {
                     Double.parseDouble(lambdaText),
                     viewModel.frequencyProperty().get(),
                     Double.parseDouble(permText)
-                    );
+            );
 
             isUpdatingLength = true;
 
@@ -673,7 +708,7 @@ public class MainController {
             permittivityField.setText(String.valueOf(line.getPermittivity()));
         }
 
-        if (el.getQualityFactor().isPresent()){
+        if (el.getQualityFactor().isPresent()) {
             useQualityFactorCheckBox.setSelected(true);
             qualityFactorTextField.setText(String.valueOf(el.getQualityFactor().get()));
         } else {
@@ -682,7 +717,9 @@ public class MainController {
         }
 
         var deleteButton = new Button("Delete");
-        deleteButton.setOnAction(_ -> { viewModel.removeComponent(el); });
+        deleteButton.setOnAction(_ -> {
+            viewModel.removeComponent(el);
+        });
         // Add delete button to the hbox
         addComponentButtonHBox.getChildren().clear();
         addComponentButtonHBox.getChildren().addAll(addButton, addMouseButton, deleteButton);
@@ -938,22 +975,24 @@ public class MainController {
                 });
     }
 
-    public void onChangeLoad() {
+    @FXML
+    private void onChangeLoad() {
         var stage = smithCanvas.getScene().getWindow();
         ComplexInputDialog dialog = new ComplexInputDialog("Change Load", viewModel.loadImpedance.get());
         dialog.initOwner(stage);
         dialog.showAndWait()
                 .ifPresent(newLoad -> {
-                    if (newLoad.getKey() == ComplexInputDialog.MessageType.DATA){
+                    if (newLoad.getKey() == ComplexInputDialog.MessageType.DATA) {
                         viewModel.loadImpedance.setValue(newLoad.getValue());
                         smithInteractionController.redrawSmithCanvas();
-                    } else if (newLoad.getKey() == ComplexInputDialog.MessageType.USEMOUSE){
+                    } else if (newLoad.getKey() == ComplexInputDialog.MessageType.USEMOUSE) {
                         viewModel.setLoadInputByMouse(true);
                     }
                 });
     }
 
-    public void onChangeFreq() {
+    @FXML
+    private void onChangeFreq() {
         var stage = smithCanvas.getScene().getWindow();
         FrequencyInputDialog dialog = new FrequencyInputDialog("Change Frequency", viewModel.frequencyProperty().get());
         dialog.initOwner(stage);
@@ -1313,5 +1352,23 @@ public class MainController {
         }
     }
 
+    @FXML
+    private void onCircuitSelected() {
+        int selected = circuitComboBox.getValue();
+        if (selected == viewModel.circuitElementIndex.get()) return;
+
+        // Save current circuit state
+        viewModel.circuitElementIndex.set(selected);
+    }
+
+    @FXML
+    private void onAddCircuit() {
+        viewModel.addCircuit();
+    }
+
+    @FXML
+    private void onRemoveCircuit() {
+        // nothing rn
+    }
 }
 

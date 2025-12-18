@@ -9,9 +9,12 @@ import heig.tb.jsmithfx.model.CircuitElement;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
@@ -50,7 +53,7 @@ public class ProjectManager {
             double frequency,
             double zo,
             Complex loadImpedance,
-            List<CircuitElement> circuitElements
+            List<List<CircuitElement>> allCircuits
     ) {}
 
     public void resetProject(){
@@ -66,12 +69,17 @@ public class ProjectManager {
         try {
             File file = optFile.orElseGet(this::getProjectFile);
 
+            List<List<CircuitElement>> circuitsData = new ArrayList<>();
+            for (ObservableList<CircuitElement> circuit : viewModel.allCircuits) {
+                circuitsData.add(new ArrayList<>(circuit));
+            }
+
             SmithProjectData data = new SmithProjectData(
                     file.getName().replace(".jsmfx", ""),
                     viewModel.frequencyProperty().get(),
                     viewModel.zo.get(),
                     viewModel.loadImpedance.get(),
-                    viewModel.circuitElements.get()
+                    circuitsData
             );
 
             mapper.writeValue(file, data);
@@ -102,10 +110,30 @@ public class ProjectManager {
             viewModel.setProjectName(data.projectName);
             viewModel.zo.set(data.zo);
             viewModel.setFrequency(data.frequency);
-
-            viewModel.circuitElements.clear();
-            viewModel.circuitElements.addAll(data.circuitElements);
             viewModel.loadImpedance.set(data.loadImpedance);
+
+            // CLEAR existing circuits
+            viewModel.allCircuits.clear();
+
+            if (data.allCircuits != null) {
+                for (List<CircuitElement> rawCircuitList : data.allCircuits) {
+
+                    ObservableList<CircuitElement> observableCircuit = FXCollections.observableArrayList(
+                            element -> new javafx.beans.Observable[]{ element.realWorldValueProperty() }
+                    );
+
+                    observableCircuit.addAll(rawCircuitList);
+                    viewModel.allCircuits.add(observableCircuit);
+                }
+            }
+
+            // If the file happened to have 0 circuits, ensure at least one exists
+            if (viewModel.allCircuits.isEmpty()) {
+                viewModel.addCircuit();
+            }
+
+            // Reset selection to the first circuit
+            viewModel.circuitElementIndex.set(0);
 
             viewModel.setHasBeenSaved(true);
             viewModel.setIsModified(false);

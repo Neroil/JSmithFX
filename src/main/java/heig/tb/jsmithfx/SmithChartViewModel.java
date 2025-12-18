@@ -15,11 +15,13 @@ import heig.tb.jsmithfx.model.TouchstoneS1P;
 import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.ComponentEntry;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.stage.FileChooser;
+import javafx.util.Pair;
 
 import java.io.File;
 import java.util.*;
@@ -66,13 +68,31 @@ public final class SmithChartViewModel {
     // Data Collections (Points & Elements)
     // =============================================================================================
 
-    /** The list of circuit elements (components) added to the chart. */
-    public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>(
-            FXCollections.observableArrayList(element -> new javafx.beans.Observable[] {
-                    element.realWorldValueProperty(),
-            })
-    );
+    /**
+     * The collection of all circuits (tabs).
+     * Each element is an ObservableList of CircuitElements representing one circuit.
+     */
+    public final ObservableList<ObservableList<CircuitElement>> allCircuits =
+            FXCollections.observableArrayList();
 
+    /**
+     * The index of the currently active circuit.
+     */
+    public final IntegerProperty circuitElementIndex = new SimpleIntegerProperty(0);
+
+    /**
+     * The currently active circuit.
+     * This property is bound to the selected circuit in {@code allCircuits}.
+     */
+    public final SimpleListProperty<CircuitElement> circuitElements = new SimpleListProperty<>();
+
+    /**
+     * Retrieves the currently active circuit.
+     * @return The active list of circuit elements.
+     */
+    public ObservableList<CircuitElement> getCircuit() {
+        return circuitElements.get();
+    }
     /**
      * Main calculation points.
      * Contains the cumulative impedance/gamma at each stage of the circuit.
@@ -148,7 +168,7 @@ public final class SmithChartViewModel {
     public BooleanProperty isModifyingComponent = new SimpleBooleanProperty(false);
 
     // State preservation for cancellation
-    private CircuitElement originalElement;
+    private Pair<Integer, CircuitElement> originalElement;
     private boolean suppressModificationEvents = true;
 
     // Memory property for the characteristic impedance switching
@@ -192,6 +212,26 @@ public final class SmithChartViewModel {
     // =============================================================================================
 
     private SmithChartViewModel() {
+        // Initialize with one default circuit containing the extractor for updates
+        addCircuit();
+
+        // Bind the active circuit property to the selected index
+        circuitElements.bind(Bindings.valueAt(allCircuits, circuitElementIndex));
+
+        // Cancel any modification in progress when switching circuits
+        circuitElementIndex.addListener(_ -> cancelTuningAdjustments());
+
+        allCircuits.addListener((ListChangeListener<? super ObservableList<CircuitElement>>) _ -> {
+
+            // If circuits are removed while modifying, cancel it to avoid issues
+            cancelTuningAdjustments();
+
+            // Ensure at least one circuit always exists
+            if (allCircuits.isEmpty()) {
+                addCircuit();
+            }
+        });
+
         // When any sources change, trigger a full recalculation.
         zo.addListener((_, _, _) -> {
             zoText.set(zo.get() + " Ω");
@@ -423,6 +463,27 @@ public final class SmithChartViewModel {
     // =============================================================================================
 
     /**
+     * Adds a new empty circuit tab.
+     */
+    public void addCircuit(){
+        allCircuits.add(FXCollections.observableArrayList(
+                element -> new javafx.beans.Observable[]{ element.realWorldValueProperty() }
+        ));
+        circuitElementIndex.set(allCircuits.size() -1);
+    }
+
+    /**
+     * Switches to the circuit at the specified index.
+     * If the index is out of bounds, no action is taken.
+     * @param index The index of the circuit to switch to.
+     */
+    public void chooseCircuit(int index){
+        if(index >=0 && index < allCircuits.size()){
+            circuitElementIndex.set(index);
+        } // else nothing ever happens
+    }
+
+    /**
      * Adds a new component to the circuit and triggers a full recalculation.
      */
     public void addComponent(CircuitElement.ElementType type, double value, CircuitElement.ElementPosition position, Optional<Double> qualityFactor) {
@@ -458,7 +519,7 @@ public final class SmithChartViewModel {
 
             CircuitElement oldElem = circuitElements.get(index);
             circuitElements.set(index, newElem);
-            historyManager.push(new UndoRedoEntry(Operation.MODIFY, index, oldElem)); // Save old state for undo
+            historyManager.push(new UndoRedoEntry(Operation.MODIFY, index, new Pair<>(circuitElementIndex.get(),oldElem))); // Save old state for undo
         } else {
             // Addition Case
             if (selectedInsertionIndex.get() >= 0 && selectedInsertionIndex.get() <= circuitElements.size()) {
@@ -467,7 +528,7 @@ public final class SmithChartViewModel {
                 index = circuitElements.size();
             }
             circuitElements.add(index, newElem);
-            historyManager.push(new UndoRedoEntry(Operation.ADD, index, newElem));
+            historyManager.push(new UndoRedoEntry(Operation.ADD, index, new Pair<>(circuitElementIndex.get(),newElem)));
         }
 
         selectedElement.set(null);
@@ -489,7 +550,7 @@ public final class SmithChartViewModel {
                 if (removed == selectedElement.get()) selectedElement.set(null);
             }
 
-            historyManager.push(new UndoRedoEntry(Operation.REMOVE, index, removed));
+            historyManager.push(new UndoRedoEntry(Operation.REMOVE, index, new Pair<>(circuitElementIndex.get(),removed)));
             recalculateImpedanceChain();
         } catch (ArrayIndexOutOfBoundsException e) {
             Logger.getLogger("Error").log(Level.SEVERE, e.getMessage());
@@ -511,7 +572,7 @@ public final class SmithChartViewModel {
 
         if (element != null && circuitElements.contains(element)) {
             selectedElement.set(element);
-            originalElement = element.copy(); // Save the state BEFORE tuning starts
+            originalElement = new Pair<>(circuitElementIndex.get(), element.copy()); // Save the state BEFORE tuning starts
         } else {
             selectedElement.set(null);
         }
@@ -596,7 +657,7 @@ public final class SmithChartViewModel {
         int index = circuitElements.indexOf(selectedElement.get());
         selectedElement.set(null);
         // Push the ORIGINAL element to undo stack (so undo reverts to pre-modification)
-        historyManager.push(new UndoRedoEntry(Operation.MODIFY, index, originalElement.copy()));
+        historyManager.push(new UndoRedoEntry(Operation.MODIFY, index, new Pair<>(originalElement.getKey(), originalElement.getValue().copy())));
     }
 
     /**
@@ -604,12 +665,30 @@ public final class SmithChartViewModel {
      */
     public void cancelTuningAdjustments() {
         CircuitElement current = selectedElement.get();
-        if (current != null) {
-            int index = circuitElements.indexOf(current);
-            circuitElements.set(index, originalElement);
-            recalculateImpedanceChain();
+
+        // Check if we have a stored original state
+        if (current != null && originalElement != null) {
+            int originalCircuitIndex = originalElement.getKey();
+
+            // Safety check: Does this circuit still exist?
+            if (originalCircuitIndex < allCircuits.size()) {
+                ObservableList<CircuitElement> targetList = allCircuits.get(originalCircuitIndex);
+
+                int index = targetList.indexOf(current);
+
+                // Only proceed if we found the element in that specific circuit
+                if (index != -1) {
+                    targetList.set(index, originalElement.getValue());
+
+                    // Only trigger recalculation if we just reverted the ACTIVE circuit.
+                    if (circuitElementIndex.get() == originalCircuitIndex) {
+                        recalculateImpedanceChain();
+                    }
+                }
+            }
         }
         selectedElement.set(null);
+        originalElement = null;
     }
 
     /**
@@ -630,6 +709,12 @@ public final class SmithChartViewModel {
      * Processes an Undo/Redo entry retrieved from the HistoryManager.
      */
     private void processUndoRedo(UndoRedoEntry entry, boolean isUndo) {
+
+        int targetCircuitIndex = entry.element.getKey();
+        if (circuitElementIndex.get() != targetCircuitIndex) {
+            circuitElementIndex.set(targetCircuitIndex);
+        }
+
         cancelTuningAdjustments(); // Ensure clean state
 
         if (entry.operation == Operation.MODIFY) {
@@ -638,12 +723,12 @@ public final class SmithChartViewModel {
                 CircuitElement currentElem = circuitElements.get(entry.index);
 
                 // Apply the restoration (entry.element holds the state we are moving TO)
-                circuitElements.set(entry.index, entry.element);
+                allCircuits.get(entry.element.getKey()).set(entry.index, entry.element.getValue());
 
                 // Prepare the inverse entry for the opposite stack.
                 // If we just Undid (restored Old), we need to save New for Redo.
                 // If we just Redid (restored New), we need to save Old for Undo.
-                UndoRedoEntry inverseEntry = new UndoRedoEntry(Operation.MODIFY, entry.index, currentElem);
+                UndoRedoEntry inverseEntry = new UndoRedoEntry(Operation.MODIFY, entry.index, new Pair<>(circuitElementIndex.get(),currentElem));
 
                 if (isUndo) {
                     historyManager.pushRedo(inverseEntry);
@@ -662,9 +747,9 @@ public final class SmithChartViewModel {
             }
 
             if (shouldAdd) {
-                circuitElements.add(entry.index, entry.element);
+                allCircuits.get(entry.element.getKey()).set(entry.index, entry.element.getValue());
             } else {
-                circuitElements.remove(entry.index);
+                allCircuits.get(entry.element.getKey()).remove(entry.index);
             }
 
             // Push the inverse operation to the opposite stack
@@ -1058,7 +1143,7 @@ public final class SmithChartViewModel {
     public void setProjectName(String name) { this.projectName.set(name); }
     public void setHasBeenSaved(boolean saved) { this.hasBeenSaved.set(saved); }
     public void setIsModified(boolean modified) { this.isModified.set(modified); }
-    private ProjectManager projectManager = new ProjectManager();
+    private final ProjectManager projectManager = new ProjectManager();
 
     private void markAsModified() {
         if (!suppressModificationEvents && !isModified.get()) {
@@ -1232,6 +1317,6 @@ public final class SmithChartViewModel {
         private static final SmithChartViewModel INSTANCE = new SmithChartViewModel();
     }
 
-    public record UndoRedoEntry(Operation operation, int index, CircuitElement element) {
+    public record UndoRedoEntry(Operation operation, int index, Pair<Integer, CircuitElement> element) {
     }
 }
