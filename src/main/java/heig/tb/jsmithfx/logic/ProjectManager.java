@@ -17,6 +17,10 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Manages saving and loading of Smith Chart projects to and from JSON files.
+ * Utilizes Jackson for serialization and deserialization.
+ */
 public class ProjectManager {
 
     private static final Logger LOGGER = Logger.getLogger(ProjectManager.class.getName());
@@ -53,6 +57,11 @@ public class ProjectManager {
         this.projectFile = null;
     }
 
+    /**
+     * Save the current project from the ViewModel to the specified file. If no file is provided, saves to the last used project file.
+     * @param viewModel The SmithChartViewModel containing the project data.
+     * @param optFile Optional file to save the project to. If empty, saves to the last used project file.
+     */
     public void saveProject(SmithChartViewModel viewModel, Optional<File> optFile) {
         try {
             File file = optFile.orElseGet(this::getProjectFile);
@@ -81,6 +90,11 @@ public class ProjectManager {
         }
     }
 
+    /**
+     * Load a project from a file into the provided ViewModel. Saves the file reference for future saves.
+     * @param viewModel The SmithChartViewModel to load the project into.
+     * @param file The file from which to load the project.
+     */
     public void loadProject(SmithChartViewModel viewModel, File file) {
         try {
             SmithProjectData data = mapper.readValue(file, SmithProjectData.class);
@@ -95,6 +109,8 @@ public class ProjectManager {
 
             viewModel.setHasBeenSaved(true);
             viewModel.setIsModified(false);
+
+            this.projectFile = file;
 
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to load project", e);

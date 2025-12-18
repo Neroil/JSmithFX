@@ -13,6 +13,8 @@ import heig.tb.jsmithfx.utilities.SmithUtilities;
 import heig.tb.jsmithfx.utilities.dialogs.*;
 import heig.tb.jsmithfx.view.CircuitRenderer;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -24,6 +26,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Pair;
 import org.controlsfx.control.RangeSlider;
 
@@ -1216,12 +1220,56 @@ public class MainController {
                     "New Project",
                     "Are you sure you want to create a new project? Unsaved changes will be lost.",
                     stage)) {
-                viewModel.resetProject();
+                setUpNewProject(stage);
             }
         } else {
-            viewModel.resetProject();
+            setUpNewProject(stage);
         }
     }
+
+    private void setUpNewProject(Window stage) {
+        viewModel.resetProject();
+        ComplexInputDialog dialogCI = new ComplexInputDialog("Set Load", null);
+        dialogCI.initOwner(stage);
+        dialogCI.showAndWait()
+                .ifPresent(newLoad -> {
+                    if (newLoad.getKey() == ComplexInputDialog.MessageType.DATA) {
+                        viewModel.loadImpedance.setValue(newLoad.getValue());
+                        smithInteractionController.redrawSmithCanvas();
+                        // Load is set directly, ask for frequency immediately
+                        promptForFrequency(stage);
+                    } else if (newLoad.getKey() == ComplexInputDialog.MessageType.USEMOUSE) {
+                        viewModel.setLoadInputByMouse(true);
+
+                        // Add a one-time listener to wait for the mouse input to complete
+                        ChangeListener<Boolean> listener = new ChangeListener<>() {
+                            @Override
+                            public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal) {
+                                // When newVal is false, it means the mouse input mode has finished
+                                if (!newVal) {
+                                    viewModel.isSettingLoadInputByMouseProperty().removeListener(this);
+                                    Platform.runLater(() -> promptForFrequency(stage));
+                                }
+                            }
+                        };
+                        viewModel.isSettingLoadInputByMouseProperty().addListener(listener);
+                    }
+                });
+    }
+
+    private void promptForFrequency(Window stage) {
+        FrequencyInputDialog dialogFI = new FrequencyInputDialog("Set Frequency", 1000000.0);
+        dialogFI.initOwner(stage);
+        dialogFI.showAndWait()
+                .ifPresent(newFreq -> {
+                    if (newFreq > 0) {
+                        viewModel.setFrequency(newFreq);
+                    } else {
+                        DialogUtils.showErrorAlert("Invalid Input", "Frequency must be a positive value.", stage);
+                    }
+                });
+    }
+
 
     @FXML
     private void onOpenProject() {

@@ -186,6 +186,7 @@ public class SmithChartInteractionController {
             if (viewModel.isSettingLoadInputByMouseProperty().get() && event.getButton() == MouseButton.PRIMARY){
                 viewModel.setLoadInputByMouse(false);
                 viewModel.loadImpedance.setValue(viewModel.mouseImpedanceZ.getValue());
+
                 event.consume();
             }
 

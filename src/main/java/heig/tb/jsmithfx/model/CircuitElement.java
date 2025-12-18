@@ -69,20 +69,19 @@ public abstract class CircuitElement {
         }
 
     }
+    protected Double qualityFactor = null;
 
-    protected Optional<Double> qualityFactor = Optional.empty();
+    public Optional<Double> getQualityFactor() {
+        return Optional.ofNullable(qualityFactor);
+    }
+
+    public void setQualityFactor(Double qualityFactor) {
+        this.qualityFactor = qualityFactor;
+    }
+
     protected DoubleProperty realWorldValue = new SimpleDoubleProperty();
     protected ElementPosition elementPosition;
     protected ElementType elementType;
-
-    public Optional<Double> getQualityFactor() {
-        return qualityFactor;
-    }
-
-    public void setQualityFactor(double qualityFactor) {
-        this.qualityFactor = Optional.of(qualityFactor);
-    }
-
 
     public DoubleProperty realWorldValueProperty() {
         return realWorldValue;
@@ -127,12 +126,12 @@ public abstract class CircuitElement {
         return switch (this.elementType) {
             case CAPACITOR -> {
                 var newEl = new Capacitor(this.getRealWorldValue(), this.elementPosition, this.elementType);
-                this.qualityFactor.ifPresent(newEl::setQualityFactor);
+                newEl.setQualityFactor(qualityFactor);
                 yield newEl;
             }
             case INDUCTOR -> {
                 var newEl = new Inductor(this.getRealWorldValue(), this.elementPosition, this.elementType);
-                this.qualityFactor.ifPresent(newEl::setQualityFactor);
+                newEl.setQualityFactor(qualityFactor);
                 yield newEl;
             }
             case RESISTOR -> new Resistor(this.getRealWorldValue(), this.elementPosition, this.elementType);

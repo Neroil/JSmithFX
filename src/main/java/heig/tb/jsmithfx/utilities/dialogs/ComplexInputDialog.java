@@ -113,6 +113,11 @@ public class ComplexInputDialog extends Dialog<Pair<ComplexInputDialog.MessageTy
     }
 
     private void updateLabelsAndFields(Complex current) {
+
+        if (current == null) {
+            current = new Complex(0,0);
+        }
+
         DataFormat format = (DataFormat) formatGroup.getSelectedToggle().getUserData();
         DataType type = (DataType) dataTypeGroup.getSelectedToggle().getUserData();
 

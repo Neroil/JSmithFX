@@ -34,7 +34,7 @@ public class Inductor extends CircuitElement {
 
     @Override
     public Complex getImpedance(double frequency) {
-        return getImpedanceStatic(realWorldValue.get(), frequency, qualityFactor);
+        return getImpedanceStatic(realWorldValue.get(), frequency, Optional.ofNullable(qualityFactor));
     }
 
     @Override
