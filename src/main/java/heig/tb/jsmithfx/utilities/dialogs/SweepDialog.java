@@ -2,7 +2,6 @@ package heig.tb.jsmithfx.utilities.dialogs;
 
 import heig.tb.jsmithfx.model.DataPoint;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.FrequencyUnit;
-import heig.tb.jsmithfx.utilities.Complex;
 import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import javafx.geometry.Insets;
@@ -10,8 +9,6 @@ import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

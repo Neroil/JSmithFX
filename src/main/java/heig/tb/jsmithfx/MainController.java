@@ -940,8 +940,12 @@ public class MainController {
         dialog.initOwner(stage);
         dialog.showAndWait()
                 .ifPresent(newLoad -> {
-                    viewModel.loadImpedance.setValue(newLoad);
-                    smithInteractionController.redrawSmithCanvas();
+                    if (newLoad.getKey() == ComplexInputDialog.MessageType.DATA){
+                        viewModel.loadImpedance.setValue(newLoad.getValue());
+                        smithInteractionController.redrawSmithCanvas();
+                    } else if (newLoad.getKey() == ComplexInputDialog.MessageType.USEMOUSE){
+                        viewModel.setLoadInputByMouse(true);
+                    }
                 });
     }
 

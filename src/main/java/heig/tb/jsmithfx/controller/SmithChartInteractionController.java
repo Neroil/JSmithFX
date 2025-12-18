@@ -182,6 +182,13 @@ public class SmithChartInteractionController {
 
         // Stuff that happens when we click on the chart
         smithCanvas.setOnMouseClicked(event -> {
+
+            if (viewModel.isSettingLoadInputByMouseProperty().get() && event.getButton() == MouseButton.PRIMARY){
+                viewModel.setLoadInputByMouse(false);
+                viewModel.loadImpedance.setValue(viewModel.mouseImpedanceZ.getValue());
+                event.consume();
+            }
+
             if (isAddingMouseComponent && event.getButton() == MouseButton.PRIMARY) { //If we're adding a component and click, adds the component
                 finalizeMouseAddComponent();
                 event.consume(); //Consumes it so it's not used for other stuff
@@ -514,7 +521,7 @@ public class SmithChartInteractionController {
                         closestDiscreteEntry.get().getValue(),
                         (ElectronicUnit[]) typeSupplier.get().getUnitClass().getEnumConstants()
                 );
-                qualityValueUpdater.accept(String.valueOf(closestDiscreteEntry.get().getQualityFactor(viewModel.frequencyProperty().get())));
+                qualityValueUpdater.accept(String.format("%.1f",closestDiscreteEntry.get().getQualityFactor(viewModel.frequencyProperty().get())));
             } else {
                 result = SmithUtilities.getBestUnitAndFormattedValue(
                         liveValue,

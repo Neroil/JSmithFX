@@ -40,7 +40,7 @@ public class FileExportDialog extends Dialog<Pair<String, File>> {
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
         // Event handler for the browse button
-        browseButton.setOnAction(event -> {
+        browseButton.setOnAction(_ -> {
             File selectedDirectory = directoryChooser.showDialog(getOwner());
             if (selectedDirectory != null) {
                 folderPathField.setText(selectedDirectory.getAbsolutePath());

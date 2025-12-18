@@ -8,7 +8,6 @@ import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
 import heig.tb.jsmithfx.utilities.ComponentEntry;
 import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
-import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -123,8 +122,8 @@ public class DiscreteComponentConfigDialog extends Dialog<List<ComponentEntry>> 
         rbQ.setToggleGroup(parasiticGroup);
         rbESR.setSelected(true);
 
-        typeBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> updateUIState());
-        parasiticGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> updateUIState());
+        typeBox.getSelectionModel().selectedItemProperty().addListener(_ -> updateUIState());
+        parasiticGroup.selectedToggleProperty().addListener(_ -> updateUIState());
         typeBox.getSelectionModel().selectFirst();
 
         GridPane grid = new GridPane();
@@ -151,8 +150,8 @@ public class DiscreteComponentConfigDialog extends Dialog<List<ComponentEntry>> 
 
         Button addButton = new Button("Add to List");
         addButton.setMaxWidth(Double.MAX_VALUE);
-        addButton.setOnAction(e -> addComponent());
-        parasiticField.setOnAction(e -> addComponent());
+        addButton.setOnAction(_ -> addComponent());
+        parasiticField.setOnAction(_ -> addComponent());
 
         VBox box = new VBox(15, new Label("New Component"), grid, new Separator(), addButton);
         VBox.setVgrow(box, Priority.ALWAYS);
@@ -171,7 +170,7 @@ public class DiscreteComponentConfigDialog extends Dialog<List<ComponentEntry>> 
         TableColumn<ComponentEntry, Double> valCol = new TableColumn<>("Value");
         valCol.setCellValueFactory(new PropertyValueFactory<>("value"));
 
-        valCol.setCellFactory(column -> new TableCell<>() {
+        valCol.setCellFactory(_ -> new TableCell<>() {
             @Override
             protected void updateItem(Double item, boolean empty) {
                 super.updateItem(item, empty);
@@ -205,16 +204,16 @@ public class DiscreteComponentConfigDialog extends Dialog<List<ComponentEntry>> 
 
         Button removeButton = new Button("Remove Selected");
         removeButton.setDisable(true);
-        removeButton.setOnAction(e -> componentListTemp.remove(table.getSelectionModel().getSelectedItem()));
+        removeButton.setOnAction(_ -> componentListTemp.remove(table.getSelectionModel().getSelectedItem()));
 
-        table.getSelectionModel().selectedItemProperty().addListener((o, old, newV) ->
+        table.getSelectionModel().selectedItemProperty().addListener((_, _, newV) ->
                 removeButton.setDisable(newV == null)
         );
 
         Button importButton = new Button("Import CSV");
         Button exportButton = new Button("Export CSV");
-        importButton.setOnAction(e -> importFromFile());
-        exportButton.setOnAction(e -> exportToFile());
+        importButton.setOnAction(_ -> importFromFile());
+        exportButton.setOnAction(_ -> exportToFile());
 
         HBox ioBox = new HBox(10, importButton, exportButton, new Region(), removeButton);
         HBox.setHgrow(ioBox.getChildren().get(2), Priority.ALWAYS);

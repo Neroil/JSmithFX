@@ -7,15 +7,17 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.util.Pair;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
-public class ComplexInputDialog extends Dialog<Complex> {
+public class ComplexInputDialog extends Dialog<Pair<ComplexInputDialog.MessageType, Complex>> {
 
     private enum DataType { IMPEDANCE, ADMITTANCE, REFLECTION }
     private enum DataFormat { CARTESIAN, POLAR }
+    public enum MessageType {DATA, USEMOUSE};
 
     private final TextField field1;
     private final TextField field2;
@@ -33,7 +35,8 @@ public class ComplexInputDialog extends Dialog<Complex> {
         // Header text is set dynamically in updateLabels()
 
         ButtonType okButton = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
-        getDialogPane().getButtonTypes().addAll(okButton, ButtonType.CANCEL);
+        ButtonType useMouseButton = new ButtonType("Use Mouse", ButtonBar.ButtonData.OTHER);
+        getDialogPane().getButtonTypes().addAll(useMouseButton, okButton, ButtonType.CANCEL);
 
         // --- Init Controls ---
         field1 = new TextField();
@@ -81,8 +84,8 @@ public class ComplexInputDialog extends Dialog<Complex> {
         // --- Logic ---
         // Listener to update UI state
         Runnable updateUI = () -> updateLabelsAndFields(current);
-        dataTypeGroup.selectedToggleProperty().addListener((o, old, newV) -> updateUI.run());
-        formatGroup.selectedToggleProperty().addListener((o, old, newV) -> updateUI.run());
+        dataTypeGroup.selectedToggleProperty().addListener(_ -> updateUI.run());
+        formatGroup.selectedToggleProperty().addListener(_ -> updateUI.run());
 
         // Initial run
         updateUI.run();
@@ -93,7 +96,9 @@ public class ComplexInputDialog extends Dialog<Complex> {
         // --- Result Converter ---
         setResultConverter(btn -> {
             if (btn == okButton) {
-                return convertResult();
+                return new Pair<>(MessageType.DATA,convertResult());
+            } else if (btn == useMouseButton){
+                return new Pair<>(MessageType.USEMOUSE, null);
             }
             return null;
         });

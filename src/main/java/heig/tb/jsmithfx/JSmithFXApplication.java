@@ -3,6 +3,7 @@ package heig.tb.jsmithfx;
 import atlantafx.base.theme.NordDark;
 import com.pixelduke.window.ThemeWindowManager;
 import com.pixelduke.window.ThemeWindowManagerFactory;
+import heig.tb.jsmithfx.utilities.StageController;
 import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXMLLoader;
@@ -42,6 +43,8 @@ public class JSmithFXApplication extends Application {
         stage.setMinWidth(800);
         stage.setMinHeight(600);
 
+        // Start running the stage controller for proper stage name change
+        StageController sc = new StageController(stage);
 
         stage.show();
         themeWindowManager.setDarkModeForWindowFrame(stage, true);
