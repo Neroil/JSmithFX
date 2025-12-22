@@ -48,7 +48,7 @@ public class ProjectManager {
     }
 
     // Smith Project DTO
-    record SmithProjectData(
+    public record SmithProjectData(
             String projectName,
             double frequency,
             double zo,

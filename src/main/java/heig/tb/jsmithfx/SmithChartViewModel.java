@@ -130,6 +130,7 @@ public final class SmithChartViewModel {
 
     // Formatted Text Wrappers for UI Binding
     private final ReadOnlyStringWrapper frequencyText = new ReadOnlyStringWrapper("-");
+    private final ReadOnlyStringWrapper pulseFrequencyText = new ReadOnlyStringWrapper("-");
     private final ReadOnlyStringWrapper zoText = new ReadOnlyStringWrapper("-");
     private final ReadOnlyStringWrapper mouseReturnLossText = new ReadOnlyStringWrapper("- dB");
     private final ReadOnlyStringWrapper mouseVSWRText = new ReadOnlyStringWrapper("-");
@@ -238,6 +239,7 @@ public final class SmithChartViewModel {
             double freq = frequency.get();
             String newFreqText = SmithUtilities.displayBestUnitAndFormattedValue(freq, FrequencyUnit.values());
             frequencyText.set(newFreqText);
+            pulseFrequencyText.set(String.format("%.2e rad/s", 2 * Math.PI * freq));
             recalculateImpedanceChain();
             markAsModified();
         });
@@ -991,6 +993,7 @@ public final class SmithChartViewModel {
     public ReadOnlyDoubleProperty frequencyProperty() { return frequency; }
     public void setFrequency(Double newFreq) { this.frequency.set(newFreq); }
     public ReadOnlyStringProperty frequencyTextProperty() { return frequencyText.getReadOnlyProperty(); }
+    public ReadOnlyStringProperty pulseFrequencyTextProperty() { return pulseFrequencyText.getReadOnlyProperty(); }
     public ReadOnlyStringProperty zoProperty() { return zoText.getReadOnlyProperty(); }
     public ReadOnlyListProperty<DataPoint> dataPointsProperty() { return combinedDataPoints.getReadOnlyProperty(); }
     public ReadOnlyListProperty<DataPoint> sweepDataPointsProperty() { return sweepDataPoints.getReadOnlyProperty(); }
@@ -1113,8 +1116,8 @@ public final class SmithChartViewModel {
                 if (entry.getType() != previewElement.get().getType()) continue;
 
                 Complex impedanceToAdd = switch (entry.getType()) {
-                    case INDUCTOR -> Inductor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
-                    case CAPACITOR -> Capacitor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())));
+                    case INDUCTOR -> Inductor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())), previewElement.get().getElementPosition());
+                    case CAPACITOR -> Capacitor.getImpedanceStatic(entry.getValue(), frequency.get(), Optional.of(entry.getQualityFactor(frequencyProperty().get())), previewElement.get().getElementPosition());
                     case RESISTOR -> new Complex(entry.getValue(), 0);
                     default -> null;
                 };

@@ -58,10 +58,17 @@
         <AnchorPane fx:id="smithChartPane" minWidth="0.0">
             <Canvas fx:id="smithCanvas" />
             <Canvas fx:id="cursorCanvas" mouseTransparent="true" />
-            <HBox fx:id="buttonSmithHBox" AnchorPane.bottomAnchor="20.0" AnchorPane.rightAnchor="20.0">
-                <Button fx:id="zoomInButton" onAction="#onZoomIn" text="+" />
-                <Button fx:id="zoomOutButton" onAction="#onZoomOut" text="-" />
-                <Button fx:id="resetButton" onAction="#onReset" text="Reset" />
+
+            <HBox AnchorPane.bottomAnchor="20.0" AnchorPane.rightAnchor="20.0" spacing="10.0">
+                <HBox alignment="CENTER_LEFT" spacing="5.0">
+                    <Label text="LD Freq: "/>
+                    <Label fx:id="generalFreqLabel" text="-" />
+                </HBox>
+                <HBox fx:id="buttonSmithHBox">
+                    <Button fx:id="zoomInButton" onAction="#onZoomIn" text="+" />
+                    <Button fx:id="zoomOutButton" onAction="#onZoomOut" text="-" />
+                    <Button fx:id="resetButton" onAction="#onReset" text="Reset" />
+                </HBox>
             </HBox>
         </AnchorPane>
 
@@ -74,7 +81,7 @@
                           AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <Label text="Circuit:" />
-                            <ComboBox fx:id="circuitComboBox" onAction="#onCircuitSelected" prefWidth="150.0" />
+                            <ComboBox fx:id="circuitComboBox" onAction="#onCircuitSelected" prefWidth="80.0" />
                             <Button onAction="#onAddCircuit" text="+" />
                             <Button onAction="#onRemoveCircuit" text="-" />
                         </HBox>
@@ -83,8 +90,8 @@
                             <Label fx:id="loadImpedanceLabel" text="None"/>
                         </HBox>
                         <HBox alignment="CENTER_LEFT">
-                            <Label text="Frequency :"/>
-                            <Label fx:id="freqLabel" text="None"/>
+                            <Label text="Pulse Freq :"/>
+                            <Label fx:id="pulseFreqLabel" text="None"/>
                         </HBox>
                         <HBox alignment="CENTER_LEFT">
                             <Label text="Z0 :"/>

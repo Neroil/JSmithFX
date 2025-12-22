@@ -41,7 +41,10 @@ import java.util.stream.Collectors;
 
 public class MainController {
 
-
+    @FXML
+    private Label pulseFreqLabel;
+    @FXML
+    private Label generalFreqLabel;
     @FXML
     private CheckBox useQualityFactorCheckBox;
     @FXML
@@ -462,7 +465,7 @@ public class MainController {
         sweepEndFreqMinusButton.setOnAction(_ -> viewModel.decrementSweepEndFrequency());
         sweepEndFreqPlusButton.setOnAction(_ -> viewModel.incrementSweepEndFrequency());
 
-        // 2. Logic for LIVE updates on text fields
+        // Logic for LIVE updates on text fields
 
         // Helper to get current values safely
         Runnable updateSweepFromTextFields = () -> {
@@ -652,7 +655,7 @@ public class MainController {
                                     java.util.function.Consumer<Double> minSetter,
                                     java.util.function.Consumer<Double> maxSetter) {
 
-        // 1. Slider -> ViewModel & Text
+        // Slider -> ViewModel & Text
         slider.lowValueProperty().addListener((obs, oldVal, newVal) -> {
             minSetter.accept(newVal.doubleValue());
             var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(newVal.doubleValue(), FrequencyUnit.values());
@@ -669,7 +672,7 @@ public class MainController {
             smithInteractionController.redrawSmithCanvas();
         });
 
-        // 2. Text -> Slider
+        // Text -> Slider
         setupFrequencyField(minField, (val) -> slider.setLowValue(val));
         setupFrequencyField(maxField, (val) -> slider.setHighValue(val));
     }
@@ -911,7 +914,8 @@ public class MainController {
         });
 
         loadImpedanceLabel.textProperty().bind(viewModel.loadImpedance.asString());
-        freqLabel.textProperty().bind(viewModel.frequencyTextProperty());
+        generalFreqLabel.textProperty().bind(viewModel.frequencyTextProperty());
+        pulseFreqLabel.textProperty().bind(viewModel.pulseFrequencyTextProperty());
 
         viewModel.measuresGammaProperty().addListener((_, _, _) -> smithInteractionController.redrawSmithCanvas());
 

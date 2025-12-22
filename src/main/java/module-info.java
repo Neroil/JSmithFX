@@ -27,8 +27,12 @@ module heig.tb.jsmithfx {
     opens heig.tb.jsmithfx.utilities to javafx.fxml;
     exports heig.tb.jsmithfx.model;
     opens heig.tb.jsmithfx.model to javafx.fxml;
+
+    // Open the specific package containing Capacitor, Inductor, etc. to Jackson
+    opens heig.tb.jsmithfx.model.Element to com.fasterxml.jackson.databind;
     exports heig.tb.jsmithfx.model.Element.TypicalUnit;
     opens heig.tb.jsmithfx.model.Element.TypicalUnit to javafx.fxml;
     exports heig.tb.jsmithfx.view;
     opens heig.tb.jsmithfx.view to javafx.fxml;
+    opens heig.tb.jsmithfx.logic to com.fasterxml.jackson.databind;
 }

@@ -77,5 +77,10 @@ tasks.test {
 jlink {
     launcher {
         name = "Launcher"
+        jvmArgs = listOf(
+            "--add-opens", "javafx.graphics/javafx.stage=com.pixelduke.fxthemes",
+            "--add-exports", "javafx.graphics/com.sun.javafx.tk.quantum=com.pixelduke.fxthemes"
+        )
     }
 }
+
