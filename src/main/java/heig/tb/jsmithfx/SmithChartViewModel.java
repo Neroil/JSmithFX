@@ -464,7 +464,10 @@ public final class SmithChartViewModel {
      */
     public void addCircuit(){
         allCircuits.add(FXCollections.observableArrayList(
-                element -> new javafx.beans.Observable[]{ element.realWorldValueProperty() }
+                element -> new javafx.beans.Observable[]{
+                        element.realWorldValueProperty(),
+                        element.qualityFactorProperty()
+                }
         ));
         circuitElementIndex.set(allCircuits.size() -1);
     }
@@ -582,12 +585,16 @@ public final class SmithChartViewModel {
         updateTunedElementValue(newValue, null, null, null, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
+    public void updateTunedElementQualityFactor(double newQualityFactor) {
+        updateTunedElementValue(null, null, null, null, Optional.empty(), Optional.empty(), Optional.of(newQualityFactor));
+    }
+
     /**
      * Called by the View when modifying a component to update type/position/value live.
      * Note: This logic recreates objects if types change, which is why it's kept in ViewModel
      * rather than delegated to a purely stateless service.
      */
-    public void updateTunedElementValue(double newValue, CircuitElement.ElementType elementType, CircuitElement.ElementPosition elementPosition, Line.StubType stubType, Optional<Double> permittivity, Optional<Double> z0Line, Optional<Double> qualityFactor) {
+    public void updateTunedElementValue(Double newValue, CircuitElement.ElementType elementType, CircuitElement.ElementPosition elementPosition, Line.StubType stubType, Optional<Double> permittivity, Optional<Double> z0Line, Optional<Double> qualityFactor) {
         CircuitElement current = selectedElement.get();
 
         if (current != null) {
@@ -637,11 +644,13 @@ public final class SmithChartViewModel {
                 z0Line.ifPresent(line::setCharacteristicImpedance);
             }
 
+            if (newValue != null) {
+                current.setRealWorldValue(newValue);
+            }
+
             if (isUsingQualityFactor.get() && qualityFactor.isPresent()) {
                 current.setQualityFactor(qualityFactor.get());
             }
-
-            current.setRealWorldValue(newValue);
         }
     }
 

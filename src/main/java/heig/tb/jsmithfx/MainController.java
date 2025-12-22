@@ -209,13 +209,19 @@ public class MainController {
     @FXML
     private Button addMouseButton;
     @FXML
-    private HBox tuningPane;
+    private TitledPane tuningTitledPane;
     @FXML
     private Slider tuningSlider;
     @FXML
     private TextField tuningValueField;
     @FXML
     private Label tuningUnitLabel;
+    @FXML
+    private VBox tuningQBox;
+    @FXML
+    private Slider tuningQSlider;
+    @FXML
+    private TextField tuningQValueField;
     @FXML
     private Button applyTuningButton;
     @FXML
@@ -363,13 +369,17 @@ public class MainController {
 
         viewModel.selectedElementProperty().addListener((_, _, selectedElement) -> {
             if (selectedElement != null) {
-                tuningPane.setVisible(true);
-                tuningPane.setManaged(true);
+                // Show the Tuning TitledPane
+                tuningTitledPane.setVisible(true);
+                tuningTitledPane.setManaged(true);
+                tuningTitledPane.setExpanded(true); // Open it
+
                 setupTuningPaneForElement(selectedElement);
                 setupModifyElement(selectedElement);
             } else {
-                tuningPane.setVisible(false);
-                tuningPane.setManaged(false);
+                // Hide Tuning, reset Add/Modify pane
+                tuningTitledPane.setVisible(false);
+                tuningTitledPane.setManaged(false);
                 setupAddElement();
             }
             circuitRenderer.render(viewModel);
@@ -382,16 +392,48 @@ public class MainController {
             viewModel.updateTunedElementValue(newValue.doubleValue());
         });
 
+        // Logic for typing in tuning field
         Runnable updateTuningValue = () -> {
             var unitClassValues = (ElectronicUnit[]) viewModel.selectedElementProperty().get().getType().getUnitClass().getEnumConstants();
             String valueString = tuningValueField.getText() + " " + tuningUnitLabel.getText();
-            System.out.println(valueString);
             double newValue = SmithUtilities.parseValueWithUnit(valueString, unitClassValues);
             var toDisplay = SmithUtilities.getBestUnitAndFormattedValue(newValue, unitClassValues);
             tuningValueField.setText(toDisplay.getValue());
             tuningUnitLabel.setText(toDisplay.getKey().toString());
             viewModel.updateTunedElementValue(newValue);
+            tuningSlider.setValue(newValue);
         };
+        tuningValueField.setOnAction(event -> updateTuningValue.run());
+        tuningValueField.focusedProperty().addListener((obs, oldVal, newVal) -> { if (!newVal) updateTuningValue.run(); });
+
+        // Quality Factor Tuning
+        tuningQSlider.valueProperty().addListener((_, _, newValue) -> {
+            // Only update text if not focused to avoid interfering with typing
+            if (!tuningQValueField.isFocused()) {
+                tuningQValueField.setText(String.format("%.2f", newValue.doubleValue()));
+            }
+            viewModel.updateTunedElementQualityFactor(newValue.doubleValue());
+        });
+
+        Runnable updateTuningQValue = () -> {
+            try {
+                double val = Double.parseDouble(tuningQValueField.getText());
+
+                // Dynamically expand the slider range if the user inputs a value outside current bounds
+                if (val > tuningQSlider.getMax()) {
+                    tuningQSlider.setMax(val);
+                } else if (val < tuningQSlider.getMin()) {
+                    tuningQSlider.setMin(val);
+                }
+
+                tuningQSlider.setValue(val);
+            } catch (Exception e) {
+                // Ignore parsing errors
+            }
+        };
+
+        tuningQValueField.setOnAction(event -> updateTuningQValue.run());
+        tuningQValueField.focusedProperty().addListener((obs, oldVal, newVal) -> { if (!newVal) updateTuningQValue.run(); });
 
         // Trigger on ENTER
         tuningValueField.setOnAction(event -> updateTuningValue.run());
@@ -756,6 +798,20 @@ public class MainController {
         tuningSlider.setMin(value * 0.5);
         tuningSlider.setMax(value * 1.5);
         tuningSlider.setValue(value);
+
+        if (el.getQualityFactor().isPresent()) {
+            tuningQBox.setVisible(true);
+            tuningQBox.setManaged(true);
+
+            double qVal = el.getQualityFactor().get();
+            tuningQValueField.setText(String.format("%.2f", qVal));
+            tuningQSlider.setMin(qVal * 0.2);
+            tuningQSlider.setMax(qVal * 1.8);
+            tuningQSlider.setValue(qVal);
+        } else {
+            tuningQBox.setVisible(false);
+            tuningQBox.setManaged(false);
+        }
     }
 
     private void setupResizableCanvas() {

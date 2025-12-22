@@ -71,7 +71,7 @@ public class Line extends CircuitElement {
     public Complex calculateImpedance(Complex currentImpedance, double frequency) {
         lambdaLength = getLambdaLength(getRealWorldValue(), frequency, permittivity);
         return calculateImpedance(currentImpedance, frequency, characteristicImpedance, permittivity,
-                getRealWorldValue(), stubType, Optional.ofNullable(qualityFactor));
+                getRealWorldValue(), stubType, getQualityFactor());
     }
 
     public static Complex calculateImpedance(Complex currentImpedance, double frequency, double characteristicImpedance,

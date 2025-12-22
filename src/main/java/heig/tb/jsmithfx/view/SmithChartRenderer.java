@@ -220,11 +220,11 @@ public class SmithChartRenderer {
             gc.strokeOval(circleCenterX - circleRadius, layout.getCenterY() - circleRadius, circleRadius * 2, circleRadius * 2);
             if (g == 1) gc.setLineWidth(thinLineValue);
 
-            drawLabel(gc, String.format("%.1f mS", g / viewModel.zo.get() * 1000), circleCenterX, layout.getCenterY() - circleRadius, Color.WHITE);
+            drawLabel(gc, String.format("%.1f mS", g / viewModel.zo.get() * 1000), circleCenterX, layout.getCenterY() - circleRadius, Color.CADETBLUE);
         }
 
         // Draw Constant Susceptance (b) Arcs
-        gc.setStroke(Color.DARKGREEN); // New color for susceptance
+        gc.setStroke(Color.CORNFLOWERBLUE); // New color for susceptance
         for (double b : stepValues) {
             double arcRadius = layout.getRadius() / b;
             double arcCenterX = layout.getCenterX() - layout.getRadius();
@@ -248,7 +248,7 @@ public class SmithChartRenderer {
             gc.strokeOval(circleCenterX - circleRadius, layout.getCenterY() - circleRadius, circleRadius * 2, circleRadius * 2);
             if (r == 1) gc.setLineWidth(thinLineValue);
 
-            drawLabel(gc, String.format("%.1f", r * viewModel.zo.get()), circleCenterX, layout.getCenterY() + circleRadius, Color.WHITE);
+            drawLabel(gc, String.format("%.0f", r * viewModel.zo.get()), circleCenterX, layout.getCenterY() + circleRadius, Color.BROWN);
         }
 
         // Draw Constant Reactance (x) Arcs
@@ -269,13 +269,14 @@ public class SmithChartRenderer {
         //Restore the graphics state to remove the clipping
         gc.restore();
 
-        //Draw the labels on the circles reprensenting the values
+        //Draw the labels on the circles representing the values
         for (double b : stepValues) {
             double angle = 2 * Math.atan(1.0 / b);
             double labelX = layout.getCenterX() + layout.getRadius() * Math.cos(Math.PI - angle);
             double labelY = layout.getCenterY() + layout.getRadius() * Math.sin(Math.PI - angle);
-            String label = String.format("+%.1f", viewModel.zo.get() / b);
-            drawLabel(gc, label, labelX, labelY, Color.DARKGREEN);
+            double valInSiemens = b / viewModel.zo.get();
+            String label = String.format("%.1f mS", valInSiemens * 1000);
+            drawLabel(gc, label, labelX, labelY, Color.CADETBLUE);
 
         }
 
@@ -283,7 +284,7 @@ public class SmithChartRenderer {
             double angle = 2 * Math.atan(1.0 / x);
             double labelX = layout.getCenterX() + layout.getRadius() * Math.cos(-angle);
             double labelY = layout.getCenterY() + layout.getRadius() * Math.sin(-angle);
-            String label = String.format("%.1f", x * viewModel.zo.get());
+            String label = String.format("%.0f", x * viewModel.zo.get());
             drawLabel(gc, label, labelX, labelY, Color.BROWN);
         }
     }

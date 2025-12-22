@@ -12,7 +12,9 @@ import heig.tb.jsmithfx.model.Element.TypicalUnit.InductanceUnit;
 import heig.tb.jsmithfx.model.Element.TypicalUnit.ResistanceUnit;
 import heig.tb.jsmithfx.utilities.Complex;
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleObjectProperty;
 
 import java.util.Optional;
 
@@ -69,14 +71,31 @@ public abstract class CircuitElement {
         }
 
     }
-    protected Double qualityFactor = null;
+
+    /**
+     * The Quality Factor (Q) of the component.
+     * <p>
+     * Defined as an {@link ObjectProperty} to allow {@code null} values,
+     * which represent "Ideal" components (infinite Q for L/C, irrelevant for R).
+     * </p>
+     */
+    protected ObjectProperty<Double> qualityFactor = new SimpleObjectProperty<>(null);
+
+    /**
+     * Gets the quality factor property for UI binding and observation.
+     *
+     * @return The observable property containing the Q factor (or null).
+     */
+    public ObjectProperty<Double> qualityFactorProperty() {
+        return qualityFactor;
+    }
 
     public Optional<Double> getQualityFactor() {
-        return Optional.ofNullable(qualityFactor);
+        return Optional.ofNullable(qualityFactor.get());
     }
 
     public void setQualityFactor(Double qualityFactor) {
-        this.qualityFactor = qualityFactor;
+        this.qualityFactor.set(qualityFactor);
     }
 
     protected DoubleProperty realWorldValue = new SimpleDoubleProperty();
@@ -123,15 +142,18 @@ public abstract class CircuitElement {
 
 
     public CircuitElement copy() {
+        // Use getters to ensure we capture the current property value
+        Double q = this.getQualityFactor().orElse(null);
+
         return switch (this.elementType) {
             case CAPACITOR -> {
                 var newEl = new Capacitor(this.getRealWorldValue(), this.elementPosition, this.elementType);
-                newEl.setQualityFactor(qualityFactor);
+                newEl.setQualityFactor(q);
                 yield newEl;
             }
             case INDUCTOR -> {
                 var newEl = new Inductor(this.getRealWorldValue(), this.elementPosition, this.elementType);
-                newEl.setQualityFactor(qualityFactor);
+                newEl.setQualityFactor(q);
                 yield newEl;
             }
             case RESISTOR -> new Resistor(this.getRealWorldValue(), this.elementPosition, this.elementType);

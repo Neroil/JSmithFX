@@ -48,7 +48,7 @@ public class Capacitor extends CircuitElement {
 
     @Override
     public Complex getImpedance(double frequency) {
-        return getImpedanceStatic(realWorldValue.get(), frequency, Optional.ofNullable(qualityFactor), this.elementPosition);
+        return getImpedanceStatic(realWorldValue.get(), frequency, getQualityFactor(), this.elementPosition);
     }
 
     @Override
