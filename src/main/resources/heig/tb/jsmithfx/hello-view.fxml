@@ -82,8 +82,9 @@
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <Label text="Circuit:" />
                             <ComboBox fx:id="circuitComboBox" onAction="#onCircuitSelected" prefWidth="80.0" />
-                            <Button onAction="#onAddCircuit" text="+" />
-                            <Button onAction="#onRemoveCircuit" text="-" />
+                            <Button onAction="#onAddCircuit" text="New" />
+                            <Button onAction="#onAddCopyCircuit" text="Copy" />
+                            <Button onAction="#onRemoveCircuit" text="Del" />
                         </HBox>
                         <HBox alignment="CENTER_LEFT">
                             <Label text="Load impedance :"/>
@@ -127,14 +128,14 @@
                                         <Separator orientation="VERTICAL" />
                                         <VBox spacing="5.0" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
                                             <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                                <Label text="Val:" style="-fx-font-weight: bold;" prefWidth="30"/>
+                                                <Label text="Val:" style="-fx-font-weight: bold;" prefWidth="40"/>
                                                 <Slider fx:id="tuningSlider" HBox.hgrow="ALWAYS"/>
                                                 <TextField fx:id="tuningValueField" prefWidth="70.0"/>
                                                 <Label fx:id="tuningUnitLabel" minWidth="30.0"/>
                                             </HBox>
                                             <VBox fx:id="tuningQBox">
                                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                                    <Label text="Q:" style="-fx-font-weight: bold;" prefWidth="30"/>
+                                                    <Label fx:id="qTuneLabel" text="Q:" style="-fx-font-weight: bold;" prefWidth="40"/>
                                                     <Slider fx:id="tuningQSlider" HBox.hgrow="ALWAYS"/>
                                                     <TextField fx:id="tuningQValueField" prefWidth="70.0"/>
                                                     <Region minWidth="30.0" />

@@ -140,22 +140,13 @@ public class SmithChartInteractionController {
         contextMenu.getItems().add(selectAsLoadPoint);
 
         smithCanvas.setOnScroll(event -> {
-            double mouseX = event.getX();
-            double mouseY = event.getY();
             double zoomFactor = 1.1;
+            double deltaY = event.getDeltaY();
+            double factor = (deltaY > 0) ? zoomFactor : (1 / zoomFactor);
 
-            double deltaY = event.getDeltaY(); //Check if it's zoom in or zoom out
+            // Zoom relative to the mouse cursor position
+            applyZoom(factor, event.getX(), event.getY());
 
-            if (deltaY > 0) {
-                currentScale *= zoomFactor;
-            } else {
-                currentScale /= zoomFactor;
-            }
-
-            offsetX = mouseX - (mouseX - offsetX) * (deltaY > 0 ? zoomFactor : 1 / zoomFactor);
-            offsetY = mouseY - (mouseY - offsetY) * (deltaY > 0 ? zoomFactor : 1 / zoomFactor);
-
-            redrawSmithCanvas();
             event.consume();
         });
 
@@ -698,19 +689,76 @@ public class SmithChartInteractionController {
         smithCanvas.requestFocus();
     }
 
-    public void onZoomIn() {
-        offsetX = 0;
-        offsetY = 0;
-        currentScale *= 1.1;
+    /**
+     * Applies a zoom factor relative to a specific pivot point on the screen.
+     *
+     * @param factor The zoom multiplier (e.g., 1.1 for in, 0.9 for out)
+     * @param pivotX The X screen coordinate to keep stationary
+     * @param pivotY The Y screen coordinate to keep stationary
+     */
+    private void applyZoom(double factor, double pivotX, double pivotY) {
+        double oldScale = currentScale;
+        double newScale = oldScale * factor;
+
+        if (newScale < 0.1) return;
+
+        currentScale = newScale;
+        offsetX = pivotX - (pivotX - offsetX) * factor;
+        offsetY = pivotY - (pivotY - offsetY) * factor;
 
         redrawSmithCanvas();
     }
 
+    /**
+     * Calculates the screen pixel coordinates for a given Gamma value
+     * based on the current scale and offset.
+     */
+    private Point2D getScreenCoordinatesForGamma(Complex gamma) {
+        if (gamma == null) return null;
+
+        double centerX = smithCanvas.getWidth() / 2.0;
+        double centerY = smithCanvas.getHeight() / 2.0;
+        double mainRadius = Math.min(centerX, centerY) - 10;
+
+        // Calculate logical position (0-centered)
+        double logicalX = gamma.real() * mainRadius;
+        double logicalY = -gamma.imag() * mainRadius; // Invert Y for screen coords
+
+        // Apply transformation: (Logical + Center) * Scale + Offset
+        double screenX = (logicalX + centerX) * currentScale + offsetX;
+        double screenY = (logicalY + centerY) * currentScale + offsetY;
+
+        return new Point2D(screenX, screenY);
+    }
+
+    public void onZoomIn() {
+        double zoomFactor = 1.1;
+
+        // Default pivot is the center of the canvas
+        double pivotX = smithCanvas.getWidth() / 2.0;
+        double pivotY = smithCanvas.getHeight() / 2.0;
+
+        // Check if we have a selected point to focus on
+        Complex targetGamma = viewModel.getCurrentInteractionStartGamma();
+
+        if (targetGamma != null) {
+            Point2D pointScreenCoords = getScreenCoordinatesForGamma(targetGamma);
+            if (pointScreenCoords != null) {
+                pivotX = pointScreenCoords.getX();
+                pivotY = pointScreenCoords.getY();
+            }
+        }
+
+        applyZoom(zoomFactor, pivotX, pivotY);
+    }
+
     public void onZoomOut() {
-        offsetX = 0;
-        offsetY = 0;
-        currentScale /= 1.1;
-        redrawSmithCanvas();
+        double zoomFactor = 1.0 / 1.1; // Inverse of Zoom In
+
+        double pivotX = smithCanvas.getWidth() / 2.0;
+        double pivotY = smithCanvas.getHeight() / 2.0;
+
+        applyZoom(zoomFactor, pivotX, pivotY);
     }
 
     public void onReset() {
@@ -719,6 +767,4 @@ public class SmithChartInteractionController {
         offsetY = 0.0;
         redrawSmithCanvas();
     }
-
-
 }

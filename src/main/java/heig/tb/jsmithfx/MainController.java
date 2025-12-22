@@ -42,6 +42,8 @@ import java.util.stream.Collectors;
 public class MainController {
 
     @FXML
+    private Label qTuneLabel;
+    @FXML
     private Label pulseFreqLabel;
     @FXML
     private Label generalFreqLabel;
@@ -603,6 +605,8 @@ public class MainController {
 
         // Listens if we add or remove circuits
         viewModel.allCircuits.addListener((InvalidationListener) _ -> {
+            circuitComboBox.getItems().clear();
+
             int size = viewModel.allCircuits.size();
 
             for (int i = 0; i < size; ++i){
@@ -750,8 +754,10 @@ public class MainController {
         typeComboBox.setValue(el.getType());
         if (el.getType() != CircuitElement.ElementType.LINE) {
             positionComboBox.setValue(el.getPosition());
+            qTuneLabel.setText("Q:");
         } else {
             Line line = (Line) el;
+            qTuneLabel.setText("Loss:");
             stubComboBox.setValue(line.getStubType());
             zoInputField.setText(String.valueOf(line.getCharacteristicImpedance()));
             permittivityField.setText(String.valueOf(line.getPermittivity()));
@@ -805,6 +811,7 @@ public class MainController {
 
             double qVal = el.getQualityFactor().get();
             tuningQValueField.setText(String.format("%.2f", qVal));
+            // Set range to +-80%
             tuningQSlider.setMin(qVal * 0.2);
             tuningQSlider.setMax(qVal * 1.8);
             tuningQSlider.setValue(qVal);
@@ -1417,6 +1424,9 @@ public class MainController {
 
     @FXML
     private void onCircuitSelected() {
+
+        if(circuitComboBox.getValue() == null) return;
+
         int selected = circuitComboBox.getValue();
         if (selected == viewModel.circuitElementIndex.get()) return;
 
@@ -1431,7 +1441,12 @@ public class MainController {
 
     @FXML
     private void onRemoveCircuit() {
-        // nothing rn
+        viewModel.removeCircuit();
+    }
+
+    @FXML
+    private void onAddCopyCircuit() {
+        viewModel.addCopyOfCurrentCircuit();
     }
 }
 

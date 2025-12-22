@@ -473,6 +473,40 @@ public final class SmithChartViewModel {
     }
 
     /**
+     * Removes the currently selected circuit tab.
+     * <p>
+     * The user cannot remove the last remaining circuit.
+     */
+    public void removeCircuit() {
+        if (allCircuits.size() <= 1) return; // Always keep at least one circuit
+
+        int indexToRemove = circuitElementIndex.get();
+
+        // If the selected circuit is the last one in the list, we need to select the previous one
+        if (indexToRemove == allCircuits.size() - 1) {
+            circuitElementIndex.set(indexToRemove - 1);
+        }
+
+        // Finally, remove the circuit
+        allCircuits.remove(indexToRemove);
+    }
+
+    public void addCopyOfCurrentCircuit(){
+        int currentCircuitIndex = circuitElementIndex.get();
+        addCircuit(); // This will switch to the new empty circuit
+
+        var circuitToCopyFrom = allCircuits.get(currentCircuitIndex);
+
+        // Deep copy each element
+        for (CircuitElement elem : circuitToCopyFrom) {
+            circuitElements.add(elem.copy());
+        }
+
+        circuitElementIndex.set(allCircuits.size() -1);
+    }
+
+
+    /**
      * Switches to the circuit at the specified index.
      * If the index is out of bounds, no action is taken.
      * @param index The index of the circuit to switch to.
