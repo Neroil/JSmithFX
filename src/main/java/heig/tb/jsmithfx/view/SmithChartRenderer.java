@@ -409,21 +409,29 @@ public class SmithChartRenderer {
                 activePoints.add(new ChartPoint(absoluteX, absoluteY, gamma, dataPoint.getFrequency(), label, pointSize * scale, true));
 
                 // Drawing logic
-                if(viewModel.isFrequencyInRange(dataPoint.getFrequency())) {
-                    gc.setStroke(Color.INDIANRED);
-                    gc.setLineWidth(strokeWidth);
-                    gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
-                } else {
-                    gc.setStroke(new Color(
-                            Color.DODGERBLUE.getRed(),
-                            Color.DODGERBLUE.getGreen(),
-                            Color.DODGERBLUE.getBlue(),
-                            0.2
-                    ));
-                    strokeWidth /= 2;
-                    gc.setLineWidth(strokeWidth);
-                    gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
-                    strokeWidth *= 2;
+                switch (viewModel.whichFrequencyRange(dataPoint.getFrequency())){
+                    case 1 -> {
+                        gc.setStroke(Color.INDIANRED);
+                        gc.setLineWidth(strokeWidth);
+                        gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+                    }
+                    case 2 -> {
+                        gc.setStroke(Color.DARKORANGE);
+                        gc.setLineWidth(strokeWidth);
+                        gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+                    }
+                    case 3 -> {
+                        gc.setStroke(Color.FORESTGREEN);
+                        gc.setLineWidth(strokeWidth);
+                        gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+                    }
+                    case -1 -> {
+                        gc.setStroke(Color.DODGERBLUE);
+                        strokeWidth /= 2;
+                        gc.setLineWidth(strokeWidth);
+                        gc.strokeOval(localX - pointSize / 2, localY - pointSize / 2, pointSize, pointSize);
+                        strokeWidth *= 2;
+                    }
                 }
             }
         }

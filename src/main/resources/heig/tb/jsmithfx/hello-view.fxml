@@ -34,6 +34,7 @@
                 <MenuItem fx:id="exportS1PButton" onAction="#exportS1P" text="Export S1P" />
             </Menu>
             <Menu text="Show">
+                <MenuItem text="Open Mod-Arg/Magnitude Plotter" onAction="#handleOpenS1PChart" />
                 <CheckMenuItem fx:id="toggleNavButton" onAction="#toggleNavButton" selected="true" text="Show navigation buttons" />
                 <CheckMenuItem fx:id="toggleSweepInDataPointsButton" onAction="#toggleSweepInDataPoints" text="Show sweep points in data points table" />
                 <CheckMenuItem fx:id="toggleS1PInDataPointsButton" onAction="#toggleS1PInDataPoints" text="Show S1P points in data points table" />
@@ -243,6 +244,7 @@
                                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                                             <Button maxWidth="Infinity" onAction="#changeS1P" text="Change S1P File" HBox.hgrow="ALWAYS" />
                                             <Button maxWidth="Infinity" onAction="#removeS1P" text="Remove S1P File" HBox.hgrow="ALWAYS" />
+                                            <Button maxWidth="Infinity" onAction="#handleOpenS1PChart" text="Show Graphs" HBox.hgrow="ALWAYS" />
                                         </HBox>
                                     </VBox>
                                 </TitledPane>

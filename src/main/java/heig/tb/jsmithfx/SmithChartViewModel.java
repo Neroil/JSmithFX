@@ -158,6 +158,7 @@ public final class SmithChartViewModel {
     private final ReadOnlyDoubleWrapper s1pPointSize = new ReadOnlyDoubleWrapper(4.0);
     private boolean showSweepInDataPoints = false;
     private boolean showS1PInDataPoints = false;
+    public BooleanProperty isRedrawing = new SimpleBooleanProperty(false);
 
     // =============================================================================================
     // Application State (Project, Undo/Redo, Modification)
@@ -1266,6 +1267,22 @@ public final class SmithChartViewModel {
         boolean inF2 = filter2Enabled.get() && isFrequencyInRangeF2(freq);
         boolean inF3 = filter3Enabled.get() && isFrequencyInRangeF3(freq);
         return inF1 || inF2 || inF3;
+    }
+
+    public int whichFrequencyRange(double freq) {
+        if (filter1Enabled.get() && isFrequencyInRangeF1(freq)) return 1;
+        if (filter2Enabled.get() && isFrequencyInRangeF2(freq)) return 2;
+        if (filter3Enabled.get() && isFrequencyInRangeF3(freq)) return 3;
+        return -1;
+    }
+
+    public FrequencyUnit getProperFrequencyUnitS1P(){
+        double minFreq = s1pDataPoints.getFirst().getFrequency();
+        double maxFreq = s1pDataPoints.getLast().getFrequency();
+        double midFreq = (minFreq + maxFreq) / 2.0;
+        return (FrequencyUnit) SmithUtilities.getBestUnitAndFormattedValue(
+                midFreq, FrequencyUnit.values()
+        ).getKey();
     }
 
     public boolean isFrequencyInRangeF1(double freq) { return freq >= freqRangeMinF1 && freq <= freqRangeMaxF1; }

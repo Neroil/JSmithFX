@@ -12,6 +12,7 @@ import heig.tb.jsmithfx.utilities.DialogUtils;
 import heig.tb.jsmithfx.utilities.SmithUtilities;
 import heig.tb.jsmithfx.utilities.dialogs.*;
 import heig.tb.jsmithfx.view.CircuitRenderer;
+import heig.tb.jsmithfx.view.S1PPlotterWindow;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.value.ChangeListener;
@@ -1452,6 +1453,11 @@ public class MainController {
     @FXML
     private void onAddCopyCircuit() {
         viewModel.addCopyOfCurrentCircuit();
+    }
+
+    @FXML
+    private void handleOpenS1PChart() {
+        S1PPlotterWindow.getInstance().show();
     }
 }
 

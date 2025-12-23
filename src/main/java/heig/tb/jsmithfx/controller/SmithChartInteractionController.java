@@ -74,7 +74,6 @@ public class SmithChartInteractionController {
     private double lastScreenXForAdd;
     private double lastScreenYForAdd;
     private boolean isProgrammaticallyMovingCursor = false;
-    private boolean isRedrawPending = false;
 
     public SmithChartInteractionController(
             Pane smithChartPane,
@@ -293,11 +292,11 @@ public class SmithChartInteractionController {
      * Uses Platform.runLater to merge multiple update events into a single render frame.
      */
     public void redrawSmithCanvas() {
-        if (isRedrawPending) {
+        if (viewModel.isRedrawing.get()) {
             return;
         }
 
-        isRedrawPending = true;
+        viewModel.isRedrawing.set(true);
 
         Platform.runLater(() -> {
                     // Perform the actual drawing
@@ -311,7 +310,7 @@ public class SmithChartInteractionController {
                     }
 
                     // Reset the flag so future updates can trigger a new draw
-                    isRedrawPending = false;
+                    viewModel.isRedrawing.set(false);
         });
     }
 
