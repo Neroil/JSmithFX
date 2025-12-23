@@ -35,6 +35,7 @@ import org.controlsfx.control.RangeSlider;
 import java.io.File;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -878,6 +879,7 @@ public class MainController {
                 }
             } else if (newType == CircuitElement.ElementType.RESISTOR) {
                 updateUnitComboBox(ResistanceUnit.class);
+                qualityFactorTextField.clear();
             } else if (newType == CircuitElement.ElementType.CAPACITOR) {
                 updateUnitComboBox(CapacitanceUnit.class);
             } else if (newType == CircuitElement.ElementType.INDUCTOR) {
@@ -996,6 +998,9 @@ public class MainController {
 
             if (type != CircuitElement.ElementType.LINE) {
                 CircuitElement.ElementPosition position = positionComboBox.getValue();
+                if (type == CircuitElement.ElementType.RESISTOR){
+                    qualityFactor = Optional.empty(); //Resistor doesn't have Q factor in this implementation
+                }
                 viewModel.addComponent(type, value * getSelectedUnitFactor(), position, qualityFactor);
             } else { //It's a line, we need to get the line's characterstic impedance
                 double impValue = Double.parseDouble(zoInputField.getText());
