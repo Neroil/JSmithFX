@@ -412,4 +412,8 @@ public class SmithCalculator {
         return (mag < 1e-9) ? Double.POSITIVE_INFINITY : -20 * Math.log10(mag);
     }
 
+    public static double calculateReflectionCoefficientDb(Complex gamma) {
+        return -calculateReturnLoss(gamma);
+    }
+
 }
